@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquettes vue semaine</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --line: #e3e6ea; --line-strong: #c9ced6;
+    --text: #1f2933; --muted: #6b7682; --accent: #1f6feb; --warn: #d1242f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 16px; margin: 0 12px 0 0; }
+  .tabs { display: flex; gap: 6px; }
+  .tabs button { border: 1px solid var(--line-strong); background: var(--panel); padding: 7px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
+  .tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .legend { display: flex; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .desc { padding: 10px 20px; color: var(--muted); }
+  main { padding: 0 20px 30px; overflow-x: auto; }
+
+  /* Grilles horaires */
+  .grid { display: grid; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; position: relative; min-width: 900px; }
+  .hcell { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line-strong); text-align: center; font-weight: 600; padding: 6px 2px; z-index: 2; }
+  .sub { font-weight: 500; color: var(--muted); font-size: 11px; }
+  .time { color: var(--muted); font-size: 11px; text-align: right; padding-right: 6px; transform: translateY(-7px); }
+  .col { position: relative; border-left: 1px solid var(--line); }
+  .col.daystart { border-left: 2px solid var(--line-strong); }
+  .hourline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+  .halfline { position: absolute; left: 0; right: 0; border-top: 1px dashed #eef0f3; }
+
+  .ev { position: absolute; border-radius: 5px; padding: 3px 5px; color: #fff; font-size: 11px; overflow: hidden; cursor: grab; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .ev b { display: block; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev small { opacity: .9; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev.warn { outline: 2px solid var(--warn); outline-offset: 1px; }
+  .ev.warn::after { content: "⚠"; position: absolute; top: 2px; right: 4px; font-size: 12px; }
+
+  /* Variante C */
+  .agenda { display: grid; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; min-width: 900px; }
+  .agenda > div { border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); padding: 6px; min-height: 70px; }
+  .agenda .rowhead { border-left: none; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .agenda .rowhead i { width: 14px; height: 14px; border-radius: 4px; }
+  .agenda .colhead { min-height: 0; text-align: center; font-weight: 600; background: #fafbfc; }
+  .card { border-radius: 5px; padding: 4px 6px; margin-bottom: 4px; color: #fff; font-size: 11px; position: relative; cursor: grab; }
+  .card.warn { outline: 2px solid var(--warn); outline-offset: 1px; }
+  .card.warn::after { content: "⚠"; position: absolute; top: 3px; right: 5px; }
+  .toggle { margin-bottom: 10px; display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  .toggle button { border: 1px solid var(--line-strong); background: var(--panel); padding: 4px 10px; border-radius: 5px; cursor: pointer; font: inherit; }
+  .toggle button.on { background: #e8f0fe; border-color: var(--accent); color: var(--accent); }
+  .avail { position: absolute; left: 0; right: 0; background: repeating-linear-gradient(45deg, #f1f3f5, #f1f3f5 4px, #fff 4px, #fff 8px); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Planning tennis — semaine type</h1>
+  <div class="tabs">
+    <button data-v="A" class="on">A · Jours × courts</button>
+    <button data-v="B">B · Style agenda</button>
+    <button data-v="C">C · Lignes par ressource</button>
+  </div>
+  <div class="legend" id="legend"></div>
+</header>
+<div class="desc" id="desc"></div>
+<main id="main"></main>
+
+<script>
+const MONITEURS = [
+  { id: "m1", nom: "Julie", couleur: "#2f7ed8" },
+  { id: "m2", nom: "Karim", couleur: "#e8743b" },
+  { id: "m3", nom: "Sophie", couleur: "#19a979" },
+  { id: "m4", nom: "Marc", couleur: "#945ecf" },
+];
+const COURTS = ["Court 1 (couvert)", "Court 2 (couvert)", "Court 3 (ext.)"];
+const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const H0 = 9, H1 = 21, PX = 44; // heures affichées, pixels par heure
+
+// [jour, début, fin, court, moniteur, groupe, effectif, conflit?]
+const COURS = [
+  [0, 17, 18, 0, "m1", "Mini-tennis 5-6 ans", "6/6"],
+  [0, 18, 19.5, 0, "m1", "Ados perfectionnement", "5/6"],
+  [0, 17.5, 19, 1, "m2", "Adultes débutants", "4/6"],
+  [0, 19, 20.5, 1, "m2", "Adultes intermédiaires", "6/6"],
+  [0, 18, 19, 2, "m3", "Galaxie orange", "5/8"],
+  [1, 17, 18.5, 0, "m3", "Galaxie vert", "6/8"],
+  [1, 17, 18, 1, "m4", "Mini-tennis 4-5 ans", "4/6"],
+  [1, 18.5, 20, 0, "m4", "Compétition 13-15", "4/4"],
+  [1, 19, 21, 1, "m2", "Adultes compétition", "6/6"],
+  [2, 10, 11, 0, "m1", "Mini-tennis 5-6 ans", "5/6"],
+  [2, 11, 12, 0, "m1", "Galaxie rouge", "6/8"],
+  [2, 14, 15.5, 0, "m2", "Galaxie orange", "8/8"],
+  [2, 14, 15.5, 1, "m3", "Galaxie vert", "7/8"],
+  [2, 15.5, 17, 1, "m3", "Ados loisir", "5/6"],
+  [2, 14.5, 16, 2, "m4", "Ados perfectionnement", "4/6"],
+  [2, 16, 17.5, 0, "m2", "Compétition 11-12", "4/4"],
+  [2, 17, 18.5, 2, "m2", "Ados loisir 2", "6/6", "Karim a déjà un cours à 17h"],
+  [3, 18, 19.5, 0, "m1", "Adultes débutants 2", "5/6"],
+  [3, 18, 19.5, 1, "m4", "Adultes intermédiaires 2", "6/6"],
+  [3, 19.5, 21, 0, "m1", "Adultes loisir", "4/6"],
+  [4, 17, 18.5, 0, "m3", "Galaxie jaune", "4/6"],
+  [4, 17, 18, 1, "m2", "Mini-tennis 4-5 ans", "5/6"],
+  [4, 18.5, 20, 1, "m4", "Compétition 13-15", "4/4"],
+  [5, 9, 10, 0, "m1", "Mini-tennis 4-5 ans", "6/6"],
+  [5, 9, 10.5, 1, "m3", "Galaxie rouge", "8/8"],
+  [5, 10, 11.5, 0, "m1", "Galaxie orange", "7/8"],
+  [5, 10.5, 12, 1, "m3", "Galaxie vert", "6/8"],
+  [5, 9.5, 11, 2, "m4", "Ados loisir", "5/6", "Hors disponibilités de Marc"],
+  [5, 11, 12.5, 2, "m2", "Adultes loisir", "6/6"],
+].map(([j, d, f, c, m, g, e, w]) => ({ j, d, f, c, m, g, e, w }));
+
+const mon = id => MONITEURS.find(x => x.id === id);
+const hh = h => `${Math.floor(h)}h${h % 1 ? "30" : "00"}`;
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+
+document.getElementById("legend").innerHTML =
+  MONITEURS.map(m => `<span><i style="background:${m.couleur}"></i>${m.nom}</span>`).join("") +
+  `<span style="color:var(--warn)">⚠ conflit (avertissement)</span>`;
+
+const DESCS = {
+  A: "Heures en lignes. Chaque jour est découpé en sous-colonnes, une par court. Couleur = moniteur. Lecture immédiate de l'occupation des courts ; plus large à l'écran.",
+  B: "Heures en lignes, une colonne par jour (style Google Agenda / Outlook). Les cours simultanés se partagent la largeur. Le court est indiqué dans la carte. Plus compact, mais moins lisible quand 3+ cours se chevauchent.",
+  C: "Une ligne par moniteur (ou par court, via le bouton), une colonne par jour ; les cours sont listés chronologiquement. Les plages hachurées en vue A/B n'existent pas ici. Idéal pour voir la charge de chaque moniteur ; on perd la vision « heure par heure ».",
+};
+
+function timeAxis(grid, rowStart) {
+  const axis = el("div");
+  axis.style.cssText = `grid-column:1;grid-row:${rowStart};position:relative;height:${(H1 - H0) * PX}px`;
+  for (let h = H0; h <= H1; h++) {
+    const t = el("div", "time", `${h}h`);
+    t.style.cssText = `position:absolute;top:${(h - H0) * PX}px;right:0`;
+    axis.appendChild(t);
+  }
+  grid.appendChild(axis);
+}
+
+function hourLines(col) {
+  for (let h = H0; h < H1; h++) {
+    const l = el("div", "hourline"); l.style.top = (h - H0) * PX + "px"; col.appendChild(l);
+    const m = el("div", "halfline"); m.style.top = (h - H0 + .5) * PX + "px"; col.appendChild(m);
+  }
+}
+
+function evBox(c, showCourt) {
+  const m = mon(c.m);
+  const e = el("div", "ev" + (c.w ? " warn" : ""),
+    `<b>${c.g}</b><small>${hh(c.d)}–${hh(c.f)} · ${m.nom}</small>` +
+    (showCourt ? `<small>${COURTS[c.c].split(" ")[0]} ${c.c + 1}</small>` : "") +
+    `<small>${c.e} élèves</small>`);
+  e.style.background = m.couleur;
+  e.style.top = (c.d - H0) * PX + 1 + "px";
+  e.style.height = (c.f - c.d) * PX - 2 + "px";
+  e.title = `${c.g}\n${hh(c.d)}–${hh(c.f)}\n${COURTS[c.c]}\nMoniteur : ${m.nom}\n${c.e} élèves` + (c.w ? `\n⚠ ${c.w}` : "");
+  return e;
+}
+
+function renderA() {
+  const nC = COURTS.length;
+  const g = el("div", "grid");
+  g.style.gridTemplateColumns = `48px repeat(${JOURS.length * nC}, minmax(70px, 1fr))`;
+  g.appendChild(el("div", "hcell")).style.gridRow = "1 / span 2";
+  JOURS.forEach((j, i) => {
+    const h = el("div", "hcell", j);
+    h.style.gridColumn = `${2 + i * nC} / span ${nC}`; h.style.borderBottom = "none";
+    if (i) h.style.borderLeft = "2px solid var(--line-strong)";
+    g.appendChild(h);
+  });
+  JOURS.forEach((_, i) => COURTS.forEach((c, k) => {
+    const h = el("div", "hcell sub", `C${k + 1}`); h.title = c;
+    h.style.gridRow = 2;
+    if (k === 0 && i) h.style.borderLeft = "2px solid var(--line-strong)";
+    g.appendChild(h);
+  }));
+  timeAxis(g, 3);
+  JOURS.forEach((_, i) => COURTS.forEach((_, k) => {
+    const col = el("div", "col" + (k === 0 && i ? " daystart" : ""));
+    col.style.cssText += `grid-row:3;height:${(H1 - H0) * PX}px`;
+    hourLines(col);
+    COURS.filter(c => c.j === i && c.c === k).forEach(c => {
+      const e = evBox(c, false); e.style.left = "2px"; e.style.right = "2px"; col.appendChild(e);
+    });
+    g.appendChild(col);
+  }));
+  return g;
+}
+
+function renderB() {
+  const g = el("div", "grid");
+  g.style.gridTemplateColumns = `48px repeat(${JOURS.length}, minmax(140px, 1fr))`;
+  g.appendChild(el("div", "hcell"));
+  JOURS.forEach(j => g.appendChild(el("div", "hcell", j)));
+  timeAxis(g, 2);
+  JOURS.forEach((_, i) => {
+    const col = el("div", "col");
+    col.style.cssText += `grid-row:2;height:${(H1 - H0) * PX}px`;
+    hourLines(col);
+    // Répartition en voies des cours qui se chevauchent
+    const list = COURS.filter(c => c.j === i).sort((a, b) => a.d - b.d);
+    const lanes = [];
+    list.forEach(c => {
+      let l = lanes.findIndex(end => end <= c.d);
+      if (l < 0) { l = lanes.length; lanes.push(0); }
+      lanes[l] = c.f; c._lane = l;
+    });
+    list.forEach(c => {
+      const overl = list.filter(o => o.d < c.f && o.f > c.d);
+      const n = Math.max(...overl.map(o => o._lane)) + 1;
+      const e = evBox(c, true);
+      e.style.left = `calc(${(c._lane / n) * 100}% + 2px)`;
+      e.style.width = `calc(${100 / n}% - 4px)`;
+      col.appendChild(e);
+    });
+    g.appendChild(col);
+  });
+  return g;
+}
+
+let modeC = "moniteur";
+function renderC() {
+  const wrap = el("div");
+  const tg = el("div", "toggle", "Lignes : ");
+  [["moniteur", "par moniteur"], ["court", "par court"]].forEach(([k, lbl]) => {
+    const b = el("button", modeC === k ? "on" : "", lbl);
+    b.onclick = () => { modeC = k; render("C"); };
+    tg.appendChild(b);
+  });
+  wrap.appendChild(tg);
+  const a = el("div", "agenda");
+  a.style.gridTemplateColumns = `140px repeat(${JOURS.length}, minmax(120px, 1fr))`;
+  a.appendChild(el("div", "colhead rowhead"));
+  JOURS.forEach(j => a.appendChild(el("div", "colhead", j)));
+  const rows = modeC === "moniteur"
+    ? MONITEURS.map(m => ({ head: `<i style="background:${m.couleur}"></i>${m.nom}`, f: c => c.m === m.id }))
+    : COURTS.map((n, k) => ({ head: n, f: c => c.c === k }));
+  rows.forEach(r => {
+    a.appendChild(el("div", "rowhead", r.head));
+    JOURS.forEach((_, i) => {
+      const cell = el("div");
+      COURS.filter(c => c.j === i && r.f(c)).sort((x, y) => x.d - y.d).forEach(c => {
+        const m = mon(c.m);
+        const card = el("div", "card" + (c.w ? " warn" : ""),
+          `<b>${hh(c.d)}–${hh(c.f)}</b> ${c.g}<br><span style="opacity:.9">${modeC === "moniteur" ? COURTS[c.c].split(" (")[0] : m.nom} · ${c.e}</span>`);
+        card.style.background = m.couleur;
+        if (c.w) card.title = "⚠ " + c.w;
+        cell.appendChild(card);
+      });
+      a.appendChild(cell);
+    });
+  });
+  wrap.appendChild(a);
+  return wrap;
+}
+
+function render(v) {
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  document.getElementById("desc").textContent = DESCS[v];
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  main.appendChild({ A: renderA, B: renderB, C: renderC }[v]());
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => render(b.dataset.v));
+render("A");
+</script>
+</body>
+</html>

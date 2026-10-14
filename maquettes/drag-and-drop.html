@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planning interactif</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --line: #e3e6ea; --line2: #c9ced6;
+    --text: #1f2933; --muted: #6b7682; --accent: #1f6feb; --accent-soft: #e8f0fe;
+    --warn: #d1242f; --warn-soft: #fdecee; --hatch: #dfe3e8; --mode: #1f6feb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15181c; --panel: #1d2126; --line: #2b3037; --line2: #3c434c;
+      --text: #e6e9ed; --muted: #9aa4af; --accent: #5b9bff; --accent-soft: #1f2d45;
+      --warn: #ff6b6b; --warn-soft: #3a2224; --hatch: #343a42; --mode: #2f5fb3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; }
+  button, select, input { font: inherit; color: inherit; }
+
+  /* Barre d'outils */
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  h1 { font-size: 15px; margin: 0 8px 0 0; }
+  .btn { border: 1px solid var(--line2); background: var(--panel); padding: 6px 11px; border-radius: 6px; cursor: pointer; }
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--warn); }
+  .legend { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border: 1px solid var(--line2); border-radius: 999px; cursor: grab; user-select: none; background: var(--panel); }
+  .pill i { width: 14px; height: 14px; border-radius: 50%; }
+  .pill small { color: var(--muted); }
+  .pill.on { background: var(--accent-soft); border-color: var(--accent); }
+  .modebar { background: var(--mode); color: #fff; padding: 4px 16px; font-size: 12px; display: flex; gap: 16px; }
+  .modebar span:last-child { margin-left: auto; opacity: .9; }
+
+  /* Grille */
+  .layout { flex: 1; display: flex; min-height: 0; }
+  #scroller { flex: 1; overflow: auto; position: relative; }
+  .head { position: sticky; top: 0; z-index: 20; display: flex; background: var(--panel); border-bottom: 1px solid var(--line2); width: max-content; }
+  .corner { position: sticky; left: 0; z-index: 21; width: 48px; flex: none; background: var(--panel); }
+  #days { display: flex; }
+  .dayh { border-left: 2px solid var(--line2); }
+  .dn { text-align: center; font-weight: 600; padding: 6px 0 2px; }
+  .cts { display: flex; }
+  .ct { text-align: center; font-size: 11px; color: var(--muted); padding-bottom: 5px; }
+  .bodyrow { display: flex; padding-top: 8px; width: max-content; }
+  #axis { position: sticky; left: 0; z-index: 15; width: 48px; flex: none; background: var(--bg); }
+  #axis div { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-7px); }
+  #board { position: relative; background: var(--panel); user-select: none; touch-action: none; border-bottom: 1px solid var(--line2); }
+  .vl { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); }
+  .vl.ds { border-left: 2px solid var(--line2); }
+  .hl { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+  .hl.half { border-top-style: dashed; opacity: .55; }
+  .hatch { position: absolute; z-index: 1; pointer-events: none; background: repeating-linear-gradient(45deg, var(--hatch) 0 5px, transparent 5px 10px); }
+
+  /* Cours */
+  .ev { position: absolute; z-index: 5; border-radius: 5px; padding: 2px 5px; color: #fff; font-size: 11px; overflow: hidden; cursor: grab; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .ev .l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev .wi { position: absolute; top: 1px; right: 3px; font-size: 12px; }
+  .ev .rz { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
+  .ev .rz::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 18px; margin-left: -9px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.75); opacity: 0; }
+  .ev:hover .rz::after { opacity: 1; }
+  .ev.warn { box-shadow: 0 0 0 2px var(--warn); }
+  .ev.sel { box-shadow: 0 0 0 2px var(--text), 0 3px 10px rgba(0,0,0,.3); z-index: 6; }
+  .ev.warn.sel { box-shadow: 0 0 0 2px var(--warn), 0 0 0 4px var(--text); }
+  .ev.dragsrc { opacity: .3; }
+  .ev.ghost { z-index: 10; opacity: .93; cursor: grabbing; box-shadow: 0 8px 20px rgba(0,0,0,.35); }
+  .ev.ghost.warn { box-shadow: 0 0 0 2px var(--warn), 0 8px 20px rgba(0,0,0,.35); }
+  .ev.draft { outline: 2px dashed var(--text); outline-offset: -2px; opacity: .85; cursor: default; }
+  .ev.droptarget { box-shadow: 0 0 0 3px var(--accent), 0 0 0 6px var(--accent-soft); z-index: 7; }
+  .selbox { position: absolute; z-index: 8; pointer-events: none; background: rgba(31,111,235,.16); border: 2px solid var(--accent); border-radius: 5px; color: var(--accent); font-size: 11px; font-weight: 600; padding: 2px 4px; }
+  body.dragging, body.dragging * { cursor: grabbing !important; }
+  body.resizing, body.resizing * { cursor: ns-resize !important; }
+
+  .tip { position: fixed; z-index: 100; pointer-events: none; background: var(--text); color: var(--panel); padding: 6px 9px; border-radius: 6px; font-size: 12px; max-width: 300px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  .tip .w { color: #ffb3b3; }
+  @media (prefers-color-scheme: dark) { .tip .w { color: #c4161c; } }
+  .chip { position: fixed; z-index: 100; pointer-events: none; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 999px; color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+
+  /* Panneau latéral */
+  aside { width: 320px; flex: none; border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 14px 16px; }
+  aside h2 { font-size: 14px; margin: 0 0 10px; }
+  aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+  .help { margin: 0; padding-left: 18px; color: var(--muted); }
+  .help li { margin-bottom: 5px; }
+  .help b { color: var(--text); font-weight: 600; }
+  kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line2); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: var(--text); }
+  .wlist { list-style: none; margin: 0; padding: 0; }
+  .wlist li { padding: 7px 8px; border-radius: 6px; background: var(--warn-soft); margin-bottom: 6px; cursor: pointer; }
+  .wlist li:hover { outline: 1px solid var(--warn); }
+  .wlist .t { font-weight: 600; }
+  .wlist .m { color: var(--warn); }
+  .empty { color: var(--muted); }
+  form label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  form select, form input { width: 100%; padding: 6px 8px; border: 1px solid var(--line2); border-radius: 6px; background: var(--panel); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fwarn { margin-top: 14px; }
+  .fwarn div { color: var(--warn); background: var(--warn-soft); padding: 6px 8px; border-radius: 6px; margin-bottom: 5px; }
+  .ferr { color: var(--warn); margin-top: 10px; min-height: 1em; }
+  .actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 200; background: var(--text); color: var(--panel); padding: 9px 14px; border-radius: 8px; display: flex; gap: 14px; align-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.25); transition: opacity .2s; }
+  .toast button { background: none; border: none; color: var(--accent); font-weight: 600; cursor: pointer; padding: 0; }
+  .toast.hide { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Planning — Club de tennis</h1>
+  <button class="btn primary" id="bNew" title="Nouveau cours (N)">＋ Nouveau cours</button>
+  <button class="btn" id="bUndo" title="Annuler (Ctrl/Cmd+Z)">↶ Annuler</button>
+  <button class="btn" id="bRedo" title="Rétablir (Ctrl/Cmd+Maj+Z)">↷ Rétablir</button>
+  <div class="legend" id="legend"></div>
+</header>
+<div class="modebar"><span>● Mode <b>Semaine type</b> — saison 2026-2027 (les modifications s'appliquent à toute la saison)</span><span id="hatchinfo"></span></div>
+<div class="layout">
+  <div id="scroller">
+    <div class="head"><div class="corner"></div><div id="days"></div></div>
+    <div class="bodyrow"><div id="axis"></div><div id="board"></div></div>
+  </div>
+  <aside id="aside"></aside>
+</div>
+<div class="toast hide" id="toast"><span id="toastMsg"></span><button id="toastUndo">Annuler</button></div>
+
+<script>
+// ---------- Données fictives ----------
+const H0 = 8, H1 = 22, PX = 48, Q = 0.25;
+const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const JC = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+const COURTS = [{ nom: "Court 1", type: "couvert" }, { nom: "Court 2", type: "couvert" }, { nom: "Court 3", type: "extérieur" }];
+const NC = COURTS.length, NCOL = JOURS.length * NC;
+
+// Disponibilités hebdomadaires : jour (0 = lundi) → plages [début, fin]
+const MON = [
+  { id: "m1", nom: "Julie Martin", ini: "JM", couleur: "#2f7ed8", dispo: { 0: [[16, 21]], 2: [[9, 13]], 3: [[17, 22]], 5: [[8.5, 13]] } },
+  { id: "m2", nom: "Karim Benali", ini: "KB", couleur: "#d9622b", dispo: { 0: [[17, 21.5]], 1: [[18, 22]], 2: [[13, 19]], 4: [[16.5, 20]], 5: [[10, 13]] } },
+  { id: "m3", nom: "Sophie Durand", ini: "SD", couleur: "#14966b", dispo: { 0: [[17, 20]], 1: [[16.5, 19]], 2: [[9, 17]], 4: [[16, 19.5]], 5: [[8.5, 12.5]] } },
+  { id: "m4", nom: "Marc Leroy", ini: "ML", couleur: "#8b55c9", dispo: { 1: [[16.5, 21]], 2: [[14, 18]], 3: [[17.5, 21]], 4: [[18, 21]], 5: [[10, 13]] } },
+];
+
+const r = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+const GROUPES_INIT = [
+  ["g1", "Mini-tennis 5-6 ans", 6, r(1, 6)],
+  ["g2", "Ados perfectionnement", 6, r(10, 14)],
+  ["g3", "Adultes débutants", 6, r(20, 23)],
+  ["g4", "Adultes intermédiaires", 6, r(24, 29)],
+  ["g5", "Galaxie orange", 8, r(30, 34)],
+  ["g6", "Galaxie vert", 8, r(35, 40)],
+  ["g7", "Mini-tennis 4-5 ans", 6, r(41, 44)],
+  ["g8", "Compétition 13-15", 4, [10, 11, 50, 51]],
+  ["g9", "Adultes compétition", 6, r(52, 57)],
+  ["g10", "Galaxie rouge", 8, r(60, 65)],
+  ["g11", "Ados loisir", 6, r(66, 70)],
+  ["g12", "Compétition 11-12", 4, r(71, 74)],
+  ["g13", "Galaxie jaune", 6, r(75, 79)],
+  ["g14", "Adultes loisir", 6, r(80, 85)],
+  ["g15", "Galaxie orange 2", 8, r(86, 94)],
+].map(([id, nom, max, el]) => ({ id, nom, max, el }));
+
+// [jour, début, durée, court, moniteur, groupe]
+const COURS_INIT = [
+  [0, 17, 1, 0, "m1", "g1"], [0, 18, 1.5, 0, "m1", "g2"], [0, 17.5, 1.5, 1, "m2", "g3"], [0, 19, 1.5, 1, "m2", "g4"], [0, 18, 1, 2, "m3", "g5"],
+  [1, 17, 1.5, 0, "m3", "g6"], [1, 17, 1, 1, "m4", "g7"], [1, 18.5, 1.5, 0, "m4", "g8"], [1, 19, 2, 1, "m2", "g9"],
+  [2, 10, 1, 0, "m1", "g10"], [2, 14, 1.5, 0, "m2", "g15"], [2, 14, 1.5, 1, "m3", "g11"], [2, 14.5, 1.5, 2, "m4", "g12"],
+  [2, 16, 1.5, 0, "m2", "g4"], [2, 17, 1.5, 2, "m2", "g14"],
+  [3, 18, 1.5, 0, "m1", "g2"], [3, 18, 1.5, 1, "m4", "g8"], [3, 19.5, 1.5, 0, "m1", "g3"],
+  [4, 17, 1.5, 0, "m3", "g13"], [4, 17, 1, 1, "m2", "g7"], [4, 18.5, 1.5, 1, "m4", "g8"],
+  [5, 9, 1, 0, "m1", "g1"], [5, 9, 1.5, 1, "m3", "g10"], [5, 10, 1.5, 0, "m1", "g5"], [5, 10.5, 1.5, 1, "m3", "g6"],
+  [5, 9.5, 1.5, 2, "m4", "g11"], [5, 11, 1.5, 2, "m2", "g14"],
+].map(([j, d, dur, c, m, g], i) => ({ id: "c" + i, j, d, dur, c, m, g }));
+
+// ---------- État ----------
+const S = { cours: COURS_INIT, groupes: GROUPES_INIT, sel: null, pinned: null, hover: null, draft: null, panel: null, undo: [], redo: [] };
+let colW = 70, drag = null, uid = 1000;
+
+// ---------- Utilitaires ----------
+const $ = s => document.querySelector(s);
+const grp = id => S.groupes.find(g => g.id === id);
+const mon = id => MON.find(m => m.id === id);
+const find = id => S.cours.find(c => c.id === id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const snap = t => Math.round(t / Q) * Q;
+const hh = h => { const H = Math.floor(h + 1e-9), M = Math.round((h - H) * 60); return `${H}h${String(M).padStart(2, "0")}`; };
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const isDispo = (m, j, d, dur) => (mon(m).dispo[j] || []).some(([a, b]) => a <= d && d + dur <= b);
+
+// ---------- Avertissements (jamais bloquants) ----------
+function warnsFor(x, list = S.cours) {
+  const w = [], g = grp(x.g), m = x.m && mon(x.m);
+  const others = list.filter(o => o.id !== x.id && o.j === x.j && o.d < x.d + x.dur && o.d + o.dur > x.d);
+  for (const o of others) {
+    const og = grp(o.g);
+    if (o.c === x.c) w.push(`${COURTS[x.c].nom} déjà occupé par ${og.nom} (${hh(o.d)}–${hh(o.d + o.dur)})`);
+    if (m && o.m === x.m) w.push(`${m.nom.split(" ")[0]} a déjà un cours : ${og.nom} à ${hh(o.d)}`);
+    if (g && o.g !== x.g) {
+      const n = g.el.filter(e => og.el.includes(e)).length;
+      if (n) w.push(`${n} élève${n > 1 ? "s" : ""} aussi inscrit${n > 1 ? "s" : ""} en ${og.nom} au même moment`);
+    }
+  }
+  if (m && !isDispo(x.m, x.j, x.d, x.dur)) w.push(`Hors disponibilités de ${m.nom.split(" ")[0]}`);
+  if (g && g.el.length > g.max) w.push(`Effectif dépassé : ${g.el.length}/${g.max} élèves`);
+  return w;
+}
+const allWarns = () => Object.fromEntries(S.cours.map(c => [c.id, warnsFor(c)]));
+
+// ---------- Historique (annuler / rétablir illimités) ----------
+const snapshot = () => JSON.stringify({ cours: S.cours, groupes: S.groupes });
+function restore(s) { const o = JSON.parse(s); S.cours = o.cours; S.groupes = o.groupes; if (S.sel && !find(S.sel)) S.sel = null; }
+function commit(label, fn) { S.undo.push(snapshot()); S.redo = []; fn(); syncPanel(); renderAll(); if (label) toast(label, true); }
+function undo() { if (!S.undo.length) return; S.redo.push(snapshot()); restore(S.undo.pop()); syncPanel(); renderAll(); toast("Action annulée"); }
+function redo() { if (!S.redo.length) return; S.undo.push(snapshot()); restore(S.redo.pop()); syncPanel(); renderAll(); toast("Action rétablie"); }
+
+let toastTimer;
+function toast(msg, withUndo) {
+  $("#toastMsg").textContent = msg;
+  $("#toastUndo").style.display = withUndo ? "" : "none";
+  $("#toast").classList.remove("hide");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $("#toast").classList.add("hide"), 3500);
+}
+$("#toastUndo").onclick = () => { undo(); $("#toast").classList.add("hide"); };
+
+// ---------- Rendu ----------
+function layout() {
+  colW = Math.max(62, Math.floor(($("#scroller").clientWidth - 48 - 2) / NCOL));
+  $("#days").innerHTML = JOURS.map(j => `<div class="dayh" style="width:${NC * colW}px"><div class="dn">${j}</div><div class="cts">${COURTS.map((c, k) => `<div class="ct" style="width:${colW}px" title="${c.nom} (${c.type})">C${k + 1}${c.type === "extérieur" ? " ☀" : ""}</div>`).join("")}</div></div>`).join("");
+  let ax = "";
+  for (let h = H0; h <= H1; h++) ax += `<div style="top:${(h - H0) * PX}px">${h}h</div>`;
+  $("#axis").innerHTML = ax;
+  $("#axis").style.height = (H1 - H0) * PX + "px";
+  renderBoard();
+}
+
+function evHTML(c, w, o = {}) {
+  const m = c.m && mon(c.m), g = c.g && grp(c.g);
+  const style = `left:${(c.j * NC + c.c) * colW + 2}px;width:${colW - 4}px;top:${(c.d - H0) * PX + 1}px;height:${c.dur * PX - 2}px;background:${m ? m.couleur : "#8a94a0"}`;
+  const cls = ["ev", w.length && "warn", o.sel && "sel", o.draft && "draft", o.ghost && "ghost"].filter(Boolean).join(" ");
+  const title = o.ghost ? "" : [g ? g.nom : "Nouveau cours", `${JOURS[c.j]} ${hh(c.d)}–${hh(c.d + c.dur)}`, `${COURTS[c.c].nom} (${COURTS[c.c].type})`,
+    `Moniteur : ${m ? m.nom : "—"}`, g ? `${g.el.length}/${g.max} élèves` : "", ...w.map(x => "⚠ " + x)].filter(Boolean).join("\n");
+  return `<div class="${cls}" ${o.draft ? "" : `data-id="${c.id}"`} style="${style}" title="${esc(title)}">
+    <div class="l"><b>${esc(g ? g.nom : "Nouveau cours")}</b></div>
+    <div class="l">${hh(c.d)}–${hh(c.d + c.dur)}</div>
+    <div class="l">${m ? m.ini : "?"}${g ? ` · ${g.el.length}/${g.max}` : ""}</div>
+    ${w.length ? '<span class="wi">⚠</span>' : ""}${o.draft || o.ghost ? "" : '<div class="rz"></div>'}</div>`;
+}
+
+function renderBoard() {
+  const b = $("#board");
+  b.style.width = NCOL * colW + "px";
+  b.style.height = (H1 - H0) * PX + "px";
+  let html = "";
+  for (let i = 0; i < NCOL; i++) html += `<div class="vl${i % NC === 0 ? " ds" : ""}" style="left:${i * colW}px"></div>`;
+  for (let h = H0; h < H1; h++) html += `<div class="hl" style="top:${(h - H0) * PX}px"></div><div class="hl half" style="top:${(h - H0 + .5) * PX}px"></div>`;
+  html += `<div id="hatches"></div>`;
+  const W = allWarns();
+  for (const c of S.cours) html += evHTML(c, W[c.id], { sel: c.id === S.sel });
+  if (S.draft) html += evHTML(S.draft, warnsFor(S.draft), { draft: true });
+  b.innerHTML = html;
+  drawHatch();
+}
+
+function drawHatch() {
+  const el = $("#hatches");
+  const m = (drag && drag.started && drag.m) || S.hover || S.pinned;
+  $("#hatchinfo").textContent = m ? `Hachuré : indisponibilités de ${mon(m).nom}` : "";
+  if (!el) return;
+  if (!m) { el.innerHTML = ""; return; }
+  let html = "";
+  JOURS.forEach((_, j) => {
+    const iv = (mon(m).dispo[j] || []).slice().sort((a, b) => a[0] - b[0]);
+    const gaps = [];
+    let t = H0;
+    for (const [a, b] of iv) { if (a > t) gaps.push([t, a]); t = Math.max(t, b); }
+    if (t < H1) gaps.push([t, H1]);
+    for (const [a, b] of gaps) html += `<div class="hatch" style="left:${j * NC * colW}px;width:${NC * colW}px;top:${(a - H0) * PX}px;height:${(b - a) * PX}px"></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderLegend() {
+  $("#legend").innerHTML = MON.map(m => {
+    const tot = S.cours.filter(c => c.m === m.id).reduce((s, c) => s + c.dur, 0);
+    return `<span class="pill${S.pinned === m.id ? " on" : ""}" data-m="${m.id}" title="Cliquer : afficher ses indisponibilités\nGlisser sur un cours : changer de moniteur"><i style="background:${m.couleur}"></i>${m.nom.split(" ")[0]} <small>${hh(tot)}</small></span>`;
+  }).join("");
+  $("#bUndo").disabled = !S.undo.length;
+  $("#bRedo").disabled = !S.redo.length;
+}
+
+function renderAside() {
+  if (S.panel) return; // le formulaire est géré par renderPanel
+  const W = allWarns();
+  const list = S.cours.filter(c => W[c.id].length).sort((a, b) => a.j - b.j || a.d - b.d);
+  $("#aside").innerHTML = `
+    <h2>Mode d'emploi</h2>
+    <ul class="help">
+      <li><b>Créer</b> : cliquer-glisser dans une colonne vide (jour + court), ou <kbd>N</kbd></li>
+      <li><b>Déplacer</b> : glisser un cours (jour, heure, court ; pas de 15 min)</li>
+      <li><b>Durée</b> : tirer le bord bas d'un cours</li>
+      <li><b>Dupliquer</b> : glisser en maintenant <kbd>Alt</kbd>/<kbd>⌥</kbd></li>
+      <li><b>Changer de moniteur</b> : glisser sa pastille (en haut) sur un cours</li>
+      <li><b>Disponibilités</b> : survoler un cours ou cliquer une pastille</li>
+      <li><b>Modifier</b> : cliquer un cours · <kbd>Suppr</kbd> le supprime</li>
+      <li><b>Annuler / rétablir</b> : <kbd>Ctrl/⌘ Z</kbd> · <kbd>Ctrl/⌘ ⇧ Z</kbd> · <kbd>Échap</kbd> pendant un glisser l'interrompt</li>
+    </ul>
+    <h3>Avertissements (${list.length})</h3>
+    ${list.length ? `<ul class="wlist">${list.map(c => `<li data-id="${c.id}"><div class="t">${JC[c.j]} ${hh(c.d)} · ${esc(grp(c.g).nom)}</div>${W[c.id].map(x => `<div class="m">⚠ ${esc(x)}</div>`).join("")}</li>`).join("")}</ul>` : `<p class="empty">Aucun conflit cette semaine.</p>`}`;
+  $("#aside").querySelectorAll(".wlist li").forEach(li => li.onclick = () => {
+    const c = find(li.dataset.id);
+    S.sel = c.id;
+    openPanel(c, c.id);
+    const el = $(`.ev[data-id="${c.id}"]`);
+    if (el) el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+  });
+}
+
+function renderAll() { renderBoard(); renderLegend(); renderAside(); }
+
+// ---------- Panneau de création / édition ----------
+const TIMES = []; for (let t = H0; t < H1; t += Q) TIMES.push(t);
+const DMAX = 4;
+const DURS = []; for (let t = .5; t <= DMAX; t += Q) DURS.push(t);
+
+function openPanel(data, id) {
+  S.panel = { id, base: { ...data } };
+  S.draft = id ? null : { ...data, id: "__new" };
+  renderPanel(data);
+  renderBoard();
+}
+function closePanel() { S.panel = null; S.draft = null; renderAll(); }
+function syncPanel() {
+  // Après un glisser / annuler : le panneau reflète l'état réel du cours
+  if (!S.panel || !S.panel.id) return;
+  const c = find(S.panel.id);
+  if (c) renderPanel(c); else S.panel = null;
+}
+
+function renderPanel(v) {
+  const id = S.panel.id;
+  const opt = (val, lbl, cur) => `<option value="${val}"${String(val) === String(cur) ? " selected" : ""}>${esc(lbl)}</option>`;
+  $("#aside").innerHTML = `
+    <h2>${id ? "Modifier le cours" : "Nouveau cours"}</h2>
+    <form id="f" autocomplete="off">
+      <label>Groupe</label>
+      <select name="g">${opt("", "— choisir —", v.g)}${S.groupes.map(g => opt(g.id, `${g.nom} (${g.el.length}/${g.max})`, v.g)).join("")}${opt("__new", "＋ Nouveau groupe…", "")}</select>
+      <label>Moniteur</label>
+      <select name="m"></select>
+      <div class="row2">
+        <div><label>Jour</label><select name="j">${JOURS.map((j, i) => opt(i, j, v.j)).join("")}</select></div>
+        <div><label>Court</label><select name="c">${COURTS.map((c, i) => opt(i, `${c.nom} (${c.type})`, v.c)).join("")}</select></div>
+      </div>
+      <div class="row2">
+        <div><label>Début</label><select name="d">${TIMES.map(t => opt(t, hh(t), v.d)).join("")}</select></div>
+        <div><label>Durée</label><select name="dur">${DURS.map(t => opt(t, hh(t).replace(/h00$/, "h"), v.dur)).join("")}</select></div>
+      </div>
+      <div class="fwarn" id="fwarn"></div>
+      <div class="ferr" id="ferr"></div>
+      <div class="actions">
+        <button type="submit" class="btn primary">${id ? "Enregistrer" : "Créer le cours"}</button>
+        <button type="button" class="btn" id="fCancel">Fermer</button>
+        ${id ? '<button type="button" class="btn danger" id="fDel">Supprimer</button>' : ""}
+      </div>
+    </form>`;
+  fillMoniteurs(v);
+  refreshPanelWarnings();
+  const f = $("#f");
+  f.oninput = e => {
+    if (e.target.name === "g" && e.target.value === "__new") return quickGroup();
+    const cur = readForm();
+    if (["j", "d", "dur"].includes(e.target.name)) fillMoniteurs(cur);
+    if (!S.panel.id) { S.draft = { ...cur, id: "__new" }; renderBoard(); }
+    refreshPanelWarnings();
+  };
+  f.onsubmit = e => { e.preventDefault(); savePanel(); };
+  $("#fCancel").onclick = closePanel;
+  if (id) $("#fDel").onclick = () => deleteCourse(id);
+}
+
+// Moniteurs disponibles sur le créneau proposés en premier
+function fillMoniteurs(v) {
+  const sel = $("#f [name=m]");
+  const cur = sel.value || v.m || "";
+  const dispo = MON.filter(m => isDispo(m.id, +v.j, +v.d, +v.dur));
+  const indispo = MON.filter(m => !dispo.includes(m));
+  sel.innerHTML = `<option value="">— choisir —</option>` +
+    (dispo.length ? `<optgroup label="Disponibles">${dispo.map(m => `<option value="${m.id}"${m.id === cur ? " selected" : ""}>● ${m.nom}</option>`).join("")}</optgroup>` : "") +
+    (indispo.length ? `<optgroup label="Indisponibles sur ce créneau">${indispo.map(m => `<option value="${m.id}"${m.id === cur ? " selected" : ""}>○ ${m.nom} (indisponible)</option>`).join("")}</optgroup>` : "");
+}
+
+function readForm() {
+  const f = $("#f").elements;
+  return { id: S.panel.id || "__new", g: f.g.value === "__new" ? "" : f.g.value, m: f.m.value, j: +f.j.value, c: +f.c.value, d: +f.d.value, dur: Math.min(+f.dur.value, H1 - +f.d.value) };
+}
+function refreshPanelWarnings() {
+  const w = warnsFor(readForm());
+  $("#fwarn").innerHTML = w.map(x => `<div>⚠ ${esc(x)}</div>`).join("");
+}
+
+function quickGroup() {
+  const nom = prompt("Nom du nouveau groupe :");
+  if (!nom) { $("#f").elements.g.value = ""; return; }
+  const max = parseInt(prompt("Effectif maximum :", "6"), 10) || 6;
+  const g = { id: "g" + (uid++), nom, max, el: [] };
+  S.groupes.push(g);
+  const cur = readForm();
+  cur.g = g.id;
+  renderPanel(cur);
+  if (!S.panel.id) { S.draft = { ...cur, id: "__new" }; renderBoard(); }
+}
+
+function savePanel() {
+  const v = readForm();
+  if (!v.g || !v.m) { $("#ferr").textContent = "Choisissez un groupe et un moniteur."; return; }
+  const { id, ...data } = v;
+  if (S.panel.id) {
+    const pid = S.panel.id;
+    S.panel = null; S.draft = null;
+    commit("Cours modifié", () => Object.assign(find(pid), data));
+  } else {
+    const nid = "c" + (uid++);
+    S.panel = null; S.draft = null;
+    commit("Cours créé", () => { S.cours.push({ id: nid, ...data }); S.sel = nid; });
+  }
+}
+
+function deleteCourse(id) {
+  const g = grp(find(id).g);
+  if (S.panel && S.panel.id === id) { S.panel = null; S.draft = null; }
+  commit(`Cours « ${g.nom} » supprimé`, () => { S.cours = S.cours.filter(c => c.id !== id); S.sel = null; });
+}
+
+// ---------- Glisser-déposer ----------
+function pt(e) {
+  const r = $("#board").getBoundingClientRect();
+  return { col: clamp(Math.floor((e.clientX - r.left) / colW), 0, NCOL - 1), t: H0 + (e.clientY - r.top) / PX };
+}
+
+$("#board").addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const evEl = e.target.closest(".ev");
+  const p = pt(e);
+  if (evEl && evEl.dataset.id) {
+    const c = find(evEl.dataset.id);
+    drag = { type: e.target.classList.contains("rz") ? "resize" : "move", id: c.id, m: c.m, orig: { ...c }, off: p.t - c.d };
+  } else if (!evEl) {
+    drag = { type: "create", col: p.col, t0: p.t };
+  } else return;
+  Object.assign(drag, { x0: e.clientX, y0: e.clientY, started: false });
+  e.preventDefault();
+});
+
+$("#legend").addEventListener("pointerdown", e => {
+  const pill = e.target.closest(".pill");
+  if (!pill || e.button !== 0) return;
+  drag = { type: "legend", m: pill.dataset.m, x0: e.clientX, y0: e.clientY, started: false };
+  e.preventDefault();
+});
+
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  drag.last = { clientX: e.clientX, clientY: e.clientY, altKey: e.altKey };
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
+    startDrag();
+  }
+  updateDrag(drag.last);
+});
+
+function startDrag() {
+  drag.started = true;
+  document.body.classList.add(drag.type === "resize" ? "resizing" : "dragging");
+  if (drag.id) {
+    S.sel = drag.id;
+    document.querySelectorAll(".ev.sel").forEach(x => x.classList.remove("sel"));
+    drag.src = $(`.ev[data-id="${drag.id}"]`);
+  }
+  if (drag.type === "legend") {
+    const m = mon(drag.m);
+    drag.chip = Object.assign(document.createElement("div"), { className: "chip", innerHTML: `<span style="width:12px;height:12px;border-radius:50%;background:#fff;opacity:.8"></span>${m.nom.split(" ")[0]}` });
+    drag.chip.style.background = m.couleur;
+    document.body.appendChild(drag.chip);
+  }
+  drag.tip = Object.assign(document.createElement("div"), { className: "tip" });
+  document.body.appendChild(drag.tip);
+  drawHatch();
+}
+
+function updateDrag(e) {
+  const p = pt(e), o = drag.orig;
+  let cand = null, tipHead = "";
+  if (drag.type === "move") {
+    drag.dup = e.altKey;
+    const col = p.col, d = clamp(snap(p.t - drag.off), H0, H1 - o.dur);
+    cand = { ...o, j: Math.floor(col / NC), c: col % NC, d, id: drag.dup ? "__dup" : o.id };
+    drag.src.classList.toggle("dragsrc", !drag.dup);
+    tipHead = drag.dup ? "Duplication (Alt)" : "Déplacement";
+  } else if (drag.type === "resize") {
+    cand = { ...o, dur: clamp(snap(p.t), o.d + .5, Math.min(H1, o.d + DMAX)) - o.d };
+    tipHead = `Durée : ${hh(cand.dur).replace(/h00$/, "h")}`;
+  } else if (drag.type === "create") {
+    let a = Math.min(drag.t0, p.t), b = Math.max(drag.t0, p.t);
+    a = clamp(Math.floor(a / Q) * Q, H0, H1 - .5);
+    b = clamp(Math.ceil(b / Q) * Q, a + .5, Math.min(H1, a + DMAX));
+    cand = { j: Math.floor(drag.col / NC), c: drag.col % NC, d: a, dur: b - a };
+    if (!drag.box) { drag.box = Object.assign(document.createElement("div"), { className: "selbox" }); $("#board").appendChild(drag.box); }
+    Object.assign(drag.box.style, { left: (drag.col * colW + 2) + "px", width: (colW - 4) + "px", top: ((a - H0) * PX + 1) + "px", height: ((b - a) * PX - 2) + "px" });
+    drag.box.textContent = `${hh(a)}–${hh(b)}`;
+    tipHead = "Nouveau cours";
+  } else if (drag.type === "legend") {
+    Object.assign(drag.chip.style, { left: e.clientX + 10 + "px", top: e.clientY + 10 + "px" });
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const target = under && under.closest("#board .ev[data-id]");
+    const tid = target ? target.dataset.id : null;
+    if (tid !== drag.target) {
+      document.querySelectorAll(".droptarget").forEach(x => x.classList.remove("droptarget"));
+      if (target) target.classList.add("droptarget");
+      drag.target = tid;
+    }
+    if (tid) { cand = { ...find(tid), m: drag.m }; tipHead = `Confier « ${grp(cand.g).nom} » à ${mon(drag.m).nom.split(" ")[0]}`; }
+  }
+  drag.cand = cand;
+
+  // Fantôme du cours + avertissements en temps réel
+  if (drag.ghost) { drag.ghost.remove(); drag.ghost = null; }
+  if (cand && (drag.type === "move" || drag.type === "resize")) {
+    const t = document.createElement("div");
+    t.innerHTML = evHTML(cand, warnsFor(cand), { ghost: true });
+    drag.ghost = t.firstElementChild;
+    $("#board").appendChild(drag.ghost);
+  }
+  if (!cand) { drag.tip.style.display = "none"; return; }
+  const w = warnsFor(drag.type === "create" ? { ...cand, id: "__new" } : cand);
+  drag.tip.style.display = "";
+  drag.tip.innerHTML = `<b>${tipHead}</b><br>${JOURS[cand.j]} · ${COURTS[cand.c].nom} · ${hh(cand.d)}–${hh(cand.d + cand.dur)}` + w.map(x => `<div class="w">⚠ ${esc(x)}</div>`).join("");
+  const tx = Math.min(e.clientX + 16, innerWidth - 310);
+  Object.assign(drag.tip.style, { left: tx + "px", top: (drag.type === "legend" ? e.clientY + 40 : e.clientY + 16) + "px" });
+}
+
+function cleanupDrag(d) {
+  ["ghost", "tip", "chip", "box"].forEach(k => d[k] && d[k].remove());
+  document.querySelectorAll(".droptarget").forEach(x => x.classList.remove("droptarget"));
+  document.body.classList.remove("dragging", "resizing");
+}
+
+document.addEventListener("pointerup", () => {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  cleanupDrag(d);
+  if (!d.started) {
+    if (d.type === "move" || d.type === "resize") { S.sel = d.id; openPanel(find(d.id), d.id); }
+    else if (d.type === "create") { S.sel = null; if (S.panel) closePanel(); else renderBoard(); }
+    else if (d.type === "legend") { S.pinned = S.pinned === d.m ? null : d.m; renderLegend(); drawHatch(); }
+    return;
+  }
+  const c = d.cand, o = d.orig;
+  if (d.type === "move" && c) {
+    if (d.dup) {
+      const nid = "c" + (uid++);
+      commit("Cours dupliqué", () => { S.cours.push({ ...c, id: nid }); S.sel = nid; });
+      return;
+    }
+    if (c.j !== o.j || c.c !== o.c || c.d !== o.d) return commit("Cours déplacé", () => Object.assign(find(o.id), { j: c.j, c: c.c, d: c.d }));
+  } else if (d.type === "resize" && c && c.dur !== o.dur) {
+    return commit("Durée modifiée", () => { find(o.id).dur = c.dur; });
+  } else if (d.type === "create" && c) {
+    S.sel = null;
+    return openPanel({ ...c, g: "", m: "" }, null);
+  } else if (d.type === "legend" && d.target) {
+    const tc = find(d.target);
+    if (tc.m !== d.m) return commit(`« ${grp(tc.g).nom} » confié à ${mon(d.m).nom.split(" ")[0]}`, () => { tc.m = d.m; S.sel = tc.id; });
+  }
+  renderAll();
+});
+
+// Survol d'un cours : hachurer les indisponibilités de son moniteur
+$("#board").addEventListener("mouseover", e => {
+  if (drag && drag.started) return;
+  const el = e.target.closest(".ev[data-id]");
+  const m = el ? find(el.dataset.id).m : null;
+  if (m !== S.hover) { S.hover = m; drawHatch(); }
+});
+$("#board").addEventListener("mouseleave", () => { if (S.hover) { S.hover = null; drawHatch(); } });
+
+// ---------- Clavier ----------
+document.addEventListener("keydown", e => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (e.key === "Escape") {
+    if (drag) { const d = drag; drag = null; cleanupDrag(d); renderAll(); toast("Déplacement interrompu"); }
+    else if (S.panel) closePanel();
+    else if (S.sel) { S.sel = null; renderBoard(); }
+    return;
+  }
+  if (e.key === "Alt" && drag && drag.started && drag.type === "move") { e.preventDefault(); updateDrag({ ...drag.last, altKey: true }); return; }
+  if (e.target.closest && e.target.closest("input, select, textarea")) return;
+  const k = e.key.toLowerCase();
+  if (mod && k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if (mod && k === "y") { e.preventDefault(); redo(); }
+  else if ((e.key === "Delete" || e.key === "Backspace") && S.sel) { e.preventDefault(); deleteCourse(S.sel); }
+  else if (!mod && k === "n") { e.preventDefault(); newCourse(); }
+});
+document.addEventListener("keyup", e => {
+  if (e.key === "Alt" && drag && drag.started && drag.type === "move") updateDrag({ ...drag.last, altKey: false });
+});
+
+function newCourse() { S.sel = null; openPanel({ j: 0, c: 0, d: 17, dur: 1, g: "", m: "" }, null); }
+$("#bNew").onclick = newCourse;
+$("#bUndo").onclick = undo;
+$("#bRedo").onclick = redo;
+
+window.addEventListener("resize", layout);
+layout();
+renderLegend();
+renderAside();
+$("#scroller").scrollTop = (16 - H0) * PX;
+</script>
+</body>
+</html>

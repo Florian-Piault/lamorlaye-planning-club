@@ -1,0 +1,302 @@
+# Spécifications — Planning Club de tennis
+
+> Version 1.2 — 14/10/2026
+> Statut : à valider
+
+## 1. Objet
+
+Application de bureau multiplateforme (macOS, Windows, Linux) permettant au responsable d'un club de tennis de construire et maintenir le planning des cours collectifs de la saison : constitution des groupes d'élèves, répartition des groupes entre moniteurs selon leurs disponibilités, affectation aux courts.
+
+### 1.1 Périmètre V1
+
+- Application **100 % hors ligne** : aucune requête réseau, aucun compte, aucune mise à jour automatique.
+- Installée et utilisée sur **un seul poste**, par **un seul utilisateur** (le responsable). Pas d'authentification.
+- Langue : français uniquement.
+
+### 1.2 Hors périmètre V1
+
+- Synchronisation multi-postes, version web, accès moniteurs/élèves.
+- Envoi d'e-mails ou SMS.
+- Facturation, gestion des adhésions, des paiements, de la réservation de courts libres.
+- Saisie des présences et statistiques d'assiduité (feuille d'appel papier uniquement).
+- Module de stages dédié (inscriptions, tarifs).
+- Cours encadrés par plusieurs moniteurs.
+- Génération automatique du planning (solveur).
+
+## 2. Glossaire
+
+| Terme | Définition |
+|---|---|
+| Saison | Période d'activité (ex. 01/09/2026 → 30/06/2027) ayant sa propre semaine type, ses fermetures et ses groupes. |
+| Court | Terrain sur lequel se déroule un cours. Un cours occupe un court. |
+| Moniteur | Enseignant qui assure les cours. Identifié par une couleur. |
+| Groupe | Ensemble d'élèves suivant un même cours collectif. |
+| Élève | Personne inscrite dans un ou plusieurs groupes. |
+| Cours | Créneau hebdomadaire de la semaine type : jour, heure de début, durée, court, groupe, moniteur. |
+| Semaine type | Ensemble des cours récurrents, appliqué à toutes les semaines de la saison. |
+| Occurrence | Instance d'un cours à une date précise. |
+| Exception | Modification d'une occurrence (déplacement, annulation, remplacement) ou cours ponctuel n'existant qu'une semaine. |
+| Période de fermeture | Plage de dates sans cours réguliers (vacances scolaires, jours fériés). |
+
+## 3. Modèle de données
+
+Tous les enregistrements portent un **UUID** comme identifiant ainsi que les champs `created_at` / `updated_at` (horodatage), afin de préparer une future synchronisation (voir §11).
+
+### 3.1 Saison
+- Nom (ex. « 2026-2027 »), date de début, date de fin.
+- Statut : active / archivée (lecture seule).
+- Amplitude horaire affichée (défaut 8h00 – 22h00), jours affichés (défaut lundi → dimanche, dimanche masquable).
+
+### 3.2 Court
+- Nom (ex. « Court 1 »), type : **couvert** / **extérieur** (informatif), ordre d'affichage, actif oui/non.
+
+### 3.3 Moniteur
+- Nom, prénom, téléphone, e-mail (optionnels hors nom/prénom).
+- Couleur (voir §6), initiales (calculées, modifiables).
+- Disponibilités :
+  - **Plages hebdomadaires récurrentes** : jour + heure début + heure fin (plusieurs par jour possibles).
+  - **Indisponibilités datées** : date/heure début → date/heure fin + motif libre (congé, maladie, tournoi…).
+- Actif oui/non.
+
+### 3.4 Groupe
+- Nom, niveau (choisi dans le **référentiel des niveaux**), tranche d'âge (min/max, optionnelle), effectif maximum.
+- Liste des élèves (relation N-N avec Élève).
+
+### 3.5 Élève
+- Nom, prénom, téléphone (obligatoires).
+- Date de naissance, niveau (référentiel), classement FFT (champ distinct, ex. « 30/2 »), e-mail.
+- Pour les mineurs : nom et téléphone du responsable légal.
+- Un élève peut appartenir à **plusieurs groupes**.
+
+### 3.5 bis Référentiel des niveaux
+- Liste ordonnée et modifiable dans les réglages (libellé, ordre, actif).
+- Pré-remplie avec les niveaux Galaxie (blanc, violet, rouge, orange, vert, jaune) et des niveaux adultes (débutant, intermédiaire, confirmé, compétition).
+
+### 3.6 Cours (semaine type)
+- Jour de la semaine, heure de début, durée (pas de 15 min).
+- Court, groupe, **un seul** moniteur.
+- Date d'effet début / fin (permet un changement « à partir de » une semaine donnée, voir §5.4).
+- Note libre.
+
+### 3.7 Exception (sur une occurrence datée)
+- Référence au cours et à la date d'occurrence, ou cours ponctuel autonome.
+- Types :
+  - **Modification** : nouveaux jour/heure/durée/court/moniteur pour cette seule semaine.
+  - **Annulation** : motif (pluie, moniteur absent, autre + texte).
+  - **Remplacement** : moniteur remplaçant.
+  - **Cours ponctuel** : cours n'existant que cette semaine (rattrapage, stage, séance d'essai), avec groupe optionnel.
+
+### 3.8 Période de fermeture
+- Libellé, date début, date fin. Les occurrences tombant dans une fermeture sont automatiquement suspendues (non affichées comme actives, non comptées dans les heures).
+- Assistant de pré-remplissage avec les vacances scolaires **zone B** et jours fériés français, à partir d'un calendrier embarqué dans l'application (pas d'accès internet). Les dates proposées restent modifiables.
+
+## 4. Vue semaine
+
+### 4.1 Disposition (variante A retenue)
+
+Maquette de référence : `maquettes/vue-semaine.html`, onglet A.
+
+- **Heures en lignes** (amplitude de la saison, graduations à l'heure et à la demi-heure).
+- **Jours en colonnes**, chaque jour étant **subdivisé en sous-colonnes, une par court** (en-tête : nom du jour, puis C1, C2…). Séparateur marqué entre deux jours.
+- Chaque cours est un bloc coloré à la **couleur du moniteur** affichant : nom du groupe, horaire, initiales/nom du moniteur, effectif (`inscrits / max`).
+- Infobulle au survol : détail complet (court, moniteur, effectif, avertissements).
+- Défilement horizontal si la largeur de la fenêtre ne suffit pas ; en-têtes et axe horaire figés.
+
+### 4.2 Navigation et modes
+
+- Sélecteur de mode, toujours visible, avec un bandeau de couleur distinct :
+  - **Semaine type** : édition des cours récurrents de la saison.
+  - **Semaine du JJ/MM/AAAA** : vue d'une semaine datée (occurrences + exceptions), navigation semaine précédente / suivante / aujourd'hui / sélecteur de date.
+- En semaine datée : les occurrences annulées sont affichées grisées et barrées ; les remplacements portent un indicateur (icône) et la couleur du remplaçant ; les périodes de fermeture apparaissent comme une bande grisée « Fermé — Vacances de … ».
+
+### 4.3 Filtres
+
+- Filtrer par moniteur(s), court(s), groupe : les cours non concernés sont estompés.
+- Légende des moniteurs (pastille couleur + nom + total d'heures de la semaine affichée).
+
+### 4.4 Affichage des disponibilités
+
+- La grille reste épurée par défaut.
+- Au **survol ou au déplacement d'un cours**, ou au **clic sur un moniteur de la légende**, les créneaux où ce moniteur est **indisponible** sont hachurés.
+
+## 5. Création et édition des cours
+
+### 5.1 Création
+
+Deux points d'entrée ouvrant le **même panneau latéral** d'édition :
+
+1. **Sélection à la souris sur la grille** : cliquer-glisser verticalement dans la sous-colonne d'un court. Jour, heure de début, durée et court sont pré-remplis.
+2. **Bouton « Nouveau cours »** : panneau vide.
+
+Le panneau contient : groupe (liste avec recherche + création rapide d'un groupe), moniteur, jour, heure de début, durée, court, note. La liste des moniteurs présente **en tête les moniteurs disponibles** sur le créneau, puis les autres avec la mention « indisponible ».
+
+### 5.2 Glisser-déposer
+
+- **Déplacer** un cours : change jour, heure et court (magnétisme au pas de 15 min).
+- **Redimensionner** par le bord inférieur : change la durée.
+- **Dupliquer** : glisser avec Alt/Option.
+- **Changer de moniteur** : glisser la pastille d'un moniteur depuis la légende et la déposer sur un cours (ou via le panneau).
+- Aperçu fantôme pendant le déplacement, avec affichage des avertissements en temps réel.
+
+### 5.3 Annulation / rétablissement
+
+- Annuler / rétablir **illimités** pendant la session (Ctrl/Cmd+Z, Ctrl/Cmd+Maj+Z), couvrant toutes les modifications du planning (création, déplacement, redimensionnement, suppression, changement de moniteur, exceptions).
+
+### 5.4 Portée des modifications
+
+- En mode **Semaine type** : la modification s'applique à toute la saison.
+- En mode **Semaine datée** : la modification crée une **exception** pour cette seule semaine.
+- Action **« Appliquer à partir de cette semaine »** (menu du cours en semaine datée) : clôt le cours d'origine à la veille de la semaine courante (date d'effet de fin) et crée une nouvelle version du cours avec les nouvelles valeurs, effective à partir de cette semaine.
+
+### 5.5 Exceptions en semaine datée
+
+Accessibles par clic droit / menu du cours :
+- Modifier pour cette semaine (ou glisser-déposer directement).
+- Annuler cette séance (motif obligatoire).
+- Désigner un remplaçant.
+- Créer un cours ponctuel (sélection sur la grille ou bouton « Nouveau cours » en mode semaine datée). C'est possible **y compris pendant une période de fermeture**, ce qui sert pour les **stages de vacances** : la bande « Fermé » reste visible en fond, et les cours ponctuels s'affichent par-dessus.
+- **Dupliquer sur les jours suivants** (cours ponctuel) : copie le cours aux mêmes heure, court et moniteur sur les N jours suivants (ex. stage du lundi au vendredi), en sautant les jours non affichés.
+- Rétablir l'occurrence d'origine (supprime l'exception).
+
+## 6. Couleurs
+
+- Palette prédéfinie d'environ **16 couleurs** nettement distinctes, toutes lisibles avec un texte blanc (contraste ≥ 4,5:1).
+- À la création d'un moniteur, attribution **automatique** de la première couleur non utilisée ; modifiable ensuite dans la palette.
+- Les **initiales du moniteur** sont toujours affichées sur le cours (accessibilité daltoniens, impression noir et blanc).
+
+## 7. Conflits et avertissements
+
+Aucun conflit n'est bloquant : tout est autorisé mais **signalé** (bordure rouge + icône ⚠ sur le cours, détail dans l'infobulle et le panneau).
+
+| Contrôle | Message type |
+|---|---|
+| Court déjà occupé sur tout ou partie du créneau | « Court 2 déjà occupé par Galaxie vert (14h00–15h30) » |
+| Moniteur ayant déjà un cours sur le créneau | « Karim a déjà un cours à 17h00 » |
+| Moniteur hors de ses disponibilités (récurrentes ou datées) | « Hors disponibilités de Marc » |
+| Élève inscrit dans deux cours simultanés | « 2 élèves ont un autre cours sur ce créneau » |
+| Effectif du groupe supérieur au maximum | « 9 / 8 élèves » |
+| Âge d'un élève hors tranche du groupe | « 1 élève hors tranche d'âge » |
+
+Un panneau **« Avertissements »** liste tous les conflits de la semaine affichée, avec navigation vers le cours concerné.
+
+## 8. Gestion des référentiels
+
+Écrans de liste + fiche (création, modification, suppression avec confirmation, recherche) pour : courts, moniteurs (dont disponibilités), groupes (dont composition), élèves, périodes de fermeture, saisons, niveaux.
+
+- Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif).
+- Suppression d'un moniteur, d'un court ou d'un groupe utilisé par des cours : proposer l'archivage (inactif) plutôt que la suppression.
+
+### 8.1 Saisons
+
+- Création d'une saison vierge ou **par duplication** de la précédente : copie des courts, moniteurs (avec disponibilités récurrentes), groupes, élèves et semaine type ; **les exceptions, indisponibilités datées et fermetures ne sont pas copiées**.
+- Les saisons passées restent consultables en **lecture seule**.
+
+## 9. Import / export
+
+### 9.1 Import d'élèves
+- Formats : CSV (séparateur `;` ou `,`, encodage UTF-8 ou Windows-1252 détecté) et Excel (.xlsx).
+- Assistant : choix du fichier → **correspondance colonnes / champs** → aperçu avec erreurs ligne par ligne → import.
+- Détection des doublons (nom + prénom + date de naissance) : ignorer ou mettre à jour.
+
+### 9.2 Exports et impressions
+- **PDF / impression de la vue semaine** (semaine type ou datée), A4 ou A3 paysage, couleurs + initiales.
+- **PDF par moniteur** : planning personnel de la semaine (ou de la semaine type) avec cours, courts, groupes, effectifs.
+- **Feuille d'appel par groupe** (PDF) : liste des élèves, téléphones, contact du responsable légal, colonnes de présence vierges.
+- **Export CSV / Excel** : cours, groupes, élèves, heures moniteurs.
+
+## 10. Récapitulatif des heures
+
+- Total des heures **par moniteur** pour la semaine affichée (dans la légende) et pour une **période choisie** (date début → date fin, raccourcis « mois en cours », « saison »).
+- Calcul basé sur les occurrences réelles : périodes de fermeture et annulations exclues, remplacements attribués au remplaçant, cours ponctuels inclus.
+- Détail consultable par moniteur ; export CSV.
+
+## 11. Exigences non fonctionnelles
+
+### 11.1 Plateformes et installation
+- macOS (versions récentes, Intel et Apple Silicon), Windows 10/11, Linux (distributions courantes de type Ubuntu/Debian, Fedora).
+- Installateurs natifs : `.dmg` (macOS), `.msi` ou `.exe` (Windows), `.AppImage` et `.deb` (Linux). Installation sans droits administrateur si possible.
+- Binaires non signés en V1, avec une notice d'installation ; signature prévue en cas de diffusion plus large (voir §12.2).
+
+### 11.2 Hors ligne
+- Aucune connexion réseau, ni au démarrage ni en fonctionnement (pas de télémétrie, de polices ou de ressources distantes, ni de vérification de mise à jour).
+- Mises à jour : par installation manuelle d'une nouvelle version, avec **migration automatique** du schéma de données.
+
+### 11.3 Stockage et sauvegarde
+- Données stockées dans une base locale unique (SQLite, voir §12) dans le dossier de données utilisateur de l'OS.
+- **Sauvegarde automatique horodatée à chaque fermeture** ; conservation des 30 dernières.
+- Bouton **« Exporter une sauvegarde »** (fichier unique, ex. vers une clé USB) et **« Restaurer une sauvegarde »** (avec confirmation et sauvegarde préalable de l'état courant).
+- Enregistrement immédiat de chaque modification (pas de bouton « Enregistrer »).
+
+### 11.4 Évolutivité
+- UUID et horodatages sur tous les enregistrements (§3) pour permettre en V2 une synchronisation ou une consultation web par les moniteurs, sans refonte du modèle.
+
+### 11.5 Performances et ergonomie
+- Volumétrie cible : 10 courts, 20 moniteurs, 60 groupes, 500 élèves, 150 cours dans la semaine type.
+- Affichage d'une semaine et retour visuel du glisser-déposer instantanés (< 100 ms perçus).
+- Résolution minimale : 1366 × 768. Thèmes clair et sombre suivant le réglage du système.
+- Raccourcis clavier : Suppr (supprimer le cours sélectionné), Ctrl/Cmd+Z / Maj+Z, Ctrl/Cmd+N (nouveau cours), ← / → (semaine précédente / suivante), Ctrl/Cmd+P (imprimer).
+
+### 11.6 Données personnelles (RGPD)
+- Données d'élèves (dont mineurs) stockées uniquement en local sur le poste du responsable.
+- Fonctions de suppression définitive d'un élève et d'export de ses données.
+- Recommandation : chiffrement du disque du poste (FileVault / BitLocker / LUKS) ; option de chiffrement des fichiers de sauvegarde exportés par mot de passe.
+
+## 12. Choix technique
+
+Développement : un développeur assisté par Claude Code, principalement en TypeScript.
+
+### 12.1 Pile retenue
+
+| Couche | Choix | Justification |
+|---|---|---|
+| Conteneur desktop | **Tauri 2** | Installateur d'environ 10 Mo, peu de mémoire, permissions fines (accès réseau interdit). Rust limité à la configuration et aux plugins officiels. |
+| Interface | **React + Vite**, TypeScript strict | Écosystème le plus riche ; modèle Tauri par défaut. |
+| Composants / style | **shadcn/ui** (Radix) + **Tailwind CSS** | Composants accessibles dont le code est intégré au projet ; thèmes clair et sombre. |
+| Grille de planning | **Composant sur mesure** + **dnd-kit** | Maîtrise totale des gestes (sous-colonnes par court, Alt pour dupliquer, dépôt d'une pastille, hachures) ; dnd-kit apporte l'accessibilité clavier et le défilement automatique. Référence : `maquettes/drag-and-drop.html`. |
+| État / annulation | **Zustand** + **commandes inversibles** | Saison ouverte chargée en mémoire ; chaque action = commande `apply` / `revert`, écrite en base dans une transaction ; pile d'annulation illimitée en mémoire. |
+| Base de données | **SQLite** via `tauri-plugin-sql` | Fichier unique local, dans le dossier de données de l'application. |
+| Accès aux données | **Drizzle ORM** (pilote `sqlite-proxy`) + **drizzle-kit** | Requêtes typées, migrations versionnées appliquées au démarrage (§11.2). |
+| Règles métier | TypeScript pur (`src/domain/`) | Conflits, récurrences et exceptions, fermetures, calcul des heures : sans dépendance à React ni à Tauri, testables isolément. |
+| Dates | **date-fns** (+ `@date-fns/tz`) | Fuseau Europe/Paris, semaines ISO, changements d'heure. |
+| Formulaires / validation | **React Hook Form** + **Zod** | Schémas partagés entre formulaires, import et base. |
+| PDF | **@react-pdf/renderer** | Rendu identique sur les trois OS, A4 ou A3 paysage, polices embarquées ; enregistrement via `tauri-plugin-dialog` et `tauri-plugin-fs`, ouverture dans le lecteur PDF du système pour imprimer. |
+| Excel / CSV | **SheetJS CE** (installé depuis `cdn.sheetjs.com`, pas npm) + **PapaParse** | Lecture .xlsx/.xls/.ods et CSV (détection du séparateur et de l'encodage) ; exports. |
+| Tests | **Vitest** (domaine, composants avec Testing Library) + **Playwright** | Tests de bout en bout sur le front servi par Vite, la base étant remplacée par **sql.js** (SQLite en mémoire). Les tests de bout en bout dans Tauri même ne sont pas disponibles sur macOS. |
+| Outillage | **pnpm**, **Biome** (vérification et formatage) | Un seul projet, pas de monorepo. |
+| Build / CI | **GitHub Actions** + `tauri-action` | Matrice macOS (Intel + Apple Silicon), Windows, Linux → `.dmg`, `.msi`, `.AppImage`, `.deb`. |
+
+### 12.2 Contraintes d'implémentation
+
+- **Hors ligne garanti** :
+  - CSP Tauri restrictive (`default-src 'self'`, pas de `connect-src` externe) ;
+  - aucune permission HTTP ;
+  - pas de `tauri-plugin-updater` ;
+  - polices et ressources embarquées dans l'application.
+- **Sauvegardes** : copie cohérente de la base par `VACUUM INTO` vers un fichier horodaté à la fermeture (§11.3). La restauration remplace le fichier après avoir sauvegardé l'état courant.
+- **Abstraction de la base** : l'accès SQLite passe par une interface unique, avec une implémentation Tauri (`tauri-plugin-sql`) et une implémentation sql.js pour les tests. Cela prépare aussi une future version web.
+- **Moteurs web** : WebKit (macOS), WebView2 (Windows) et WebKitGTK (Linux). Le glisser-déposer, les polices et l'impression sont à valider sur les trois en CI ou à la main avant chaque version.
+- **Signature** : pas de signature en V1. La notice d'installation documente le contournement des alertes (macOS : clic droit puis « Ouvrir » ; Windows : « Informations complémentaires » puis « Exécuter quand même »). La signature (Apple Developer + Azure Trusted Signing) sera ajoutée en cas de diffusion plus large.
+
+### 12.3 Organisation du code (indicative)
+
+```
+src/
+  domain/        règles métier pures (conflits, occurrences, heures) + tests Vitest
+  db/            schéma Drizzle, migrations, interface d'accès (Tauri / sql.js)
+  store/         stores Zustand, commandes inversibles, pile d'annulation
+  features/
+    planning/    grille semaine, glisser-déposer, panneau cours
+    referentiels/ courts, moniteurs, groupes, élèves, niveaux, saisons, fermetures
+    import-export/ assistant d'import, exports CSV/Excel
+    pdf/         documents @react-pdf
+  components/ui/ composants shadcn
+src-tauri/       configuration Tauri, capacités, icônes
+e2e/             scénarios Playwright
+```
+
+## 13. Décisions complémentaires
+
+- **Niveaux** : référentiel paramétrable (voir §3.4).
+- **Un seul moniteur par cours** : pas de co-animation. Pour un groupe encadré par deux moniteurs, on crée deux cours sur deux courts.
+- **Stages pendant les vacances** : gérés comme des cours ponctuels pendant une période de fermeture (voir §5.5). Pas de module de stage dédié.
+- **Présences** : sur la feuille d'appel papier uniquement, sans saisie dans l'application en V1.
