@@ -1,5 +1,5 @@
 import { DndContext } from "@dnd-kit/core";
-import { LandPlot, Plus, Redo2, Undo2, X } from "lucide-react";
+import { FileDown, LandPlot, Plus, Redo2, Undo2, X } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -14,6 +14,7 @@ import { useSeason } from "@/app/season";
 import { ErrorAlert } from "@/components/form/Field";
 import { EmptyState, Page } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
+import { Label, Select } from "@/components/ui/input";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { createGroup } from "@/db/repositories/groups";
 import type { Season } from "@/db/schema";
@@ -25,6 +26,9 @@ import { unavailableIntervals } from "@/domain/instructorAvailability";
 import { weekOccurrences } from "@/domain/occurrences";
 import { formatDate, timeToMinutes, WEEKDAYS, weekdayLabel } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
+import { weekPdfJob } from "@/features/pdf/jobs";
+import { PAPER_SIZES, type PaperSize } from "@/features/pdf/model";
+import { PdfPreviewDialog } from "@/features/pdf/PdfPreviewDialog";
 import { RequireSeason } from "@/features/referentiels/ReferentielsPage";
 import { errorMessage } from "@/hooks/useLoader";
 import { DragFeedback } from "./components/DragFeedback";
@@ -103,6 +107,8 @@ const NEUTRAL_COLOR = "#64748B";
 
 /** Dernier mode affiché, par saison : on le retrouve en revenant sur l'écran. */
 const rememberedModes = new Map<string, PlanningMode>();
+/** Dernier format de papier choisi pour le PDF de la semaine. */
+let rememberedPaper: PaperSize = "A4";
 
 export function PlanningPage() {
   const { season } = useSeason();
@@ -242,6 +248,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelState | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [paper, setPaper] = useState<PaperSize>(rememberedPaper);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const scrollerWidth = useElementWidth(scrollerRef);
@@ -479,6 +487,29 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     [refs.instructors, minutes],
   );
   const weekTotal = useMemo(() => totalMinutes(active), [active]);
+
+  // PDF de la semaine affichée (§9.2, Ctrl/Cmd+P).
+  const pdfJob = useMemo(
+    () =>
+      pdfOpen
+        ? weekPdfJob(
+            {
+              season,
+              state: { lessons, exceptions, closures },
+              refs: { courts: refs.courts, instructors: refs.instructors, groups: refs.groups },
+              mode,
+              today,
+            },
+            paper,
+          )
+        : null,
+    [pdfOpen, season, lessons, exceptions, closures, refs, mode, today, paper],
+  );
+  const changePaper = useCallback((value: PaperSize) => {
+    rememberedPaper = value;
+    setPaper(value);
+  }, []);
+  const openPdf = useCallback(() => setPdfOpen(true), []);
 
   const filterOptions = useMemo(() => {
     const usedGroups = new Set(items.map((i) => i.groupId));
@@ -753,6 +784,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     gestures,
     neighbours,
     changeMode,
+    openPdf,
   });
   keyboard.current = {
     undo,
@@ -765,6 +797,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     gestures,
     neighbours,
     changeMode,
+    openPdf,
   };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -779,9 +812,15 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         else if (k.selected) setSelectedId(null);
         return;
       }
-      if (isEditable(event.target) || event.altKey) return;
       const mod = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
+      if (mod && key === "p" && !event.shiftKey && !event.altKey) {
+        // Ctrl/Cmd+P : PDF de la semaine affichée, à la place de l'impression de la page.
+        event.preventDefault();
+        k.openPdf();
+        return;
+      }
+      if (isEditable(event.target) || event.altKey) return;
       if (mod && key === "z") {
         event.preventDefault();
         if (event.shiftKey) k.redo();
@@ -998,6 +1037,15 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             <Redo2 aria-hidden />
             Rétablir
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={openPdf}
+            title="PDF de la semaine affichée (Ctrl/⌘ P)"
+          >
+            <FileDown aria-hidden />
+            PDF
+          </Button>
           <div className="ml-auto">
             <Legend entries={legendEntries} totalMinutes={weekTotal} interaction={interaction} />
           </div>
@@ -1065,6 +1113,27 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         groupName={(id) => (id ? (groupsById.get(id)?.name ?? "cours") : "cours")}
       />
       {toast && <ToastMessage key={toast.key} toast={toast} onUndo={undo} onClose={hideToast} />}
+      <PdfPreviewDialog
+        job={pdfJob}
+        onClose={() => setPdfOpen(false)}
+        options={
+          <div className="flex items-center gap-2">
+            <Label htmlFor="pdf-paper">Format</Label>
+            <Select
+              id="pdf-paper"
+              className="w-40"
+              value={paper}
+              onChange={(e) => changePaper(e.target.value as PaperSize)}
+            >
+              {PAPER_SIZES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        }
+      />
     </DndContext>
   );
 }

@@ -1,4 +1,11 @@
-import { ArrowLeftRight, CalendarDays, type LucideIcon, Settings, Users } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CalendarDays,
+  Clock,
+  type LucideIcon,
+  Settings,
+  Users,
+} from "lucide-react";
 
 export interface NavigationItem {
   path: string;
@@ -9,6 +16,7 @@ export interface NavigationItem {
 /** Entrées de la barre latérale, dans l'ordre d'affichage. */
 export const navigationItems: readonly NavigationItem[] = [
   { path: "/planning", label: "Planning", icon: CalendarDays },
+  { path: "/heures", label: "Heures", icon: Clock },
   { path: "/referentiels", label: "Référentiels", icon: Users },
   { path: "/import-export", label: "Import/Export", icon: ArrowLeftRight },
   { path: "/reglages", label: "Réglages", icon: Settings },

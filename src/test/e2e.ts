@@ -14,6 +14,7 @@ import {
   instructorAvailabilities,
   instructors,
   instructorUnavailabilities,
+  lessonExceptions,
   lessons,
   students,
 } from "@/db/schema";
@@ -55,6 +56,16 @@ export interface SeedPlanning {
   closures?: { label: string; startDate: string; endDate: string }[];
   /** Indisponibilités datées (`AAAA-MM-JJTHH:MM`, fin exclue). */
   unavailabilities?: { instructor: string; startsAt: string; endsAt: string; reason?: string }[];
+  /**
+   * Exceptions sur les séances du premier cours du groupe `group` à la date
+   * `occurrenceDate` : annulation (pluie) ou remplacement par `instructor`.
+   */
+  exceptions?: {
+    kind: "cancellation" | "replacement";
+    group: string;
+    occurrenceDate: string;
+    instructor?: string;
+  }[];
 }
 
 async function activeSeason() {
@@ -141,6 +152,19 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
       startsAt: u.startsAt,
       endsAt: u.endsAt,
       reason: u.reason ?? null,
+    });
+  }
+  for (const e of spec.exceptions ?? []) {
+    const lesson = rows.find((l) => l.groupId === id(`group:${e.group}`));
+    if (!lesson) throw new Error(`Aucun cours pour le groupe ${e.group}`);
+    await db.insert(lessonExceptions).values({
+      id: crypto.randomUUID(),
+      seasonId: season.id,
+      kind: e.kind,
+      lessonId: lesson.id,
+      occurrenceDate: e.occurrenceDate,
+      instructorId: e.instructor ? id(`instructor:${e.instructor}`) : null,
+      cancellationReason: e.kind === "cancellation" ? "rain" : null,
     });
   }
 }

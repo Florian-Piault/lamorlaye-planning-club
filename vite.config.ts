@@ -32,11 +32,16 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/test/setup.ts"],
-    // Couverture des règles métier et de la logique pure de la grille
-    // (`pnpm test:coverage`) : seuil de 90 % (lots L2 et L3).
+    // Couverture des règles métier, de la logique pure de la grille et de la
+    // mise en forme des PDF (`pnpm test:coverage`) : seuil de 90 % (lots L2, L3, L6).
     coverage: {
       provider: "v8",
-      include: ["src/domain/**/*.ts", "src/features/planning/grid/**/*.ts"],
+      include: [
+        "src/domain/**/*.ts",
+        "src/features/planning/grid/**/*.ts",
+        "src/features/pdf/model.ts",
+        "src/features/pdf/render.ts",
+      ],
       exclude: ["src/**/*.test.ts"],
       reporter: ["text", "html"],
       thresholds: {
