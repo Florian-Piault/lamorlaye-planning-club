@@ -32,5 +32,18 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/test/setup.ts"],
+    // Couverture des règles métier (`pnpm test:coverage`) : seuil de 90 % (lot L2).
+    coverage: {
+      provider: "v8",
+      include: ["src/domain/**/*.ts"],
+      exclude: ["src/domain/**/*.test.ts"],
+      reporter: ["text", "html"],
+      thresholds: {
+        statements: 90,
+        branches: 90,
+        functions: 90,
+        lines: 90,
+      },
+    },
   },
 });

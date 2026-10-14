@@ -97,3 +97,45 @@ export function describeUnavailability(range: UnavailabilityRange): string {
   }
   return `du ${formatDate(startDate)} à ${startTime} au ${formatDate(endDate)} à ${endTime}`;
 }
+
+const MINUTES_PER_DAY = 24 * 60;
+
+/**
+ * Date-heure locale `AAAA-MM-JJTHH:MM` à `minutes` après minuit du jour
+ * `date` (au-delà de 24 h, on passe aux jours suivants).
+ */
+export function localDateTime(date: string, minutes: number): string {
+  const days = Math.floor(minutes / MINUTES_PER_DAY);
+  const rest = minutes - days * MINUTES_PER_DAY;
+  const h = String(Math.floor(rest / 60)).padStart(2, "0");
+  const m = String(rest % 60).padStart(2, "0");
+  return `${addDays(date, days)}T${h}:${m}`;
+}
+
+/** Plages qui chevauchent `[startsAt, endsAt[` (date-heures locales, fin exclue). */
+export function overlappingUnavailabilities<T extends UnavailabilityRange>(
+  ranges: readonly T[],
+  startsAt: string,
+  endsAt: string,
+): T[] {
+  return ranges.filter((r) => r.startsAt < endsAt && startsAt < r.endsAt);
+}
+
+/** Partie de chaque plage qui tombe le jour `date`, en minutes depuis minuit (`[0, 1440]`). */
+export function unavailableMinutesOn(
+  ranges: readonly UnavailabilityRange[],
+  date: string,
+): { start: number; end: number }[] {
+  const dayStart = localDateTime(date, 0);
+  const dayEnd = localDateTime(date, MINUTES_PER_DAY);
+  const toMinutes = (value: string) => {
+    if (value <= dayStart) return 0;
+    if (value >= dayEnd) return MINUTES_PER_DAY;
+    const [h = 0, m = 0] = split(value)[1].split(":").map(Number);
+    return h * 60 + m;
+  };
+  return overlappingUnavailabilities(ranges, dayStart, dayEnd).map((r) => ({
+    start: toMinutes(r.startsAt),
+    end: toMinutes(r.endsAt),
+  }));
+}

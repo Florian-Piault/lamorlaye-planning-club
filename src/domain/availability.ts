@@ -129,3 +129,34 @@ export function totalWeeklyMinutes(slots: readonly WeeklySlot[]): number {
     0,
   );
 }
+
+/** Intervalles fusionnés d'un jour, en minutes. */
+export function intervalsOfDay(slots: readonly WeeklySlot[], weekday: number): Interval[] {
+  return mergeIntervals(slots.filter((slot) => slot.weekday === weekday).map(toInterval));
+}
+
+/** Le créneau `[start, end[` (minutes) est-il entièrement couvert par les plages du jour ? */
+export function isAvailableDuring(
+  slots: readonly WeeklySlot[],
+  weekday: number,
+  start: number,
+  end: number,
+): boolean {
+  return intervalsOfDay(slots, weekday).some((i) => i.start <= start && end <= i.end);
+}
+
+/**
+ * Créneaux du jour où le moniteur n'a pas de plage de disponibilité, entre
+ * `dayStart` et `dayEnd` (minutes) : complément des plages, pour les hachures (§4.4).
+ */
+export function uncoveredIntervals(
+  slots: readonly WeeklySlot[],
+  weekday: number,
+  dayStart: number,
+  dayEnd: number,
+): Interval[] {
+  return intervalsOfDay(slots, weekday).reduce(
+    (rest, interval) => subtractInterval(rest, interval),
+    dayEnd > dayStart ? [{ start: dayStart, end: dayEnd }] : [],
+  );
+}
