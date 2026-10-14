@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Planning Club</title>
+  <rect width="1024" height="1024" rx="224" fill="#1f6f4a"/>
+  <rect x="192" y="232" width="640" height="560" rx="48" fill="#f8fafc"/>
+  <rect x="192" y="232" width="640" height="128" rx="48" fill="#c2410c"/>
+  <rect x="192" y="312" width="640" height="48" fill="#c2410c"/>
+  <g fill="#1f6f4a">
+    <rect x="248" y="408" width="152" height="112" rx="20"/>
+    <rect x="436" y="408" width="152" height="112" rx="20" opacity=".55"/>
+    <rect x="624" y="408" width="152" height="112" rx="20"/>
+    <rect x="248" y="560" width="152" height="176" rx="20" opacity=".55"/>
+    <rect x="436" y="560" width="152" height="176" rx="20"/>
+  </g>
+  <circle cx="700" cy="648" r="88" fill="#d9f99d" stroke="#1f6f4a" stroke-width="12"/>
+  <path d="M620 612c40 10 70 46 70 112M780 684c-40-10-70-46-70-112" fill="none" stroke="#1f6f4a" stroke-width="12"/>
+</svg>

@@ -1,0 +1,3 @@
+# Dépendances autorisées à exécuter un script d'installation.
+allowBuilds:
+  esbuild: true
