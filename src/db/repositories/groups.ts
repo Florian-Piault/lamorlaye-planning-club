@@ -61,6 +61,18 @@ export async function listGroupMembers(db: Db, groupId: string): Promise<Student
   return rows.map((r) => r.student);
 }
 
+/** Composition de tous les groupes de la saison (contrôle des élèves en double, §7). */
+export async function listMemberships(
+  db: Db,
+  seasonId: string,
+): Promise<{ groupId: string; studentId: string }[]> {
+  return db
+    .select({ groupId: groupStudents.groupId, studentId: groupStudents.studentId })
+    .from(groupStudents)
+    .innerJoin(groups, eq(groups.id, groupStudents.groupId))
+    .where(eq(groups.seasonId, seasonId));
+}
+
 /** Ajoute un élève au groupe (sans effet s'il en fait déjà partie). */
 export async function addGroupMember(db: Db, groupId: string, studentId: string): Promise<void> {
   await db.insert(groupStudents).values({ groupId, studentId }).onConflictDoNothing();

@@ -1,5 +1,5 @@
 import { Plus, X } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label, Select } from "@/components/ui/input";
 import {
@@ -61,19 +61,34 @@ export function AvailabilityEditor({
     [start, end],
   );
   const hours = cells.filter((m) => m % 60 === 0);
-  const [drag, setDrag] = useState<Drag | null>(null);
+  const [drag, setDragState] = useState<Drag | null>(null);
+  // Valeur courante du glisser, lue au relâchement : l'état React peut ne pas
+  // encore refléter la dernière case survolée si le relâchement suit
+  // immédiatement le dernier déplacement (observé sous WebKit).
+  const dragRef = useRef<Drag | null>(null);
+  const setDrag = (update: (current: Drag | null) => Drag | null) => {
+    dragRef.current = update(dragRef.current);
+    setDragState(dragRef.current);
+  };
+  const latest = useRef({ slots, onChange });
+  latest.current = { slots, onChange };
+  const dragging = drag !== null;
 
   useEffect(() => {
-    if (!drag) return;
+    if (!dragging) return;
     const finish = () => {
-      const from = Math.min(drag.anchor, drag.current);
-      const to = Math.max(drag.anchor, drag.current) + STEP;
-      setDrag(null);
-      onChange(setAvailability(slots, drag.weekday, from, to, drag.available));
+      const current = dragRef.current;
+      dragRef.current = null;
+      setDragState(null);
+      if (!current) return;
+      const from = Math.min(current.anchor, current.current);
+      const to = Math.max(current.anchor, current.current) + STEP;
+      const { slots, onChange } = latest.current;
+      onChange(setAvailability(slots, current.weekday, from, to, current.available));
     };
     window.addEventListener("pointerup", finish);
     return () => window.removeEventListener("pointerup", finish);
-  }, [drag, slots, onChange]);
+  }, [dragging]);
 
   const inDrag = (weekday: number, minute: number) =>
     drag !== null &&
@@ -131,12 +146,12 @@ export function AvailabilityEditor({
                       data-available={available}
                       onPointerDown={(e) => {
                         e.preventDefault();
-                        setDrag({
+                        setDrag(() => ({
                           weekday: day.value,
                           anchor: minute,
                           current: minute,
                           available: !available,
-                        });
+                        }));
                       }}
                       onPointerEnter={() =>
                         setDrag((d) =>

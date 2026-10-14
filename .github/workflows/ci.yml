@@ -49,7 +49,7 @@ jobs:
       - name: TypeScript
         run: pnpm typecheck
 
-      - name: Vitest (avec couverture de src/domain, seuil 90 %)
+      - name: Vitest (couverture du domaine et de la grille, seuil 90 %)
         run: pnpm run test:coverage
 
       - name: Build du front
