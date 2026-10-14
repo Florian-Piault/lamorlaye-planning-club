@@ -50,6 +50,20 @@ export async function listInstructors(
   }));
 }
 
+/** Indisponibilités datées de tous les moniteurs de la saison (semaines datées, §4.4, §7). */
+export async function listSeasonUnavailabilities(
+  db: Db,
+  seasonId: string,
+): Promise<InstructorUnavailability[]> {
+  const rows = await db
+    .select({ unavailability: instructorUnavailabilities })
+    .from(instructorUnavailabilities)
+    .innerJoin(instructors, eq(instructors.id, instructorUnavailabilities.instructorId))
+    .where(eq(instructors.seasonId, seasonId))
+    .orderBy(asc(instructorUnavailabilities.startsAt));
+  return rows.map((r) => r.unavailability);
+}
+
 export async function getInstructor(db: Db, id: string): Promise<InstructorDetail | undefined> {
   const instructor = await db.query.instructors.findFirst({ where: eq(instructors.id, id) });
   if (!instructor) return undefined;

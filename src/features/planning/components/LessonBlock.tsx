@@ -5,7 +5,7 @@ import { type InteractionStore, useInteraction } from "../interaction";
 
 export interface LessonBlockProps {
   id: string;
-  instructorId: string;
+  instructorId: string | null;
   left: number;
   top: number;
   width: number;
@@ -20,6 +20,14 @@ export interface LessonBlockProps {
   ariaLabel: string;
   warning: boolean;
   dimmed: boolean;
+  /** Séance annulée (semaine datée) : grisée, barrée, non déplaçable. */
+  cancelled: boolean;
+  /** Séance assurée par un remplaçant (semaine datée). */
+  replaced: boolean;
+  /** Séance modifiée pour cette seule semaine. */
+  modified: boolean;
+  /** Cours ponctuel (semaine datée). */
+  oneOff: boolean;
   selected: boolean;
   interaction: InteractionStore;
   onOpen: (id: string) => void;
@@ -35,11 +43,12 @@ export interface LessonBlockProps {
  * cible d'une pastille sont redessinés.
  */
 export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
-  const { id, interaction, onOpen, onHover } = props;
+  const { id, interaction, onOpen, onHover, cancelled } = props;
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `lesson:${id}`,
     data: { type: "move", lessonId: id },
-    attributes: { roleDescription: "cours déplaçable" },
+    disabled: cancelled,
+    attributes: { roleDescription: cancelled ? "séance annulée" : "cours déplaçable" },
   });
   const isSource = useInteraction(
     interaction,
@@ -84,13 +93,17 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
       data-warning={props.warning || undefined}
       data-dimmed={props.dimmed || undefined}
       data-selected={props.selected || undefined}
+      data-cancelled={cancelled || undefined}
+      data-replaced={props.replaced || undefined}
+      data-modified={props.modified || undefined}
+      data-one-off={props.oneOff || undefined}
       aria-label={props.ariaLabel}
       title={props.title}
       onClick={() => onOpen(id)}
       onKeyDown={onKeyDown}
       onMouseEnter={() => {
         hovered.current = true;
-        onHover(props.instructorId);
+        onHover(cancelled ? null : props.instructorId);
       }}
       onMouseLeave={() => {
         hovered.current = false;
@@ -104,6 +117,9 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
         props.selected && props.warning && "ring-destructive ring-offset-2",
         isDropTarget && "z-[7] ring-4 ring-sky-500",
         (isSource || isResizing) && "opacity-30",
+        props.oneOff && "outline-2 outline-white/80 outline-dashed -outline-offset-[3px]",
+        cancelled &&
+          "cursor-pointer border border-muted-foreground/40 border-dashed bg-muted text-muted-foreground line-through decoration-2 shadow-none",
         props.dimmed && !props.selected && "opacity-25",
       )}
       style={{
@@ -111,7 +127,7 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
         top: props.top,
         width: props.width,
         height: props.height,
-        backgroundColor: props.color,
+        backgroundColor: cancelled ? undefined : props.color,
       }}
     >
       <LessonContent
@@ -119,8 +135,9 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
         timeLabel={props.timeLabel}
         detail={props.detail}
         warning={props.warning}
+        marker={cancelled ? "✕" : props.replaced ? "⇄" : props.modified ? "✎" : null}
       />
-      <ResizeHandle lessonId={id} />
+      {!cancelled && <ResizeHandle lessonId={id} />}
     </div>
   );
 });
@@ -130,20 +147,24 @@ export function LessonContent({
   timeLabel,
   detail,
   warning,
+  marker = null,
 }: {
   groupName: string;
   timeLabel: string;
   detail: string;
   warning: boolean;
+  /** Indicateur de séance datée : annulée ✕, remplacement ⇄, modifiée ✎. */
+  marker?: string | null;
 }) {
   return (
     <>
       <div className="truncate pr-3 font-semibold">{groupName}</div>
       <div className="truncate">{timeLabel}</div>
       <div className="truncate">{detail}</div>
-      {warning && (
-        <span className="absolute top-0.5 right-1 text-xs" aria-hidden>
-          ⚠
+      {(warning || marker) && (
+        <span className="absolute top-0.5 right-1 flex gap-0.5 text-xs no-underline" aria-hidden>
+          {marker && <span data-testid="lesson-marker">{marker}</span>}
+          {warning && <span>⚠</span>}
         </span>
       )}
     </>

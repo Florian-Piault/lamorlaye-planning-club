@@ -14,6 +14,7 @@ export const referentielTabs = [
   { path: "niveaux", label: "Niveaux" },
   { path: "groupes", label: "Groupes" },
   { path: "eleves", label: "Élèves" },
+  { path: "fermetures", label: "Fermetures" },
 ] as const;
 
 export function ReferentielsPage() {
@@ -23,8 +24,8 @@ export function ReferentielsPage() {
       title="Référentiels"
       description={
         season
-          ? `Saison ${season.name} : courts, moniteurs, niveaux, groupes et élèves.`
-          : "Saisons, courts, moniteurs, niveaux, groupes et élèves."
+          ? `Saison ${season.name} : courts, moniteurs, niveaux, groupes, élèves et fermetures.`
+          : "Saisons, courts, moniteurs, niveaux, groupes, élèves et fermetures."
       }
     >
       <nav aria-label="Référentiels" className="-mt-2 mb-6 flex gap-1 border-b">

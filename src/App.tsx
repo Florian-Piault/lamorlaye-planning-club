@@ -8,6 +8,7 @@ import { ImportExportPage } from "@/features/import-export/ImportExportPage";
 import { PlanningPage } from "@/features/planning/PlanningPage";
 import { CourtsTab } from "@/features/referentiels/courts/CourtsTab";
 import { StudentsTab } from "@/features/referentiels/eleves/StudentsTab";
+import { ClosuresTab } from "@/features/referentiels/fermetures/ClosuresTab";
 import { GroupPage } from "@/features/referentiels/groupes/GroupPage";
 import { GroupsTab } from "@/features/referentiels/groupes/GroupsTab";
 import { InstructorPage } from "@/features/referentiels/moniteurs/InstructorPage";
@@ -35,6 +36,7 @@ export function AppRoutes() {
           <Route path="groupes" element={withSeason(<GroupsTab />)} />
           <Route path="groupes/:id" element={withSeason(<GroupPage />)} />
           <Route path="eleves" element={withSeason(<StudentsTab />)} />
+          <Route path="fermetures" element={withSeason(<ClosuresTab />)} />
         </Route>
         <Route path="import-export" element={<ImportExportPage />} />
         <Route path="reglages" element={<ReglagesPage />} />

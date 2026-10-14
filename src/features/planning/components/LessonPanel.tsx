@@ -1,5 +1,5 @@
 import { Plus, Trash2, X } from "lucide-react";
-import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { ErrorAlert } from "@/components/form/Field";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -9,19 +9,17 @@ import { matchesSearch } from "@/domain/search";
 import { formatDuration, minutesToTime, weekdayLabel } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
 import { emptyGroupValues, GroupForm } from "@/features/referentiels/groupes/GroupForm";
+import type { LessonFormValues } from "../grid/actions";
 import { SNAP_MINUTES } from "../grid/geometry";
-import { instructorChoices } from "../grid/view";
+import { type DateOfWeekday, instructorChoices, noDate } from "../grid/view";
 import type { PlanningInstructor } from "../references";
 
-export interface LessonFormValues {
-  groupId: string;
-  instructorId: string;
-  weekday: number;
-  /** Début, en minutes depuis minuit. */
-  start: number;
-  durationMinutes: number;
-  courtId: string;
-  note: string;
+export type { LessonFormValues };
+
+/** Action supplémentaire du panneau (« Appliquer à partir de cette semaine »). */
+export interface PanelAction {
+  label: string;
+  onClick: (values: LessonFormValues) => void;
 }
 
 export interface PanelGroup {
@@ -51,6 +49,23 @@ interface LessonPanelProps {
   onDraftChange?: (values: LessonFormValues) => void;
   /** Création rapide d'un groupe ; renvoie son identifiant. */
   onCreateGroup: (input: GroupInput) => Promise<string>;
+  /** Titre (et nom accessible) du formulaire. */
+  title?: string;
+  submitLabel?: string;
+  deleteLabel?: string;
+  /** Groupe facultatif (cours ponctuel). */
+  groupOptional?: boolean;
+  /** Groupe non modifiable (séance d'un cours, pour une seule semaine). */
+  groupLocked?: boolean;
+  /** Libellé d'un jour (« Mercredi 04/11 » en semaine datée). */
+  dayHeading?: (weekday: number) => string;
+  /** Date de chaque jour (semaine datée) : indisponibilités datées des moniteurs. */
+  dateOf?: DateOfWeekday;
+  /** Mention sous le titre (portée de la modification). */
+  notice?: ReactNode;
+  actions?: readonly PanelAction[];
+  /** Contenu affiché sous le formulaire (actions sur la séance). */
+  children?: ReactNode;
 }
 
 /**
@@ -74,6 +89,16 @@ export function LessonPanel({
   onDelete,
   onDraftChange,
   onCreateGroup,
+  title = mode === "create" ? "Nouveau cours" : "Modifier le cours",
+  submitLabel = mode === "create" ? "Créer le cours" : "Enregistrer",
+  deleteLabel = "Supprimer",
+  groupOptional = false,
+  groupLocked = false,
+  dayHeading = weekdayLabel,
+  dateOf = noDate,
+  notice,
+  actions = [],
+  children,
 }: LessonPanelProps) {
   const [values, setValues] = useState(initialValues);
   const [groupQuery, setGroupQuery] = useState("");
@@ -102,13 +127,20 @@ export function LessonPanel({
       instructorChoices(
         instructors.filter((i) => i.active || i.id === values.instructorId),
         {
-          date: null,
+          date: dateOf(values.weekday),
           weekday: values.weekday,
           start: values.start,
           end: values.start + values.durationMinutes,
         },
       ),
-    [instructors, values.instructorId, values.weekday, values.start, values.durationMinutes],
+    [
+      instructors,
+      values.instructorId,
+      values.weekday,
+      values.start,
+      values.durationMinutes,
+      dateOf,
+    ],
   );
   const available = choices.filter((c) => c.available);
   const unavailable = choices.filter((c) => !c.available);
@@ -122,13 +154,21 @@ export function LessonPanel({
   const dayOptions = weekdays.includes(values.weekday) ? weekdays : [...weekdays, values.weekday];
   const warnings = warningsOf(values);
 
+  const check = (): boolean => {
+    if (!values.instructorId || !values.courtId || (!groupOptional && !values.groupId)) {
+      setError(
+        groupOptional
+          ? "Choisissez un moniteur et un court."
+          : "Choisissez un groupe, un moniteur et un court.",
+      );
+      return false;
+    }
+    return true;
+  };
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!values.groupId || !values.instructorId || !values.courtId) {
-      setError("Choisissez un groupe, un moniteur et un court.");
-      return;
-    }
-    onSubmit(values);
+    if (check()) onSubmit(values);
   };
 
   const createGroup = async (input: GroupInput) => {
@@ -140,16 +180,9 @@ export function LessonPanel({
 
   return (
     <>
-      <form
-        onSubmit={submit}
-        aria-label={mode === "create" ? "Nouveau cours" : "Modifier le cours"}
-        className="flex flex-col gap-3"
-        noValidate
-      >
+      <form onSubmit={submit} aria-label={title} className="flex flex-col gap-3" noValidate>
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-sm">
-            {mode === "create" ? "Nouveau cours" : "Modifier le cours"}
-          </h2>
+          <h2 className="font-semibold text-sm">{title}</h2>
           <Button
             type="button"
             variant="ghost"
@@ -160,40 +193,46 @@ export function LessonPanel({
             <X aria-hidden />
           </Button>
         </div>
+        {notice && <div className="text-muted-foreground text-xs">{notice}</div>}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-group`}>Groupe</Label>
-          <Input
-            type="search"
-            placeholder="Rechercher un groupe…"
-            aria-label="Rechercher un groupe"
-            className="h-8"
-            value={groupQuery}
-            onChange={(e) => setGroupQuery(e.target.value)}
-          />
+          <Label htmlFor={`${id}-group`}>Groupe{groupOptional && " (facultatif)"}</Label>
+          {!groupLocked && (
+            <Input
+              type="search"
+              placeholder="Rechercher un groupe…"
+              aria-label="Rechercher un groupe"
+              className="h-8"
+              value={groupQuery}
+              onChange={(e) => setGroupQuery(e.target.value)}
+            />
+          )}
           <div className="flex gap-1.5">
             <Select
               id={`${id}-group`}
               value={values.groupId}
+              disabled={groupLocked}
               onChange={(e) => set({ groupId: e.target.value })}
             >
-              <option value="">— choisir —</option>
+              <option value="">{groupOptional ? "— aucun groupe —" : "— choisir —"}</option>
               {groupOptions.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name} ({g.memberCount}/{g.maxSize})
                 </option>
               ))}
             </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Nouveau groupe"
-              title="Créer un groupe"
-              onClick={() => setCreatingGroup(true)}
-            >
-              <Plus aria-hidden />
-            </Button>
+            {!groupLocked && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Nouveau groupe"
+                title="Créer un groupe"
+                onClick={() => setCreatingGroup(true)}
+              >
+                <Plus aria-hidden />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -236,7 +275,7 @@ export function LessonPanel({
             >
               {dayOptions.map((d) => (
                 <option key={d} value={d}>
-                  {weekdayLabel(d)}
+                  {dayHeading(d)}
                 </option>
               ))}
             </Select>
@@ -318,18 +357,29 @@ export function LessonPanel({
         <ErrorAlert>{error}</ErrorAlert>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="submit">{mode === "create" ? "Créer le cours" : "Enregistrer"}</Button>
+          <Button type="submit">{submitLabel}</Button>
+          {actions.map((action) => (
+            <Button
+              key={action.label}
+              type="button"
+              variant="secondary"
+              onClick={() => check() && action.onClick(values)}
+            >
+              {action.label}
+            </Button>
+          ))}
           <Button type="button" variant="outline" onClick={onClose}>
             Fermer
           </Button>
           {onDelete && (
             <Button type="button" variant="ghost" className="text-destructive" onClick={onDelete}>
               <Trash2 aria-hidden />
-              Supprimer
+              {deleteLabel}
             </Button>
           )}
         </div>
       </form>
+      {children}
       <Dialog open={creatingGroup} onOpenChange={setCreatingGroup} title="Nouveau groupe">
         <GroupForm
           initialValues={emptyGroupValues}

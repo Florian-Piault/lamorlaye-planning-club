@@ -7,11 +7,13 @@ import { openAppDatabase } from "@/db";
 import { loadPlanningState } from "@/db/repositories/planning";
 import { getActiveSeason } from "@/db/repositories/seasons";
 import {
+  closures,
   courts,
   groupStudents,
   groups,
   instructorAvailabilities,
   instructors,
+  instructorUnavailabilities,
   lessons,
   students,
 } from "@/db/schema";
@@ -49,6 +51,10 @@ export interface SeedPlanning {
   instructors: SeedInstructor[];
   groups: SeedGroup[];
   lessons: SeedLesson[];
+  /** Périodes de fermeture (bornes incluses). */
+  closures?: { label: string; startDate: string; endDate: string }[];
+  /** Indisponibilités datées (`AAAA-MM-JJTHH:MM`, fin exclue). */
+  unavailabilities?: { instructor: string; startsAt: string; endsAt: string; reason?: string }[];
 }
 
 async function activeSeason() {
@@ -125,6 +131,87 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
   for (let i = 0; i < rows.length; i += 50) {
     await db.insert(lessons).values(rows.slice(i, i + 50));
   }
+  for (const closure of spec.closures ?? []) {
+    await db.insert(closures).values({ id: crypto.randomUUID(), seasonId: season.id, ...closure });
+  }
+  for (const u of spec.unavailabilities ?? []) {
+    await db.insert(instructorUnavailabilities).values({
+      id: crypto.randomUUID(),
+      instructorId: id(`instructor:${u.instructor}`),
+      startsAt: u.startsAt,
+      endsAt: u.endsAt,
+      reason: u.reason ?? null,
+    });
+  }
+}
+
+/** Planning enregistré en base, avec les noms des référentiels (vérification des exceptions). */
+export async function readPlanning(): Promise<{
+  lessons: {
+    group: string;
+    instructor: string;
+    weekday: number;
+    startTime: string;
+    durationMinutes: number;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+  }[];
+  exceptions: {
+    kind: string;
+    occurrenceDate: string | null;
+    date: string | null;
+    startTime: string | null;
+    durationMinutes: number | null;
+    instructor: string | null;
+    group: string | null;
+    cancellationReason: string | null;
+  }[];
+  closures: { label: string; startDate: string; endDate: string }[];
+}> {
+  const { db, season } = await activeSeason();
+  const state = await loadPlanningState(db, season.id);
+  const [instructorRows, groupRows] = await Promise.all([
+    db.select().from(instructors),
+    db.select().from(groups),
+  ]);
+  const instructor = (id: string | null) =>
+    id ? (instructorRows.find((r) => r.id === id)?.firstName ?? "?") : null;
+  const group = (id: string | null) =>
+    id ? (groupRows.find((r) => r.id === id)?.name ?? "?") : null;
+  return {
+    lessons: state.lessons
+      .map((l) => ({
+        group: group(l.groupId) as string,
+        instructor: instructor(l.instructorId) as string,
+        weekday: l.weekday,
+        startTime: l.startTime,
+        durationMinutes: l.durationMinutes,
+        effectiveFrom: l.effectiveFrom,
+        effectiveTo: l.effectiveTo,
+      }))
+      .sort(
+        (a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom) || a.group.localeCompare(b.group),
+      ),
+    exceptions: state.exceptions
+      .map((e) => ({
+        kind: e.kind,
+        occurrenceDate: e.occurrenceDate,
+        date: e.date,
+        startTime: e.startTime,
+        durationMinutes: e.durationMinutes,
+        instructor: instructor(e.instructorId),
+        group: group(e.groupId),
+        cancellationReason: e.cancellationReason,
+      }))
+      .sort((a, b) =>
+        (a.date ?? a.occurrenceDate ?? "").localeCompare(b.date ?? b.occurrenceDate ?? ""),
+      ),
+    closures: state.closures.map((c) => ({
+      label: c.label,
+      startDate: c.startDate,
+      endDate: c.endDate,
+    })),
+  };
 }
 
 /** Cours enregistrés en base (lecture directe, pour vérifier la persistance). */

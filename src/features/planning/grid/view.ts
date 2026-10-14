@@ -68,7 +68,7 @@ export function displayedRange(
 /** Courts affichés : actifs, plus les courts archivés qui portent encore un cours. */
 export function displayedCourts<T extends { id: string; active: boolean }>(
   courts: readonly T[],
-  lessons: readonly Pick<Lesson, "courtId">[],
+  lessons: readonly { courtId: string | null }[],
 ): T[] {
   const used = new Set(lessons.map((l) => l.courtId));
   return courts.filter((c) => c.active || used.has(c.id));
@@ -76,10 +76,11 @@ export function displayedCourts<T extends { id: string; active: boolean }>(
 
 /** Minutes de cours par moniteur sur la semaine type. */
 export function minutesByInstructor(
-  lessons: readonly Pick<Lesson, "instructorId" | "durationMinutes">[],
+  lessons: readonly { instructorId: string | null; durationMinutes: number }[],
 ): Map<string, number> {
   const totals = new Map<string, number>();
   for (const lesson of lessons) {
+    if (!lesson.instructorId) continue;
     totals.set(
       lesson.instructorId,
       (totals.get(lesson.instructorId) ?? 0) + lesson.durationMinutes,
@@ -137,7 +138,15 @@ export function weekWarnings(
   index: ConflictIndex,
   instructors: ReadonlyMap<string, InstructorLabel>,
 ): Map<string, Conflict[]> {
-  const slots = lessons.map(slotFromLesson);
+  return slotWarnings(lessons.map(slotFromLesson), index, instructors);
+}
+
+/** Avertissements de créneaux (semaine type ou séances actives d'une semaine datée). */
+export function slotWarnings(
+  slots: readonly PlanningSlot[],
+  index: ConflictIndex,
+  instructors: ReadonlyMap<string, InstructorLabel>,
+): Map<string, Conflict[]> {
   const conflicts = detectConflicts(slots, index);
   const result = new Map<string, Conflict[]>();
   for (const slot of slots) {
@@ -161,10 +170,18 @@ export interface CandidateLesson {
 
 export const NEW_LESSON_ID = "__nouveau__";
 
-export function candidateSlot(candidate: CandidateLesson): PlanningSlot {
+/** Date d'un jour de la semaine affichée (nulle en semaine type). */
+export type DateOfWeekday = (weekday: number) => string | null;
+
+export const noDate: DateOfWeekday = () => null;
+
+export function candidateSlot(
+  candidate: CandidateLesson,
+  dateOf: DateOfWeekday = noDate,
+): PlanningSlot {
   return {
     id: candidate.id,
-    date: null,
+    date: dateOf(candidate.weekday),
     weekday: candidate.weekday,
     start: candidate.start,
     end: candidate.start + candidate.durationMinutes,
@@ -180,8 +197,9 @@ export function candidateWarnings(
   slots: readonly PlanningSlot[],
   index: ConflictIndex,
   instructors: ReadonlyMap<string, InstructorLabel>,
+  dateOf: DateOfWeekday = noDate,
 ): Conflict[] {
-  const slot = candidateSlot(candidate);
+  const slot = candidateSlot(candidate, dateOf);
   return explainConflicts(slot, detectSlotConflicts(slot, slots, index), instructors);
 }
 
@@ -205,12 +223,13 @@ export function hasFilters(filters: PlanningFilters): boolean {
 
 /** Le cours est-il concerné par les filtres ? (les autres sont estompés) */
 export function matchesFilters(
-  lesson: Pick<Lesson, "instructorId" | "courtId" | "groupId">,
+  lesson: { instructorId: string | null; courtId: string | null; groupId: string | null },
   filters: PlanningFilters,
 ): boolean {
   return (
-    (filters.instructorIds.length === 0 || filters.instructorIds.includes(lesson.instructorId)) &&
-    (filters.courtIds.length === 0 || filters.courtIds.includes(lesson.courtId)) &&
+    (filters.instructorIds.length === 0 ||
+      filters.instructorIds.includes(lesson.instructorId ?? "")) &&
+    (filters.courtIds.length === 0 || filters.courtIds.includes(lesson.courtId ?? "")) &&
     (filters.groupId === null || filters.groupId === lesson.groupId)
   );
 }

@@ -20,7 +20,7 @@ export type DragState =
   | {
       kind: "move";
       lessonId: string;
-      instructorId: string;
+      instructorId: string | null;
       /** Écart (minutes) entre le point saisi et le début du cours. */
       grabOffset: number;
       /** Alt / Option enfoncée : duplication. */
@@ -31,7 +31,7 @@ export type DragState =
   | {
       kind: "resize";
       lessonId: string;
-      instructorId: string;
+      instructorId: string | null;
       candidate: CandidateLesson | null;
       warnings: Conflict[];
     }

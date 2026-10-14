@@ -1,0 +1,104 @@
+{
+  "description": "Calendrier scolaire embarqué (zone B, France métropolitaine) pour l'assistant de pré-remplissage des périodes de fermeture (SPECS.md §3.8). Aucune donnée n'est téléchargée : ce fichier est mis à jour à chaque version de l'application. Pour chaque période, « start » est le premier jour sans classe et « end » le dernier jour de vacances (veille de la reprise) ; « end » nul : fin non encore publiée. Les jours fériés sont calculés (src/domain/schoolCalendar.ts).",
+  "updatedOn": "2026-10-14",
+  "zone": "B",
+  "academies": "Aix-Marseille, Amiens, Lille, Nancy-Metz, Nantes, Nice, Normandie, Orléans-Tours, Reims, Rennes, Strasbourg",
+  "years": [
+    {
+      "schoolYear": "2026-2027",
+      "source": "Arrêté du 22 octobre 2025 fixant le calendrier scolaire de l'année 2026-2027 (JORF du 23 octobre 2025) — https://www.service-public.gouv.fr/particuliers/actualites/A18563 ; https://www.education.gouv.fr/calendrier-scolaire-100148",
+      "periods": [
+        {
+          "key": "toussaint",
+          "label": "Vacances de la Toussaint",
+          "official": "Du samedi 17 octobre 2026 au lundi 2 novembre 2026 (reprise)",
+          "start": "2026-10-17",
+          "end": "2026-11-01"
+        },
+        {
+          "key": "noel",
+          "label": "Vacances de Noël",
+          "official": "Du samedi 19 décembre 2026 au lundi 4 janvier 2027 (reprise)",
+          "start": "2026-12-19",
+          "end": "2027-01-03"
+        },
+        {
+          "key": "hiver",
+          "label": "Vacances d'hiver",
+          "official": "Zone B : du samedi 20 février 2027 au lundi 8 mars 2027 (reprise)",
+          "start": "2027-02-20",
+          "end": "2027-03-07"
+        },
+        {
+          "key": "printemps",
+          "label": "Vacances de printemps",
+          "official": "Zone B : du samedi 17 avril 2027 au lundi 3 mai 2027 (reprise)",
+          "start": "2027-04-17",
+          "end": "2027-05-02"
+        },
+        {
+          "key": "ascension",
+          "label": "Pont de l'Ascension",
+          "official": "Ascension le jeudi 6 mai 2027 ; pas de classe le vendredi 7 mai 2027",
+          "start": "2027-05-06",
+          "end": "2027-05-09"
+        },
+        {
+          "key": "ete",
+          "label": "Vacances d'été",
+          "official": "À partir du samedi 3 juillet 2027 ; rentrée des élèves le jeudi 2 septembre 2027",
+          "start": "2027-07-03",
+          "end": "2027-09-01"
+        }
+      ]
+    },
+    {
+      "schoolYear": "2027-2028",
+      "source": "Arrêté fixant le calendrier scolaire de l'année 2027-2028 (JORF du 23 juillet 2026) — https://www.banquedesterritoires.fr/le-calendrier-scolaire-2027-2028-publie-au-journal-officiel",
+      "periods": [
+        {
+          "key": "toussaint",
+          "label": "Vacances de la Toussaint",
+          "official": "Du samedi 23 octobre 2027 au lundi 8 novembre 2027 (reprise)",
+          "start": "2027-10-23",
+          "end": "2027-11-07"
+        },
+        {
+          "key": "noel",
+          "label": "Vacances de Noël",
+          "official": "Du samedi 18 décembre 2027 au lundi 3 janvier 2028 (reprise)",
+          "start": "2027-12-18",
+          "end": "2028-01-02"
+        },
+        {
+          "key": "hiver",
+          "label": "Vacances d'hiver",
+          "official": "Zone B : du samedi 5 février 2028 au lundi 21 février 2028 (reprise)",
+          "start": "2028-02-05",
+          "end": "2028-02-20"
+        },
+        {
+          "key": "printemps",
+          "label": "Vacances de printemps",
+          "official": "Zone B : du samedi 8 avril 2028 au lundi 24 avril 2028 (reprise)",
+          "start": "2028-04-08",
+          "end": "2028-04-23"
+        },
+        {
+          "key": "ascension",
+          "label": "Pont de l'Ascension",
+          "official": "Ascension le jeudi 25 mai 2028 ; pas de classe les vendredi 26 et samedi 27 mai 2028",
+          "start": "2028-05-25",
+          "end": "2028-05-28"
+        },
+        {
+          "key": "ete",
+          "label": "Vacances d'été",
+          "official": "À partir du mardi 4 juillet 2028 après la classe",
+          "start": "2028-07-05",
+          "end": null
+        }
+      ]
+    }
+  ]
+}

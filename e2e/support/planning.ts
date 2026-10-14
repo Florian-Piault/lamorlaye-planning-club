@@ -118,6 +118,16 @@ export function readLessons(page: Page): Promise<StoredLesson[]> {
   }, E2E_MODULE);
 }
 
+export type StoredPlanning = Awaited<ReturnType<typeof import("../../src/test/e2e").readPlanning>>;
+
+/** Cours (avec dates d'effet), exceptions et fermetures relus en base. */
+export function readPlanning(page: Page): Promise<StoredPlanning> {
+  return page.evaluate(async (path) => {
+    const tools = await import(/* @vite-ignore */ path);
+    return tools.readPlanning();
+  }, E2E_MODULE);
+}
+
 export function lesson(page: Page, group: string): Locator {
   return page.getByTestId("lesson").filter({ hasText: group });
 }

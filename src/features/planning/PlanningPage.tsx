@@ -17,23 +17,13 @@ import { Button } from "@/components/ui/button";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { createGroup } from "@/db/repositories/groups";
 import type { Season } from "@/db/schema";
-import {
-  type Command,
-  changeLessonInstructor,
-  createLesson,
-  deleteLesson,
-  duplicateLesson,
-  type LessonPatch,
-  moveLesson,
-  type PlanningState,
-  resizeLesson,
-  updateLesson,
-} from "@/domain/commands";
-import { createConflictIndex, slotFromLesson } from "@/domain/conflicts";
+import type { Command, PlanningState } from "@/domain/commands";
+import { createConflictIndex } from "@/domain/conflicts";
 import { todayInParis } from "@/domain/dates";
 import { canRedo, canUndo, redoLabel, undoLabel } from "@/domain/history";
 import { unavailableIntervals } from "@/domain/instructorAvailability";
-import { minutesToTime, timeToMinutes, WEEKDAYS, weekdayLabel } from "@/domain/time";
+import { weekOccurrences } from "@/domain/occurrences";
+import { formatDate, timeToMinutes, WEEKDAYS, weekdayLabel } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
 import { RequireSeason } from "@/features/referentiels/ReferentielsPage";
 import { errorMessage } from "@/hooks/useLoader";
@@ -41,8 +31,25 @@ import { DragFeedback } from "./components/DragFeedback";
 import { Filters } from "./components/Filters";
 import { Legend, type LegendEntry } from "./components/Legend";
 import { type LessonFormValues, LessonPanel } from "./components/LessonPanel";
+import { OccurrenceActions } from "./components/OccurrenceActions";
 import { type CandidateLook, type LessonView, PlanningGrid } from "./components/PlanningGrid";
 import { type WarningItem, WarningsPanel } from "./components/WarningsPanel";
+import { WeekNavigator } from "./components/WeekNavigator";
+import {
+  type ActionContext,
+  applyItemFromWeek,
+  assignInstructor,
+  cancelItem,
+  cancellationLabel,
+  createdItemId,
+  duplicateItemOnFollowingDays,
+  moveItem,
+  removeItem,
+  replaceItem,
+  resizeItem,
+  restoreItem,
+  saveItem,
+} from "./grid/actions";
 import {
   AXIS_WIDTH,
   clockLabel,
@@ -51,6 +58,22 @@ import {
   HOUR_HEIGHT,
   layoutItems,
 } from "./grid/geometry";
+import {
+  activeItems,
+  clampWeek,
+  closedDays,
+  datedItems,
+  dateOfMode,
+  dayHeading,
+  type GridItem,
+  itemSlot,
+  lessonItem,
+  type PlanningMode,
+  shortDate,
+  TYPE_MODE,
+  toCandidate,
+  weekNeighbours,
+} from "./grid/items";
 import {
   type CandidateLesson,
   candidateWarnings,
@@ -65,18 +88,21 @@ import {
   noFilters,
   type PlanningFilters,
   semaineTypeDate,
+  slotWarnings,
   totalMinutes,
   warningMessages,
   weekLessons,
-  weekWarnings,
 } from "./grid/view";
 import { hatchedInstructorId, InteractionStore, useInteraction } from "./interaction";
 import { loadPlanningReferences, type PlanningReferences } from "./references";
 import { PlanningStore, usePlanningSnapshot } from "./store";
-import { lessonCandidate, useGridGestures } from "./useGridGestures";
+import { useGridGestures } from "./useGridGestures";
 
 const DESCRIPTION = "Semaine type et semaines datées de la saison.";
 const NEUTRAL_COLOR = "#64748B";
+
+/** Dernier mode affiché, par saison : on le retrouve en revenant sur l'écran. */
+const rememberedModes = new Map<string, PlanningMode>();
 
 export function PlanningPage() {
   const { season } = useSeason();
@@ -140,7 +166,7 @@ function PlanningScreen({ season }: { season: Season }) {
 
 type PanelState =
   | { mode: "create"; initial: LessonFormValues; key: number }
-  | { mode: "edit"; lessonId: string };
+  | { mode: "edit"; itemId: string };
 
 interface Toast {
   key: number;
@@ -181,6 +207,21 @@ function useStable<T>(value: T, key: string): T {
   return ref.current.value;
 }
 
+/** Clé d'un élément qui change avec ses valeurs (réinitialise le panneau). */
+function itemStamp(item: GridItem): string {
+  return [
+    item.id,
+    item.weekday,
+    item.start,
+    item.durationMinutes,
+    item.courtId,
+    item.groupId,
+    item.instructorId,
+    item.note,
+    item.cancelled,
+  ].join("|");
+}
+
 interface WorkspaceProps {
   season: Season;
   refs: PlanningReferences;
@@ -188,7 +229,11 @@ interface WorkspaceProps {
   onReferencesChanged: () => Promise<void>;
 }
 
-/** Écran Planning en mode « Semaine type » (§4.1, §4.3, §4.4, §5.1–5.3, §7). */
+/**
+ * Écran Planning (§4–§7) : semaine type ou semaine datée, selon le mode.
+ * En semaine type, les modifications portent sur les cours (toute la saison) ;
+ * en semaine datée, elles créent des exceptions pour la seule semaine affichée.
+ */
 function PlanningWorkspace({ season, refs, store, onReferencesChanged }: WorkspaceProps) {
   const { db } = useDatabase();
   const snapshot = usePlanningSnapshot(store);
@@ -201,21 +246,56 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   const boardRef = useRef<HTMLDivElement>(null);
   const scrollerWidth = useElementWidth(scrollerRef);
 
-  // --- Données affichées ----------------------------------------------------
-  const referenceDate = useMemo(() => semaineTypeDate(season, todayInParis()), [season]);
-  const lessons = useMemo(
-    () => weekLessons(snapshot.state.lessons, referenceDate),
-    [snapshot.state.lessons, referenceDate],
+  // --- Mode et semaine affichée (§4.2) ---------------------------------------
+  const seasonRange = useMemo(
+    () => ({ startDate: season.startDate, endDate: season.endDate }),
+    [season.startDate, season.endDate],
   );
-  const lessonsById = useMemo(() => new Map(lessons.map((l) => [l.id, l])), [lessons]);
-  const { start: dayStart, end: dayEnd } = displayedRange(
-    { start: timeToMinutes(season.displayStartTime), end: timeToMinutes(season.displayEndTime) },
-    lessons,
+  const today = todayInParis();
+  // Semaine type : versions des cours en vigueur aujourd'hui, ramené dans la saison.
+  const referenceDate = semaineTypeDate(season, today);
+  const todayMonday = clampWeek(seasonRange, today);
+  const [mode, setModeState] = useState<PlanningMode>(
+    () => rememberedModes.get(season.id) ?? TYPE_MODE,
+  );
+  const [datedMonday, setDatedMonday] = useState(() =>
+    mode.kind === "dated" ? mode.monday : todayMonday,
+  );
+  const changeMode = useCallback(
+    (next: PlanningMode) => {
+      rememberedModes.set(season.id, next);
+      setModeState(next);
+      if (next.kind === "dated") setDatedMonday(next.monday);
+      setSelectedId(null);
+      setPanel(null);
+      interaction.update({ draft: null });
+    },
+    [season.id, interaction],
+  );
+  const dateOf = useMemo(() => dateOfMode(mode), [mode]);
+  const ctx: ActionContext = useMemo(
+    () => ({ mode, seasonId: season.id, season: seasonRange }),
+    [mode, season.id, seasonRange],
   );
 
-  const weekdayList = displayedWeekdays(season.displayedDays, lessons);
+  // --- Données affichées ----------------------------------------------------
+  const { lessons, exceptions, closures } = snapshot.state;
+  const items: GridItem[] = useMemo(() => {
+    if (mode.kind === "type") return weekLessons(lessons, referenceDate).map(lessonItem);
+    return datedItems(
+      weekOccurrences({ lessons, exceptions, closures, season: seasonRange }, mode.monday),
+    );
+  }, [mode, lessons, exceptions, closures, referenceDate, seasonRange]);
+  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  const active = useMemo(() => activeItems(items), [items]);
+  const { start: dayStart, end: dayEnd } = displayedRange(
+    { start: timeToMinutes(season.displayStartTime), end: timeToMinutes(season.displayEndTime) },
+    items,
+  );
+
+  const weekdayList = displayedWeekdays(season.displayedDays, items);
   const weekdays = useStable(weekdayList, weekdayList.join(","));
-  const courtList = displayedCourts(refs.courts, lessons);
+  const courtList = displayedCourts(refs.courts, items);
   const courts = useStable(courtList, courtList.map((c) => c.id).join(","));
   const courtIds = useMemo(() => courts.map((c) => c.id), [courts]);
   const columnWidth = fitColumnWidth(
@@ -226,6 +306,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     () => ({ dayStart, dayEnd, hourHeight: HOUR_HEIGHT, columnWidth, weekdays, courtIds }),
     [dayStart, dayEnd, columnWidth, weekdays, courtIds],
   );
+  const closedDayList = useMemo(
+    () => closedDays(mode, weekdays, closures),
+    [mode, weekdays, closures],
+  );
+  const headingOf = useCallback((weekday: number) => dayHeading(mode, weekday), [mode]);
 
   const groupsById = useMemo(() => new Map(refs.groups.map((g) => [g.id, g])), [refs.groups]);
   const instructorsById = useMemo(
@@ -255,54 +340,70 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       }),
     [refs, season.startDate],
   );
-  const slots = useMemo(() => lessons.map(slotFromLesson), [lessons]);
+  // Seules les séances actives comptent (contrôles, heures) : les annulées sont exclues.
+  const slots = useMemo(() => active.map(itemSlot), [active]);
   const warnings = useMemo(
-    () => weekWarnings(lessons, conflictIndex, labels),
-    [lessons, conflictIndex, labels],
+    () => slotWarnings(slots, conflictIndex, labels),
+    [slots, conflictIndex, labels],
   );
   const boxes = useMemo(
     () =>
       layoutItems(
         geometry,
-        lessons.map((l) => {
-          const start = timeToMinutes(l.startTime);
-          return {
-            id: l.id,
-            weekday: l.weekday,
-            courtId: l.courtId,
-            start,
-            end: start + l.durationMinutes,
-          };
-        }),
+        items.map((i) => ({
+          id: i.id,
+          weekday: i.weekday,
+          courtId: i.courtId ?? "",
+          start: i.start,
+          end: i.start + i.durationMinutes,
+        })),
       ),
-    [geometry, lessons],
+    [geometry, items],
+  );
+
+  const instructorName = useCallback(
+    (id: string | null) => {
+      const instructor = id ? instructorsById.get(id) : undefined;
+      return instructor ? `${instructor.firstName} ${instructor.lastName}` : "Moniteur inconnu";
+    },
+    [instructorsById],
   );
 
   const views: LessonView[] = useMemo(() => {
     const filtered = hasFilters(filters);
     return boxes.flatMap((box) => {
-      const lesson = lessonsById.get(box.id);
-      if (!lesson) return [];
-      const group = groupsById.get(lesson.groupId);
-      const instructor = instructorsById.get(lesson.instructorId);
-      const court = courtsById.get(lesson.courtId);
-      const start = timeToMinutes(lesson.startTime);
-      const timeLabel = `${clockLabel(start)}–${clockLabel(start + lesson.durationMinutes)}`;
+      const item = itemsById.get(box.id);
+      if (!item) return [];
+      const occurrence = item.occurrence;
+      const group = item.groupId ? groupsById.get(item.groupId) : undefined;
+      const instructor = item.instructorId ? instructorsById.get(item.instructorId) : undefined;
+      const court = item.courtId ? courtsById.get(item.courtId) : undefined;
+      const timeLabel = `${clockLabel(item.start)}–${clockLabel(item.start + item.durationMinutes)}`;
       const size = group ? `${group.memberCount}/${group.maxSize}` : "";
-      const groupName = group?.name ?? "Groupe inconnu";
-      const instructorName = instructor
-        ? `${instructor.firstName} ${instructor.lastName}`
-        : "Moniteur inconnu";
+      const groupName =
+        group?.name ?? (item.kind === "one_off" ? "Cours ponctuel" : "Groupe inconnu");
       const courtName = court
         ? `${court.name} (${court.kind === "indoor" ? "couvert" : "extérieur"})`
         : "Court inconnu";
-      const messages = warningMessages(warnings.get(lesson.id) ?? []);
-      const day = weekdayLabel(lesson.weekday);
+      const messages = warningMessages(warnings.get(item.id) ?? []);
+      const day = item.date
+        ? `${weekdayLabel(item.weekday)} ${formatDate(item.date)}`
+        : weekdayLabel(item.weekday);
+      const status = [
+        occurrence?.cancellation &&
+          `Annulée : ${cancellationLabel(occurrence.cancellation.reason, occurrence.cancellation.note)}`,
+        occurrence?.replaced &&
+          `Remplacement : ${instructorName(occurrence.instructorId)} au lieu de ${instructorName(
+            occurrence.originalInstructorId,
+          )}`,
+        occurrence?.modified && "Modifiée pour cette semaine",
+        item.kind === "one_off" && "Cours ponctuel",
+      ].filter((s): s is string => Boolean(s));
       return [
         {
           ...box,
-          id: lesson.id,
-          instructorId: lesson.instructorId,
+          id: item.id,
+          instructorId: item.instructorId,
           color: instructor?.color ?? NEUTRAL_COLOR,
           groupName,
           timeLabel,
@@ -311,39 +412,58 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             groupName,
             `${day} ${timeLabel}`,
             courtName,
-            `Moniteur : ${instructorName}`,
+            `Moniteur : ${instructorName(item.instructorId)}`,
             size && `${size} élèves`,
-            lesson.note,
+            ...status,
+            item.note,
             ...messages.map((m) => `⚠ ${m}`),
           ]
             .filter(Boolean)
             .join("\n"),
-          ariaLabel: `${groupName}, ${day} ${timeLabel}, ${court?.name ?? "court inconnu"}, ${instructorName}${
+          ariaLabel: `${groupName}, ${day} ${timeLabel}, ${court?.name ?? "court inconnu"}, ${instructorName(
+            item.instructorId,
+          )}${status.length > 0 ? `, ${status.join(", ").toLowerCase()}` : ""}${
             messages.length > 0 ? `, ${messages.length} avertissement(s)` : ""
           }`,
           warning: messages.length > 0,
-          dimmed: filtered && !matchesFilters(lesson, filters),
+          dimmed: filtered && !matchesFilters(item, filters),
+          cancelled: item.cancelled,
+          replaced: occurrence?.replaced ?? false,
+          modified: occurrence?.modified ?? false,
+          oneOff: item.kind === "one_off",
         },
       ];
     });
-  }, [boxes, lessonsById, groupsById, instructorsById, courtsById, warnings, filters]);
+  }, [
+    boxes,
+    itemsById,
+    groupsById,
+    instructorsById,
+    courtsById,
+    warnings,
+    filters,
+    instructorName,
+  ]);
 
   const warningItems: WarningItem[] = useMemo(
     () =>
-      [...lessons]
-        .filter((l) => warnings.has(l.id))
-        .sort((a, b) => a.weekday - b.weekday || a.startTime.localeCompare(b.startTime))
-        .map((l) => ({
-          lessonId: l.id,
-          title: `${WEEKDAYS.find((d) => d.value === l.weekday)?.short ?? ""} ${clockLabel(
-            timeToMinutes(l.startTime),
-          )} · ${groupsById.get(l.groupId)?.name ?? "Groupe inconnu"}`,
-          messages: warningMessages(warnings.get(l.id) ?? []),
+      [...active]
+        .filter((i) => warnings.has(i.id))
+        .sort((a, b) => a.weekday - b.weekday || a.start - b.start)
+        .map((i) => ({
+          lessonId: i.id,
+          title: `${WEEKDAYS.find((d) => d.value === i.weekday)?.short ?? ""}${
+            i.date ? ` ${shortDate(i.date)}` : ""
+          } ${clockLabel(i.start)} · ${
+            (i.groupId && groupsById.get(i.groupId)?.name) ||
+            (i.kind === "one_off" ? "Cours ponctuel" : "Groupe inconnu")
+          }`,
+          messages: warningMessages(warnings.get(i.id) ?? []),
         })),
-    [lessons, warnings, groupsById],
+    [active, warnings, groupsById],
   );
 
-  const minutes = useMemo(() => minutesByInstructor(lessons), [lessons]);
+  const minutes = useMemo(() => minutesByInstructor(active), [active]);
   const legendEntries: LegendEntry[] = useMemo(
     () =>
       refs.instructors
@@ -358,10 +478,10 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         })),
     [refs.instructors, minutes],
   );
-  const weekTotal = useMemo(() => totalMinutes(lessons), [lessons]);
+  const weekTotal = useMemo(() => totalMinutes(active), [active]);
 
   const filterOptions = useMemo(() => {
-    const usedGroups = new Set(lessons.map((l) => l.groupId));
+    const usedGroups = new Set(items.map((i) => i.groupId));
     return {
       instructors: legendEntries.map((e) => ({ id: e.id, name: e.name, color: e.color })),
       courts: courts.map((c) => ({ id: c.id, name: c.name })),
@@ -369,16 +489,17 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         .filter((g) => g.active || usedGroups.has(g.id))
         .map((g) => ({ id: g.id, name: g.name })),
     };
-  }, [legendEntries, courts, refs.groups, lessons]);
+  }, [legendEntries, courts, refs.groups, items]);
 
+  // Hachures (§4.4) : plages récurrentes, plus indisponibilités datées en semaine datée.
   const unavailableOn = useCallback(
     (instructorId: string, weekday: number) => {
       const instructor = instructorsById.get(instructorId);
       return instructor
-        ? unavailableIntervals(instructor, { date: null, weekday }, dayStart, dayEnd)
+        ? unavailableIntervals(instructor, { date: dateOf(weekday), weekday }, dayStart, dayEnd)
         : [];
     },
-    [instructorsById, dayStart, dayEnd],
+    [instructorsById, dayStart, dayEnd, dateOf],
   );
 
   const lookOf = useCallback(
@@ -389,11 +510,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         : undefined;
       return {
         color: instructor?.color ?? NEUTRAL_COLOR,
-        groupName: group?.name ?? "Nouveau cours",
+        groupName: group?.name ?? (mode.kind === "dated" ? "Cours ponctuel" : "Nouveau cours"),
         detail: `${instructor?.initials ?? "?"}${group ? ` · ${group.memberCount}/${group.maxSize}` : ""}`,
       };
     },
-    [groupsById, instructorsById],
+    [groupsById, instructorsById, mode.kind],
   );
 
   // --- Actions --------------------------------------------------------------
@@ -402,20 +523,33 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   }, []);
   const hideToast = useCallback(() => setToast(null), []);
 
-  /** Exécute une commande du moteur : mémoire, base, pile d'annulation. */
+  /**
+   * Exécute une commande du moteur : mémoire, base, pile d'annulation.
+   * Renvoie la commande, `null` s'il n'y avait rien à faire, `false` en cas d'erreur.
+   */
   const run = useCallback(
-    (build: (state: PlanningState) => Command): Command | null => {
+    (build: (state: PlanningState) => Command | null): Command | null | false => {
       try {
         const command = build(store.getSnapshot().state);
+        if (!command) return null;
         store.execute(command);
         notify(command.label, true);
         return command;
       } catch (e) {
         notify(errorMessage(e));
-        return null;
+        return false;
       }
     },
     [store, notify],
+  );
+
+  /** Sélectionne l'élément créé par une commande, sinon l'élément d'origine. */
+  const selectAfter = useCallback(
+    (command: Command | null | false, fallback: string | null) => {
+      if (command === false) return;
+      setSelectedId((command && createdItemId(mode, command)) ?? fallback);
+    },
+    [mode],
   );
 
   const closePanel = useCallback(() => {
@@ -427,7 +561,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     (id: string) => {
       interaction.update({ draft: null });
       setSelectedId(id);
-      setPanel({ mode: "edit", lessonId: id });
+      setPanel({ mode: "edit", itemId: id });
     },
     [interaction],
   );
@@ -466,12 +600,14 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
 
   const removeLesson = useCallback(
     (id: string) => {
-      if (run((state) => deleteLesson(state, id))) {
+      const item = itemsById.get(id);
+      if (!item) return;
+      if (run((state) => removeItem(state, item))) {
         setSelectedId(null);
         closePanel();
       }
     },
-    [run, closePanel],
+    [itemsById, run, closePanel],
   );
 
   const showLesson = useCallback(
@@ -479,47 +615,28 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       openLesson(id);
       requestAnimationFrame(() => {
         boardRef.current
-          ?.querySelector(`[data-lesson-id="${id}"]`)
+          ?.querySelector(`[data-lesson-id="${CSS.escape(id)}"]`)
           ?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
       });
     },
     [openLesson],
   );
 
-  const toInput = (values: LessonFormValues) => ({
-    weekday: values.weekday,
-    startTime: minutesToTime(values.start),
-    durationMinutes: values.durationMinutes,
-    courtId: values.courtId,
-    groupId: values.groupId,
-    instructorId: values.instructorId,
-    note: values.note.trim() || null,
-  });
-
   const submitPanel = (values: LessonFormValues) => {
     if (!panel) return;
-    if (panel.mode === "create") {
-      const command = run((state) =>
-        createLesson(state, {
-          ...toInput(values),
-          seasonId: season.id,
-          effectiveFrom: season.startDate,
-        }),
-      );
-      if (command) {
-        closePanel();
-        const row = command.forward[0];
-        if (row?.op === "insert") setSelectedId(row.row.id);
-      }
-      return;
-    }
-    const lesson = lessonsById.get(panel.lessonId);
-    if (!lesson) return;
-    const input: LessonPatch = toInput(values);
-    const changed = (Object.keys(input) as (keyof LessonPatch)[]).some(
-      (key) => input[key] !== lesson[key],
-    );
-    if (!changed || run((state) => updateLesson(state, lesson.id, input))) closePanel();
+    const item = panel.mode === "edit" ? itemsById.get(panel.itemId) : undefined;
+    if (panel.mode === "edit" && !item) return;
+    const command = run((state) => saveItem(state, ctx, item ?? null, values));
+    if (command === false) return;
+    closePanel();
+    selectAfter(command, item?.id ?? null);
+  };
+
+  const applyFromThisWeek = (item: GridItem) => (values: LessonFormValues) => {
+    const command = run((state) => applyItemFromWeek(state, ctx, item, values));
+    if (command === false) return;
+    closePanel();
+    selectAfter(command, null);
   };
 
   const createQuickGroup = useCallback(
@@ -549,11 +666,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     [interaction],
   );
 
-  const panelWarnings = (lessonId: string) => (values: LessonFormValues) =>
+  const panelWarnings = (itemId: string) => (values: LessonFormValues) =>
     warningMessages(
       candidateWarnings(
         {
-          id: lessonId,
+          id: itemId,
           weekday: values.weekday,
           start: values.start,
           durationMinutes: values.durationMinutes,
@@ -564,6 +681,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         slots,
         conflictIndex,
         labels,
+        dateOf,
       ),
     );
 
@@ -572,29 +690,39 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     interaction,
     boardRef,
     scrollerRef,
-    context: { geometry, boxes, lessonsById, slots, index: conflictIndex, labels },
+    context: {
+      geometry,
+      boxes,
+      lessonsById: itemsById,
+      slots,
+      index: conflictIndex,
+      labels,
+      dateOf,
+    },
     handlers: {
-      onMove: (lessonId, target, duplicate) => {
-        const values = {
-          weekday: target.weekday,
-          startTime: minutesToTime(target.start),
-          courtId: target.courtId,
-        };
-        if (duplicate) {
-          const command = run((state) => duplicateLesson(state, lessonId, values));
-          const row = command?.forward[0];
-          if (row?.op === "insert") setSelectedId(row.row.id);
-        } else if (run((state) => moveLesson(state, lessonId, values))) {
-          setSelectedId(lessonId);
-        }
+      onMove: (id, target, duplicate) => {
+        const item = itemsById.get(id);
+        if (!item) return;
+        selectAfter(
+          run((state) => moveItem(state, ctx, item, target, duplicate)),
+          id,
+        );
       },
-      onResize: (lessonId, durationMinutes) => {
-        if (run((state) => resizeLesson(state, lessonId, durationMinutes))) setSelectedId(lessonId);
+      onResize: (id, durationMinutes) => {
+        const item = itemsById.get(id);
+        if (item)
+          selectAfter(
+            run((state) => resizeItem(state, ctx, item, durationMinutes)),
+            id,
+          );
       },
-      onAssignInstructor: (lessonId, instructorId) => {
-        if (run((state) => changeLessonInstructor(state, lessonId, instructorId))) {
-          setSelectedId(lessonId);
-        }
+      onAssignInstructor: (id, instructorId) => {
+        const item = itemsById.get(id);
+        if (item)
+          selectAfter(
+            run((state) => assignInstructor(state, ctx, item, instructorId)),
+            id,
+          );
       },
       onSelectSlot: (candidate) =>
         openNew({
@@ -612,7 +740,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   });
 
   // --- Raccourcis clavier (§11.5) ---------------------------------------------
-  const selected = selectedId && lessonsById.has(selectedId) ? selectedId : null;
+  const selected = selectedId && itemsById.has(selectedId) ? selectedId : null;
+  const neighbours = mode.kind === "dated" ? weekNeighbours(seasonRange, mode.monday) : null;
   const keyboard = useRef({
     undo,
     redo,
@@ -622,8 +751,21 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     panel,
     selected,
     gestures,
+    neighbours,
+    changeMode,
   });
-  keyboard.current = { undo, redo, openNew, removeLesson, closePanel, panel, selected, gestures };
+  keyboard.current = {
+    undo,
+    redo,
+    openNew,
+    removeLesson,
+    closePanel,
+    panel,
+    selected,
+    gestures,
+    neighbours,
+    changeMode,
+  };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const k = keyboard.current;
@@ -653,6 +795,17 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       } else if ((event.key === "Delete" || event.key === "Backspace") && !mod && k.selected) {
         event.preventDefault();
         k.removeLesson(k.selected);
+      } else if (
+        (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        !mod &&
+        !event.shiftKey &&
+        k.neighbours &&
+        !interaction.get().drag
+      ) {
+        // ← / → : semaine précédente / suivante (semaine datée).
+        const target = event.key === "ArrowLeft" ? k.neighbours.previous : k.neighbours.next;
+        event.preventDefault();
+        if (target) k.changeMode({ kind: "dated", monday: target });
       }
     };
     window.addEventListener("keydown", onKeyDown, { capture: true });
@@ -660,8 +813,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   }, [interaction]);
 
   // --- Rendu ----------------------------------------------------------------
-  const editedLesson = panel?.mode === "edit" ? lessonsById.get(panel.lessonId) : undefined;
-  const panelOpen = panel?.mode === "create" || editedLesson !== undefined;
+  const editedItem = panel?.mode === "edit" ? itemsById.get(panel.itemId) : undefined;
+  const panelOpen = panel?.mode === "create" || editedItem !== undefined;
 
   if (courts.length === 0) {
     return (
@@ -675,6 +828,113 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       </Page>
     );
   }
+
+  const commonPanelProps = {
+    weekdays,
+    dayStart,
+    dayEnd,
+    courts,
+    groups: refs.groups,
+    instructors: refs.instructors,
+    levels: refs.levels,
+    onSubmit: submitPanel,
+    onClose: closePanel,
+    onCreateGroup: createQuickGroup,
+    dayHeading: headingOf,
+    dateOf,
+  };
+
+  const renderPanel = () => {
+    if (!panel || !panelOpen) return <WarningsPanel items={warningItems} onShow={showLesson} />;
+    if (panel.mode === "create") {
+      const dated = mode.kind === "dated";
+      return (
+        <LessonPanel
+          key={`nouveau-${panel.key}`}
+          {...commonPanelProps}
+          mode="create"
+          initialValues={panel.initial}
+          warningsOf={panelWarnings(NEW_LESSON_ID)}
+          onDraftChange={onDraftChange}
+          title={dated ? "Nouveau cours ponctuel" : undefined}
+          submitLabel={dated ? "Créer le cours ponctuel" : undefined}
+          groupOptional={dated}
+          notice={
+            dated
+              ? "Cours n'existant que cette semaine (rattrapage, stage, séance d'essai), possible pendant une fermeture."
+              : undefined
+          }
+        />
+      );
+    }
+    const item = editedItem as GridItem;
+    const initialValues: LessonFormValues = {
+      ...toCandidate(item),
+      groupId: item.groupId ?? "",
+      instructorId: item.occurrence?.originalInstructorId ?? item.instructorId ?? "",
+      courtId: item.courtId ?? "",
+      note: item.note ?? "",
+    };
+    const stamp = itemStamp(item);
+    const common = {
+      ...commonPanelProps,
+      mode: "edit" as const,
+      initialValues,
+      warningsOf: panelWarnings(item.id),
+    };
+    if (item.kind === "lesson") {
+      return <LessonPanel key={stamp} {...common} onDelete={() => removeLesson(item.id)} />;
+    }
+    const actions = (
+      <OccurrenceActions
+        key={stamp}
+        item={item}
+        instructors={refs.instructors}
+        onCancel={(input) => run((state) => cancelItem(state, ctx, item, input)) !== false}
+        onReplace={(instructorId) =>
+          run((state) => replaceItem(state, ctx, item, instructorId)) !== false
+        }
+        onRestore={() => run((state) => restoreItem(state, ctx, item))}
+        onDuplicate={(count) =>
+          run((state) =>
+            duplicateItemOnFollowingDays(state, ctx, item, count, season.displayedDays),
+          ) !== false
+        }
+      />
+    );
+    const date = item.date
+      ? `${weekdayLabel(item.weekday).toLowerCase()} ${formatDate(item.date)}`
+      : "";
+    if (item.kind === "one_off") {
+      return (
+        <LessonPanel
+          key={stamp}
+          {...common}
+          title="Cours ponctuel"
+          notice={`Le ${date} uniquement.`}
+          groupOptional
+          onDelete={() => removeLesson(item.id)}
+        >
+          {actions}
+        </LessonPanel>
+      );
+    }
+    return (
+      <LessonPanel
+        key={stamp}
+        {...common}
+        title="Modifier pour cette semaine"
+        submitLabel="Enregistrer pour cette semaine"
+        notice={`Séance du ${date} : « Enregistrer » ne modifie que cette séance ; la semaine type et les autres semaines restent inchangées.`}
+        groupLocked
+        actions={[
+          { label: "Appliquer à partir de cette semaine", onClick: applyFromThisWeek(item) },
+        ]}
+      >
+        {actions}
+      </LessonPanel>
+    );
+  };
 
   return (
     <DndContext
@@ -699,7 +959,22 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2.5">
           <h1 className="mr-2 font-semibold text-lg tracking-tight">Planning</h1>
-          <Button size="sm" onClick={() => openNew()} title="Nouveau cours (Ctrl/⌘ N)">
+          <WeekNavigator
+            mode={mode}
+            season={seasonRange}
+            datedMonday={datedMonday}
+            todayMonday={todayMonday}
+            onChange={changeMode}
+          />
+          <Button
+            size="sm"
+            onClick={() => openNew()}
+            title={
+              mode.kind === "dated"
+                ? "Nouveau cours ponctuel (Ctrl/⌘ N)"
+                : "Nouveau cours (Ctrl/⌘ N)"
+            }
+          >
             <Plus aria-hidden />
             Nouveau cours
           </Button>
@@ -729,9 +1004,10 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         </header>
         <ModeBar
           season={season}
+          mode={mode}
           interaction={interaction}
           names={legendEntries}
-          hiddenVersions={snapshot.state.lessons.length - lessons.length}
+          hiddenVersions={mode.kind === "type" ? lessons.length - items.length : 0}
         />
         <Filters
           filters={filters}
@@ -768,47 +1044,14 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             lookOf={lookOf}
             onOpenLesson={openLesson}
             onBoardPointerDown={gestures.onBoardPointerDown}
+            dayHeading={headingOf}
+            closedDays={closedDayList}
           />
           <aside
             aria-label="Panneau latéral"
             className="w-80 shrink-0 overflow-y-auto border-l bg-card p-4"
           >
-            {panelOpen && panel ? (
-              <LessonPanel
-                key={
-                  panel.mode === "create"
-                    ? `nouveau-${panel.key}`
-                    : `${editedLesson?.id}-${editedLesson?.updatedAt}`
-                }
-                mode={panel.mode}
-                initialValues={
-                  panel.mode === "create"
-                    ? panel.initial
-                    : {
-                        ...lessonCandidate(editedLesson as NonNullable<typeof editedLesson>),
-                        groupId: editedLesson?.groupId ?? "",
-                        instructorId: editedLesson?.instructorId ?? "",
-                        courtId: editedLesson?.courtId ?? "",
-                        note: editedLesson?.note ?? "",
-                      }
-                }
-                weekdays={weekdays}
-                dayStart={dayStart}
-                dayEnd={dayEnd}
-                courts={courts}
-                groups={refs.groups}
-                instructors={refs.instructors}
-                levels={refs.levels}
-                warningsOf={panelWarnings(panel.mode === "create" ? NEW_LESSON_ID : panel.lessonId)}
-                onSubmit={submitPanel}
-                onClose={closePanel}
-                onDelete={editedLesson ? () => removeLesson(editedLesson.id) : undefined}
-                onDraftChange={panel.mode === "create" ? onDraftChange : undefined}
-                onCreateGroup={createQuickGroup}
-              />
-            ) : (
-              <WarningsPanel items={warningItems} onShow={showLesson} />
-            )}
+            {renderPanel()}
           </aside>
         </div>
       </div>
@@ -828,11 +1071,13 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
 
 function ModeBar({
   season,
+  mode,
   interaction,
   names,
   hiddenVersions,
 }: {
   season: Season;
+  mode: PlanningMode;
   interaction: InteractionStore;
   names: readonly LegendEntry[];
   hiddenVersions: number;
@@ -840,11 +1085,29 @@ function ModeBar({
   const hatched = useInteraction(interaction, hatchedInstructorId);
   const entry = hatched ? names.find((n) => n.id === hatched) : undefined;
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-sky-700 px-4 py-1 text-white text-xs dark:bg-sky-800">
-      <span>
-        ● Mode <b>Semaine type</b> — saison {season.name} (les modifications s'appliquent à toute la
-        saison)
-      </span>
+    <div
+      data-testid="mode-bar"
+      data-mode={mode.kind}
+      className={
+        mode.kind === "type"
+          ? "flex flex-wrap items-center gap-x-4 gap-y-1 bg-sky-700 px-4 py-1 text-white text-xs dark:bg-sky-800"
+          : "flex flex-wrap items-center gap-x-4 gap-y-1 bg-emerald-700 px-4 py-1 text-white text-xs dark:bg-emerald-800"
+      }
+    >
+      {mode.kind === "type" ? (
+        <span>
+          ● Mode <b>Semaine type</b> — saison {season.name} (les modifications s'appliquent à toute
+          la saison)
+        </span>
+      ) : (
+        <span>
+          ● Mode <b>Semaine du {formatDate(mode.monday)}</b> — les modifications ne concernent que
+          cette semaine (exceptions) ·{" "}
+          <Link to="/referentiels/fermetures" className="underline underline-offset-2">
+            Périodes de fermeture
+          </Link>
+        </span>
+      )}
       {hiddenVersions > 0 && (
         <span className="opacity-90">
           {hiddenVersions} version(s) de cours hors vigueur à ce jour non affichée(s)

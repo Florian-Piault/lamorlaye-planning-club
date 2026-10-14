@@ -9,6 +9,7 @@ import {
   changeLessonInstructor,
   composeCommands,
   createClosure,
+  createClosures,
   createLesson,
   createOneOff,
   deleteClosure,
@@ -536,6 +537,25 @@ describe("périodes de fermeture", () => {
       op: "insert",
       table: "closures",
     });
+  });
+
+  it("ajoute plusieurs fermetures en une seule commande (assistant)", () => {
+    const ctx = testContext();
+    const noel = {
+      ...input,
+      label: "Vacances de Noël",
+      startDate: "2026-12-19",
+      endDate: "2027-01-03",
+    };
+    const command = createClosures(state(), [input, noel], ctx);
+    expect(command.label).toBe("Ajout de 2 fermetures");
+    const current = roundTrip(state(), command);
+    expect(current.closures.map((c) => c.label)).toEqual([
+      "Vacances de la Toussaint",
+      "Vacances de Noël",
+    ]);
+    expect(createClosures(state(), [input], ctx).label).toBe("Ajout d'une fermeture");
+    expect(() => createClosures(state(), [])).toThrow("Aucune fermeture à ajouter.");
   });
 });
 

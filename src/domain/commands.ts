@@ -793,6 +793,19 @@ export function createClosure(
   ]);
 }
 
+/** Ajout de plusieurs fermetures en une seule commande (assistant de pré-remplissage, §3.8). */
+export function createClosures(
+  state: PlanningState,
+  inputs: readonly ClosureInput[],
+  ctx: CommandContext = defaultCommandContext,
+): Command {
+  if (inputs.length === 0) throw new PlanningError("Aucune fermeture à ajouter.");
+  const commands = inputs.map((input) => createClosure(state, input, ctx));
+  return inputs.length === 1
+    ? (commands[0] as Command)
+    : composeCommands(`Ajout de ${inputs.length} fermetures`, commands);
+}
+
 export function updateClosure(
   state: PlanningState,
   id: string,

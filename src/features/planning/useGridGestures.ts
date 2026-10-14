@@ -6,9 +6,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { type PointerEvent as ReactPointerEvent, type RefObject, useEffect, useRef } from "react";
-import type { Lesson } from "@/db/schema";
 import type { ConflictIndex, PlanningSlot } from "@/domain/conflicts";
-import { timeToMinutes } from "@/domain/time";
 import {
   boardSize,
   columnAt,
@@ -22,9 +20,11 @@ import {
   selectionRange,
   yToMinute,
 } from "./grid/geometry";
+import { type GridItem, toCandidate } from "./grid/items";
 import {
   type CandidateLesson,
   candidateWarnings,
+  type DateOfWeekday,
   type InstructorLabel,
   NEW_LESSON_ID,
 } from "./grid/view";
@@ -36,10 +36,13 @@ const DRAG_THRESHOLD = 4;
 export interface GestureContext {
   geometry: GridGeometry;
   boxes: readonly PlacedBox[];
-  lessonsById: ReadonlyMap<string, Lesson>;
+  /** Éléments de la grille (cours ou séances datées), par identifiant. */
+  lessonsById: ReadonlyMap<string, GridItem>;
   slots: readonly PlanningSlot[];
   index: ConflictIndex;
   labels: ReadonlyMap<string, InstructorLabel>;
+  /** Date de chaque jour affiché (semaine datée) : indisponibilités datées des avertissements. */
+  dateOf: DateOfWeekday;
 }
 
 export interface GestureHandlers {
@@ -71,18 +74,6 @@ interface PendingSelection {
   weekday: number;
   courtId: string;
   anchorY: number;
-}
-
-export function lessonCandidate(lesson: Lesson): CandidateLesson {
-  return {
-    id: lesson.id,
-    weekday: lesson.weekday,
-    start: timeToMinutes(lesson.startTime),
-    durationMinutes: lesson.durationMinutes,
-    courtId: lesson.courtId,
-    groupId: lesson.groupId,
-    instructorId: lesson.instructorId,
-  };
 }
 
 function sameCandidate(a: CandidateLesson | null, b: CandidateLesson | null): boolean {
@@ -136,7 +127,15 @@ export function useGridGestures({
 
   /** Recalcule le créneau visé et ses avertissements pour la position courante du pointeur. */
   const update = (drag: DragState) => {
-    const { geometry: g, boxes, lessonsById, slots, index, labels } = latest.current.context;
+    const {
+      geometry: g,
+      boxes,
+      lessonsById,
+      slots,
+      index,
+      labels,
+      dateOf,
+    } = latest.current.context;
     const p = pointer.current;
     const point = boardPoint(p);
     let candidate: CandidateLesson | null = null;
@@ -147,7 +146,7 @@ export function useGridGestures({
         const target = lesson && moveTarget(g, point, drag.grabOffset, lesson.durationMinutes);
         if (lesson && target) {
           candidate = {
-            ...lessonCandidate(lesson),
+            ...toCandidate(lesson),
             id: p.alt ? NEW_LESSON_ID : lesson.id,
             weekday: target.weekday,
             courtId: target.courtId,
@@ -160,7 +159,7 @@ export function useGridGestures({
       case "resize": {
         const lesson = lessonsById.get(drag.lessonId);
         if (lesson) {
-          const base = lessonCandidate(lesson);
+          const base = toCandidate(lesson);
           candidate = { ...base, durationMinutes: resizeDuration(g, point.y, base.start) };
         }
         break;
@@ -170,8 +169,9 @@ export function useGridGestures({
         const inside =
           point.x >= 0 && point.y >= 0 && point.x <= size.width && point.y <= size.height;
         const targetId = inside ? itemAtPoint(boxes, point) : null;
-        const lesson = targetId ? lessonsById.get(targetId) : undefined;
-        if (lesson) candidate = { ...lessonCandidate(lesson), instructorId: drag.instructorId };
+        const target = targetId ? lessonsById.get(targetId) : undefined;
+        const lesson = target && !target.cancelled ? target : undefined;
+        if (lesson) candidate = { ...toCandidate(lesson), instructorId: drag.instructorId };
         next = { ...drag, targetLessonId: lesson ? lesson.id : null };
         break;
       }
@@ -197,7 +197,7 @@ export function useGridGestures({
       interaction.update({ pointer: pointerState });
       return;
     }
-    const warnings = candidate ? candidateWarnings(candidate, slots, index, labels) : [];
+    const warnings = candidate ? candidateWarnings(candidate, slots, index, labels, dateOf) : [];
     interaction.update({
       drag: { ...next, candidate, warnings } as DragState,
       pointer: pointerState,
@@ -293,7 +293,7 @@ export function useGridGestures({
     let drag: DragState | null = null;
     if (data?.type === "move" || data?.type === "resize") {
       const lesson = lessonsById.get(data.lessonId);
-      if (!lesson) return;
+      if (!lesson || lesson.cancelled) return;
       const base = {
         lessonId: lesson.id,
         instructorId: lesson.instructorId,
@@ -305,8 +305,7 @@ export function useGridGestures({
           ? {
               kind: "move",
               ...base,
-              grabOffset:
-                yToMinute(geometry, boardPoint(activator).y) - timeToMinutes(lesson.startTime),
+              grabOffset: yToMinute(geometry, boardPoint(activator).y) - lesson.start,
               duplicate: activator.altKey,
             }
           : { kind: "resize", ...base };
@@ -343,7 +342,7 @@ export function useGridGestures({
       const moved =
         target.weekday !== lesson.weekday ||
         target.courtId !== lesson.courtId ||
-        target.start !== timeToMinutes(lesson.startTime);
+        target.start !== lesson.start;
       if (drag.duplicate || moved) handlers.onMove(lesson.id, target, drag.duplicate);
     } else if (drag.kind === "resize") {
       const lesson = lessonsById.get(drag.lessonId);

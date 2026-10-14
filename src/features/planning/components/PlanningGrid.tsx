@@ -20,7 +20,7 @@ import { LessonBlock, LessonContent } from "./LessonBlock";
 
 export interface LessonView extends Rect {
   id: string;
-  instructorId: string;
+  instructorId: string | null;
   color: string;
   groupName: string;
   timeLabel: string;
@@ -29,6 +29,16 @@ export interface LessonView extends Rect {
   ariaLabel: string;
   warning: boolean;
   dimmed: boolean;
+  cancelled: boolean;
+  replaced: boolean;
+  modified: boolean;
+  oneOff: boolean;
+}
+
+/** Bande « Fermé — … » d'un jour couvert par une période de fermeture (§4.2). */
+export interface ClosedDayView {
+  weekday: number;
+  label: string;
 }
 
 /** Apparence d'un cours candidat (fantôme, brouillon). */
@@ -54,6 +64,9 @@ interface PlanningGridProps {
   lookOf: (candidate: CandidateLesson) => CandidateLook;
   onOpenLesson: (id: string) => void;
   onBoardPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
+  /** En-tête d'un jour (« Lundi » ou « Lundi 02/11 »). */
+  dayHeading?: (weekday: number) => string;
+  closedDays?: readonly ClosedDayView[];
 }
 
 /**
@@ -73,6 +86,8 @@ export function PlanningGrid({
   lookOf,
   onOpenLesson,
   onBoardPointerDown,
+  dayHeading = weekdayLabel,
+  closedDays = noClosedDays,
 }: PlanningGridProps) {
   const size = boardSize(geometry);
   const onHover = useMemo(
@@ -86,7 +101,7 @@ export function PlanningGrid({
       className="relative min-w-0 flex-1 overflow-auto bg-background"
     >
       <div style={{ width: AXIS_WIDTH + size.width }}>
-        <GridHeader geometry={geometry} courts={courts} />
+        <GridHeader geometry={geometry} courts={courts} dayHeading={dayHeading} />
         <div className="flex pt-2 pb-4">
           <TimeAxis geometry={geometry} height={size.height} />
           <div
@@ -101,6 +116,7 @@ export function PlanningGrid({
             style={{ width: size.width, height: size.height }}
           >
             <GridLines geometry={geometry} />
+            <ClosureLayer geometry={geometry} closedDays={closedDays} />
             <HatchLayer
               geometry={geometry}
               interaction={interaction}
@@ -121,12 +137,53 @@ export function PlanningGrid({
   );
 }
 
+const noClosedDays: readonly ClosedDayView[] = [];
+
+/** Bandes grisées des jours fermés ; les cours ponctuels (stages) s'affichent par-dessus. */
+const ClosureLayer = memo(function ClosureLayer({
+  geometry,
+  closedDays,
+}: {
+  geometry: GridGeometry;
+  closedDays: readonly ClosedDayView[];
+}) {
+  const dayWidth = geometry.courtIds.length * geometry.columnWidth;
+  return (
+    <>
+      {closedDays.map((day) => {
+        const index = geometry.weekdays.indexOf(day.weekday);
+        if (index < 0) return null;
+        return (
+          <div
+            key={day.weekday}
+            data-testid="closure-band"
+            data-weekday={day.weekday}
+            className="pointer-events-none absolute inset-y-0 z-[1] flex justify-center bg-muted/80 pt-3"
+            style={{
+              left: index * dayWidth,
+              width: dayWidth,
+              backgroundImage:
+                "repeating-linear-gradient(-45deg, transparent 0 10px, color-mix(in oklab, var(--muted-foreground) 12%, transparent) 10px 12px)",
+            }}
+          >
+            <span className="h-fit rounded bg-card/90 px-1.5 py-0.5 text-center font-semibold text-[11px] text-muted-foreground shadow-sm">
+              {day.label}
+            </span>
+          </div>
+        );
+      })}
+    </>
+  );
+});
+
 const GridHeader = memo(function GridHeader({
   geometry,
   courts,
+  dayHeading,
 }: {
   geometry: GridGeometry;
   courts: readonly Court[];
+  dayHeading: (weekday: number) => string;
 }) {
   const byId = new Map(courts.map((c) => [c.id, c]));
   return (
@@ -140,7 +197,7 @@ const GridHeader = memo(function GridHeader({
           style={{ width: geometry.courtIds.length * geometry.columnWidth }}
         >
           <div className="truncate pt-1.5 pb-0.5 text-center font-semibold text-sm">
-            {weekdayLabel(weekday)}
+            {dayHeading(weekday)}
           </div>
           <div className="flex">
             {geometry.courtIds.map((courtId, i) => {
