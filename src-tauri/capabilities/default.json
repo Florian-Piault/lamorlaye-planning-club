@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions de la fenêtre principale. Aucune permission HTTP : l'application fonctionne strictement hors ligne. Les dialogues « Ouvrir » / « Enregistrer sous » servent à l'export et à la restauration des sauvegardes.",
+  "description": "Permissions de la fenêtre principale. Aucune permission HTTP : l'application fonctionne strictement hors ligne. Les dialogues « Ouvrir » / « Enregistrer sous » servent à l'export et à la restauration des sauvegardes. Le fichier d'import d'élèves est choisi dans un dialogue affiché côté Rust (`import_choose_file`) puis lu par `import_read_file`, limité à ce fichier CSV ou Excel : pas d'accès général au système de fichiers.",
   "windows": ["main"],
   "permissions": [
     "core:default",

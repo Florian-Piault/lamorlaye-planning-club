@@ -1,5 +1,6 @@
 mod backup;
 mod db;
+mod import;
 
 use std::fs;
 
@@ -19,6 +20,7 @@ pub fn run() {
             fs::create_dir_all(&data_dir)?;
             app.manage(db::DatabaseLocation(data_dir.join(DATABASE_FILE)));
             app.manage(backup::BackupDirectory(data_dir.join(BACKUPS_DIR)));
+            app.manage(import::PendingImport::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -29,7 +31,9 @@ pub fn run() {
             backup::backup_list,
             backup::backup_create,
             backup::backup_export,
-            backup::backup_restore
+            backup::backup_restore,
+            import::import_choose_file,
+            import::import_read_file
         ])
         .build(tauri::generate_context!())
         .expect("erreur au lancement de l'application")

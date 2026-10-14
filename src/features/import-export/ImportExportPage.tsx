@@ -1,15 +1,16 @@
-import { ArrowLeftRight } from "lucide-react";
-import { EmptyState, Page } from "@/components/layout/Page";
+import { Page } from "@/components/layout/Page";
+import { RequireSeason } from "@/features/referentiels/ReferentielsPage";
+import { StudentImport } from "./StudentImport";
 
 export function ImportExportPage() {
   return (
     <Page
       title="Import/Export"
-      description="Import d'élèves (CSV, Excel), exports et documents PDF."
+      description="Import d'élèves (CSV, Excel). Les exports et documents PDF arriveront dans une prochaine version."
     >
-      <EmptyState icon={ArrowLeftRight} title="Rien à importer ni à exporter pour le moment">
-        L'assistant d'import et les exports seront ajoutés dans une prochaine version.
-      </EmptyState>
+      <RequireSeason>
+        <StudentImport />
+      </RequireSeason>
     </Page>
   );
 }

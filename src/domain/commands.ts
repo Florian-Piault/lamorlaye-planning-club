@@ -43,11 +43,16 @@ export type Mutation = {
     | { op: "delete"; table: T; id: string };
 }[PlanningTable];
 
-export interface Command {
+/**
+ * Commande inversible. Le type des mutations est paramétrable : le planning
+ * utilise `Mutation`, l'import d'élèves ses propres mutations
+ * (`domain/studentImport.ts`).
+ */
+export interface Command<M = Mutation> {
   /** Libellé affiché dans les menus « Annuler … » / « Rétablir … ». */
   label: string;
-  forward: readonly Mutation[];
-  backward: readonly Mutation[];
+  forward: readonly M[];
+  backward: readonly M[];
 }
 
 export class PlanningError extends Error {
@@ -97,12 +102,15 @@ export function revertCommand(state: PlanningState, command: Command): PlanningS
 }
 
 /** Commande inverse (pour rejouer une annulation). */
-export function invertCommand(command: Command): Command {
+export function invertCommand<M>(command: Command<M>): Command<M> {
   return { label: command.label, forward: command.backward, backward: command.forward };
 }
 
 /** Regroupe plusieurs commandes en une seule (une seule entrée dans la pile d'annulation). */
-export function composeCommands(label: string, commands: readonly Command[]): Command {
+export function composeCommands<M = Mutation>(
+  label: string,
+  commands: readonly Command<M>[],
+): Command<M> {
   return {
     label,
     forward: commands.flatMap((c) => c.forward),

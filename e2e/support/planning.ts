@@ -66,7 +66,7 @@ export const demoClub: SeedPlanning = {
   ],
 };
 
-async function createSeason(page: Page) {
+export async function createSeason(page: Page) {
   await page.goto("/#/referentiels");
   const form = page.getByRole("form", { name: "Saison" });
   await form.getByLabel("Nom", { exact: true }).fill("2026-2027");
@@ -83,6 +83,12 @@ const E2E_MODULE = "/src/test/e2e.ts";
 /** Crée la saison (lundi → samedi, 8h–22h), insère le club et ouvre le planning. */
 export async function openPlanning(page: Page, spec: SeedPlanning = demoClub) {
   await createSeason(page);
+  await seedPlanning(page, spec);
+  await goToPlanning(page);
+}
+
+/** Insère les référentiels et les cours dans la saison active. */
+export async function seedPlanning(page: Page, spec: SeedPlanning) {
   await page.evaluate(
     async ({ path, spec }) => {
       const tools = await import(/* @vite-ignore */ path);
@@ -90,7 +96,6 @@ export async function openPlanning(page: Page, spec: SeedPlanning = demoClub) {
     },
     { path: E2E_MODULE, spec },
   );
-  await goToPlanning(page);
 }
 
 export async function goToPlanning(page: Page) {
