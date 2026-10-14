@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { ErrorAlert } from "@/components/form/Field";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDatabase } from "@/db/DatabaseProvider";
@@ -29,7 +29,8 @@ import { UnavailabilitySection } from "./UnavailabilitySection";
 export function InstructorPage() {
   const { id = "" } = useParams();
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
+  const readOnly = useReadOnly();
   const navigate = useNavigate();
   const load = useCallback(async () => {
     const [instructor, all] = await Promise.all([
@@ -103,21 +104,23 @@ export function InstructorPage() {
         </span>
         <h2 className="font-semibold text-lg">{name}</h2>
         <StatusBadge active={instructor.active} />
-        <div className="ml-auto">
-          <DeleteAction
-            showLabel
-            name={name}
-            subject={`le moniteur « ${name} »`}
-            archived={!instructor.active}
-            getUsage={() => getInstructorUsage(db, id)}
-            onDelete={async () => {
-              await deleteInstructor(db, id);
-              navigate("/referentiels/moniteurs");
-            }}
-            onArchive={() => setInstructorActive(db, id, false)}
-            onDone={reload}
-          />
-        </div>
+        {!readOnly && (
+          <div className="ml-auto">
+            <DeleteAction
+              showLabel
+              name={name}
+              subject={`le moniteur « ${name} »`}
+              archived={!instructor.active}
+              getUsage={() => getInstructorUsage(db, id)}
+              onDelete={async () => {
+                await deleteInstructor(db, id);
+                navigate("/referentiels/moniteurs");
+              }}
+              onArchive={() => setInstructorActive(db, id, false)}
+              onDone={reload}
+            />
+          </div>
+        )}
       </div>
       <ErrorAlert>{error}</ErrorAlert>
 
@@ -134,6 +137,7 @@ export function InstructorPage() {
             dayEnd={season.displayEndTime}
             color={instructor.color}
             onChange={changeSlots}
+            readOnly={readOnly}
           />
         </CardContent>
       </Card>
@@ -149,6 +153,7 @@ export function InstructorPage() {
               initialValues={instructorValues(instructor)}
               others={data.others}
               submitLabel="Enregistrer"
+              readOnly={readOnly}
               onSubmit={async (input) => {
                 await updateInstructor(db, id, input);
                 reload();
@@ -164,6 +169,7 @@ export function InstructorPage() {
           <CardContent>
             <UnavailabilitySection
               unavailabilities={instructor.unavailabilities}
+              readOnly={readOnly}
               onAdd={async (input) => {
                 await addUnavailability(db, id, input);
                 reload();

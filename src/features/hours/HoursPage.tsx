@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, FileSpreadsheet, FileText } from "lucide-react";
 import { Fragment, useCallback, useMemo, useState } from "react";
-import { useActiveSeason } from "@/app/season";
+import { useViewedSeason } from "@/app/season";
 import { ErrorAlert } from "@/components/form/Field";
 import { Page } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ export function HoursPage() {
 
 function HoursScreen() {
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
   const load = useCallback(() => loadOutputData(db, season), [db, season]);
   const { data, error } = useLoader(load);
   if (error)

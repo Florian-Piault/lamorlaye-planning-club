@@ -142,7 +142,10 @@ export class ImportHistory {
     if (this.snapshot.confirmUndo) this.set({ confirmUndo: null });
   }
 
-  /** Vide l'historique (tests). */
+  /**
+   * Vide l'historique : après un effacement RGPD (rétablir un import
+   * recréerait l'élève effacé), et dans les tests.
+   */
   reset(): void {
     this.snapshot = initial;
     for (const listener of this.listeners) listener();

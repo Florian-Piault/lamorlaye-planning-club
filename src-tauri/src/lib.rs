@@ -1,4 +1,5 @@
 mod backup;
+mod crypto;
 mod db;
 mod import;
 mod output;
@@ -33,6 +34,7 @@ pub fn run() {
             backup::backup_list,
             backup::backup_create,
             backup::backup_export,
+            backup::backup_inspect,
             backup::backup_restore,
             import::import_choose_file,
             import::import_read_file,

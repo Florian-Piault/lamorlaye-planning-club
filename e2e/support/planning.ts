@@ -115,12 +115,26 @@ export type StoredLesson = {
   durationMinutes: number;
 };
 
-/** Cours relus directement en base. */
-export function readLessons(page: Page): Promise<StoredLesson[]> {
-  return page.evaluate(async (path) => {
-    const tools = await import(/* @vite-ignore */ path);
-    return tools.readLessons();
-  }, E2E_MODULE);
+/** Cours relus directement en base (saison active, ou saison nommée). */
+export function readLessons(page: Page, seasonName?: string): Promise<StoredLesson[]> {
+  return page.evaluate(
+    async ({ path, seasonName }) => {
+      const tools = await import(/* @vite-ignore */ path);
+      return tools.readLessons(seasonName);
+    },
+    { path: E2E_MODULE, seasonName },
+  );
+}
+
+/** Écritures directes dans une saison, hors interface : message de chaque refus (ou « ok »). */
+export function tryWritingSeason(page: Page, seasonName: string): Promise<string[]> {
+  return page.evaluate(
+    async ({ path, seasonName }) => {
+      const tools = await import(/* @vite-ignore */ path);
+      return tools.tryWritingSeason(seasonName);
+    },
+    { path: E2E_MODULE, seasonName },
+  );
 }
 
 export type StoredPlanning = Awaited<ReturnType<typeof import("../../src/test/e2e").readPlanning>>;

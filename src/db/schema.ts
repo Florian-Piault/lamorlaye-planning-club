@@ -272,6 +272,20 @@ export const groupStudents = sqliteTable(
   ],
 );
 
+/**
+ * Effacements RGPD en cours (§11.6). Les saisons archivées sont en lecture
+ * seule, garantie par des déclencheurs SQLite (migration
+ * `0004_archived_seasons_read_only`) ; seul l'effacement définitif d'un élève
+ * y fait exception. Il inscrit l'élève ici, le supprime et retire l'inscription
+ * dans la même transaction : la table est toujours vide hors transaction.
+ * L'identifiant d'élève n'est pas une clé étrangère : l'élève est supprimé.
+ */
+export const studentErasures = sqliteTable("student_erasures", {
+  id: id(),
+  studentId: text().notNull(),
+  ...timestamps,
+});
+
 // ---------------------------------------------------------------------------
 // 3.6 Cours (semaine type)
 // ---------------------------------------------------------------------------

@@ -66,6 +66,8 @@ interface LessonPanelProps {
   actions?: readonly PanelAction[];
   /** Contenu affiché sous le formulaire (actions sur la séance). */
   children?: ReactNode;
+  /** Saison archivée : détail du cours, sans aucune action de modification. */
+  readOnly?: boolean;
 }
 
 /**
@@ -89,17 +91,23 @@ export function LessonPanel({
   onDelete,
   onDraftChange,
   onCreateGroup,
-  title = mode === "create" ? "Nouveau cours" : "Modifier le cours",
+  title: titleProp,
   submitLabel = mode === "create" ? "Créer le cours" : "Enregistrer",
   deleteLabel = "Supprimer",
   groupOptional = false,
-  groupLocked = false,
+  groupLocked: groupLockedProp = false,
   dayHeading = weekdayLabel,
   dateOf = noDate,
-  notice,
+  notice: noticeProp,
   actions = [],
   children,
+  readOnly = false,
 }: LessonPanelProps) {
+  const title = readOnly
+    ? "Détail du cours"
+    : (titleProp ?? (mode === "create" ? "Nouveau cours" : "Modifier le cours"));
+  const groupLocked = groupLockedProp || readOnly;
+  const notice = readOnly ? "Saison archivée : consultation seule." : noticeProp;
   const [values, setValues] = useState(initialValues);
   const [groupQuery, setGroupQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -168,7 +176,7 @@ export function LessonPanel({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (check()) onSubmit(values);
+    if (!readOnly && check()) onSubmit(values);
   };
 
   const createGroup = async (input: GroupInput) => {
@@ -195,152 +203,154 @@ export function LessonPanel({
         </div>
         {notice && <div className="text-muted-foreground text-xs">{notice}</div>}
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-group`}>Groupe{groupOptional && " (facultatif)"}</Label>
-          {!groupLocked && (
-            <Input
-              type="search"
-              placeholder="Rechercher un groupe…"
-              aria-label="Rechercher un groupe"
-              className="h-8"
-              value={groupQuery}
-              onChange={(e) => setGroupQuery(e.target.value)}
-            />
-          )}
-          <div className="flex gap-1.5">
-            <Select
-              id={`${id}-group`}
-              value={values.groupId}
-              disabled={groupLocked}
-              onChange={(e) => set({ groupId: e.target.value })}
-            >
-              <option value="">{groupOptional ? "— aucun groupe —" : "— choisir —"}</option>
-              {groupOptions.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name} ({g.memberCount}/{g.maxSize})
-                </option>
-              ))}
-            </Select>
+        <fieldset disabled={readOnly} className="contents">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${id}-group`}>Groupe{groupOptional && " (facultatif)"}</Label>
             {!groupLocked && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Nouveau groupe"
-                title="Créer un groupe"
-                onClick={() => setCreatingGroup(true)}
+              <Input
+                type="search"
+                placeholder="Rechercher un groupe…"
+                aria-label="Rechercher un groupe"
+                className="h-8"
+                value={groupQuery}
+                onChange={(e) => setGroupQuery(e.target.value)}
+              />
+            )}
+            <div className="flex gap-1.5">
+              <Select
+                id={`${id}-group`}
+                value={values.groupId}
+                disabled={groupLocked}
+                onChange={(e) => set({ groupId: e.target.value })}
               >
-                <Plus aria-hidden />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-instructor`}>Moniteur</Label>
-          <Select
-            id={`${id}-instructor`}
-            value={values.instructorId}
-            onChange={(e) => set({ instructorId: e.target.value })}
-          >
-            <option value="">— choisir —</option>
-            {available.length > 0 && (
-              <optgroup label="Disponibles">
-                {available.map(({ instructor }) => (
-                  <option key={instructor.id} value={instructor.id}>
-                    ● {instructor.firstName} {instructor.lastName}
+                <option value="">{groupOptional ? "— aucun groupe —" : "— choisir —"}</option>
+                {groupOptions.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.memberCount}/{g.maxSize})
                   </option>
                 ))}
-              </optgroup>
-            )}
-            {unavailable.length > 0 && (
-              <optgroup label="Indisponibles sur ce créneau">
-                {unavailable.map(({ instructor, note }) => (
-                  <option key={instructor.id} value={instructor.id}>
-                    ○ {instructor.firstName} {instructor.lastName} ({note})
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-day`}>Jour</Label>
-            <Select
-              id={`${id}-day`}
-              value={values.weekday}
-              onChange={(e) => set({ weekday: Number(e.target.value) })}
-            >
-              {dayOptions.map((d) => (
-                <option key={d} value={d}>
-                  {dayHeading(d)}
-                </option>
-              ))}
-            </Select>
+              </Select>
+              {!groupLocked && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Nouveau groupe"
+                  title="Créer un groupe"
+                  onClick={() => setCreatingGroup(true)}
+                >
+                  <Plus aria-hidden />
+                </Button>
+              )}
+            </div>
           </div>
+
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-court`}>Court</Label>
+            <Label htmlFor={`${id}-instructor`}>Moniteur</Label>
             <Select
-              id={`${id}-court`}
-              value={values.courtId}
-              onChange={(e) => set({ courtId: e.target.value })}
+              id={`${id}-instructor`}
+              value={values.instructorId}
+              onChange={(e) => set({ instructorId: e.target.value })}
             >
               <option value="">— choisir —</option>
-              {courts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {available.length > 0 && (
+                <optgroup label="Disponibles">
+                  {available.map(({ instructor }) => (
+                    <option key={instructor.id} value={instructor.id}>
+                      ● {instructor.firstName} {instructor.lastName}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {unavailable.length > 0 && (
+                <optgroup label="Indisponibles sur ce créneau">
+                  {unavailable.map(({ instructor, note }) => (
+                    <option key={instructor.id} value={instructor.id}>
+                      ○ {instructor.firstName} {instructor.lastName} ({note})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </Select>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-start`}>Début</Label>
-            <Select
-              id={`${id}-start`}
-              value={values.start}
-              onChange={(e) => {
-                const start = Number(e.target.value);
-                set({
-                  start,
-                  durationMinutes: Math.min(values.durationMinutes, 24 * 60 - start),
-                });
-              }}
-            >
-              {startOptions.map((m) => (
-                <option key={m} value={m}>
-                  {minutesToTime(m)}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-duration`}>Durée</Label>
-            <Select
-              id={`${id}-duration`}
-              value={values.durationMinutes}
-              onChange={(e) => set({ durationMinutes: Number(e.target.value) })}
-            >
-              {durationOptions.map((m) => (
-                <option key={m} value={m}>
-                  {formatDuration(m)}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-note`}>Note</Label>
-          <textarea
-            id={`${id}-note`}
-            rows={2}
-            value={values.note}
-            onChange={(e) => set({ note: e.target.value })}
-            className="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          />
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-day`}>Jour</Label>
+              <Select
+                id={`${id}-day`}
+                value={values.weekday}
+                onChange={(e) => set({ weekday: Number(e.target.value) })}
+              >
+                {dayOptions.map((d) => (
+                  <option key={d} value={d}>
+                    {dayHeading(d)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-court`}>Court</Label>
+              <Select
+                id={`${id}-court`}
+                value={values.courtId}
+                onChange={(e) => set({ courtId: e.target.value })}
+              >
+                <option value="">— choisir —</option>
+                {courts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-start`}>Début</Label>
+              <Select
+                id={`${id}-start`}
+                value={values.start}
+                onChange={(e) => {
+                  const start = Number(e.target.value);
+                  set({
+                    start,
+                    durationMinutes: Math.min(values.durationMinutes, 24 * 60 - start),
+                  });
+                }}
+              >
+                {startOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {minutesToTime(m)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-duration`}>Durée</Label>
+              <Select
+                id={`${id}-duration`}
+                value={values.durationMinutes}
+                onChange={(e) => set({ durationMinutes: Number(e.target.value) })}
+              >
+                {durationOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {formatDuration(m)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${id}-note`}>Note</Label>
+            <textarea
+              id={`${id}-note`}
+              rows={2}
+              value={values.note}
+              onChange={(e) => set({ note: e.target.value })}
+              className="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            />
+          </div>
+        </fieldset>
 
         {warnings.length > 0 && (
           <ul aria-label="Avertissements du créneau" className="flex flex-col gap-1">
@@ -357,21 +367,22 @@ export function LessonPanel({
         <ErrorAlert>{error}</ErrorAlert>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="submit">{submitLabel}</Button>
-          {actions.map((action) => (
-            <Button
-              key={action.label}
-              type="button"
-              variant="secondary"
-              onClick={() => check() && action.onClick(values)}
-            >
-              {action.label}
-            </Button>
-          ))}
+          {!readOnly && <Button type="submit">{submitLabel}</Button>}
+          {!readOnly &&
+            actions.map((action) => (
+              <Button
+                key={action.label}
+                type="button"
+                variant="secondary"
+                onClick={() => check() && action.onClick(values)}
+              >
+                {action.label}
+              </Button>
+            ))}
           <Button type="button" variant="outline" onClick={onClose}>
             Fermer
           </Button>
-          {onDelete && (
+          {onDelete && !readOnly && (
             <Button type="button" variant="ghost" className="text-destructive" onClick={onDelete}>
               <Trash2 aria-hidden />
               {deleteLabel}

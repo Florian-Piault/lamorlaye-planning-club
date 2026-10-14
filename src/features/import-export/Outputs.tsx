@@ -1,6 +1,6 @@
 import { FileDown, FileSpreadsheet, FileText } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useActiveSeason } from "@/app/season";
+import { useViewedSeason } from "@/app/season";
 import { ErrorAlert } from "@/components/form/Field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +29,7 @@ import { errorMessage, useLoader } from "@/hooks/useLoader";
 /** Documents PDF et exports CSV / Excel de la saison (§9.2). */
 export function Outputs() {
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
   const load = useCallback(() => loadOutputData(db, season), [db, season]);
   const { data, error, loading } = useLoader(load);
 

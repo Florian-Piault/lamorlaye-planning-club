@@ -12,6 +12,7 @@
  */
 import { useSyncExternalStore } from "react";
 import type { Db } from "@/db";
+import { SeasonReadOnlyError } from "@/db/readOnly";
 import { loadPlanningState, persistCommand, persistRevert } from "@/db/repositories/planning";
 import type { Command, PlanningState } from "@/domain/commands";
 import {
@@ -43,17 +44,29 @@ export class PlanningStore {
   private generation = 0;
   private readonly db: Db;
   private readonly seasonId: string;
+  /** Saison archivée : toute commande est refusée, en mémoire comme en base. */
+  readonly readOnly: boolean;
 
-  constructor(db: Db, seasonId: string, initial: PlanningState) {
+  constructor(
+    db: Db,
+    seasonId: string,
+    initial: PlanningState,
+    options: { readOnly?: boolean } = {},
+  ) {
     this.db = db;
     this.seasonId = seasonId;
+    this.readOnly = options.readOnly ?? false;
     this.snapshot = { state: initial, history: emptyHistory, error: null };
   }
 
   /** Charge le planning, après les écritures encore en cours d'un écran précédent. */
-  static async load(db: Db, seasonId: string): Promise<PlanningStore> {
+  static async load(
+    db: Db,
+    seasonId: string,
+    options: { readOnly?: boolean } = {},
+  ): Promise<PlanningStore> {
     await lastWrite;
-    return new PlanningStore(db, seasonId, await loadPlanningState(db, seasonId));
+    return new PlanningStore(db, seasonId, await loadPlanningState(db, seasonId), options);
   }
 
   getSnapshot = (): PlanningSnapshot => this.snapshot;
@@ -93,8 +106,12 @@ export class PlanningStore {
     }
   }
 
-  /** Exécute une commande : en mémoire tout de suite, puis en base. */
+  /**
+   * Exécute une commande : en mémoire tout de suite, puis en base.
+   * Lève une `SeasonReadOnlyError` si la saison est archivée.
+   */
   execute(command: Command): void {
+    if (this.readOnly) throw new SeasonReadOnlyError();
     const step = executeCommand(this.snapshot.history, this.snapshot.state, command);
     this.set({ state: step.state, history: step.history, error: null });
     this.write(() => persistCommand(this.db, command));
@@ -102,6 +119,7 @@ export class PlanningStore {
 
   /** Annule la dernière commande ; renvoie la commande annulée. */
   undo(): Command | null {
+    if (this.readOnly) return null;
     const step = undoCommand(this.snapshot.history, this.snapshot.state);
     const { command } = step;
     if (!command) return null;
@@ -112,6 +130,7 @@ export class PlanningStore {
 
   /** Rétablit la dernière commande annulée ; renvoie la commande rétablie. */
   redo(): Command | null {
+    if (this.readOnly) return null;
     const step = redoCommand(this.snapshot.history, this.snapshot.state);
     const { command } = step;
     if (!command) return null;

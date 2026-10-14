@@ -1,7 +1,7 @@
 import { FileUp, Redo2, Undo2, Upload } from "lucide-react";
 import { type ChangeEvent, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { ErrorAlert } from "@/components/form/Field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { loadImportContext } from "@/db/repositories/studentImport";
+import type { Season } from "@/db/schema";
 import type { ParsedTable } from "@/domain/importFile";
 import {
   buildImportCommand,
@@ -61,8 +62,25 @@ const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
 
 /** Assistant d'import d'élèves (§9.1) : fichier → correspondance → aperçu → import. */
 export function StudentImport() {
+  const season = useViewedSeason();
+  if (useReadOnly()) {
+    return (
+      <Card className="max-w-6xl">
+        <CardHeader>
+          <CardTitle>Importer des élèves</CardTitle>
+          <CardDescription data-testid="import-read-only">
+            La saison {season.name} est archivée : aucun élève ne peut y être importé. Revenez à la
+            saison active pour importer des élèves.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+  return <StudentImportWizard season={season} />;
+}
+
+function StudentImportWizard({ season }: { season: Season }) {
   const { db } = useDatabase();
-  const season = useActiveSeason();
   const [step, setStep] = useState<Step>("file");
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);

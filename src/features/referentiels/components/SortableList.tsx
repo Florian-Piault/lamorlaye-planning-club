@@ -27,6 +27,8 @@ interface SortableListProps<T extends { id: string }> {
   /** Nouvel ordre après un glisser-déposer. */
   onReorder: (items: T[]) => void;
   label: string;
+  /** Lecture seule : liste non réordonnable, sans poignées. */
+  readOnly?: boolean;
 }
 
 /**
@@ -39,11 +41,28 @@ export function SortableList<T extends { id: string }>({
   renderItem,
   onReorder,
   label,
+  readOnly = false,
 }: SortableListProps<T>) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  if (readOnly) {
+    return (
+      <ul aria-label={label} className="divide-y rounded-lg border">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className="flex min-h-11 items-center gap-3 bg-background px-3 py-1.5"
+            data-testid="sortable-item"
+          >
+            {renderItem(item)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;

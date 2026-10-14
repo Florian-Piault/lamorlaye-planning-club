@@ -8,6 +8,7 @@ import {
   type StudentMutation,
 } from "@/domain/studentImport";
 import type { Db } from "../client";
+import { assertWritable, type WriteTargets } from "../readOnly";
 import {
   type GroupStudent,
   groupStudents,
@@ -109,13 +110,36 @@ function toStatements(db: Db, mutations: readonly StudentMutation[]): BatchItem<
   return statements;
 }
 
-/** Écrit des mutations en base, dans une transaction : tout ou rien. */
+/** Lignes visées par des mutations : saisons des élèves créés, élèves et groupes existants. */
+export function studentMutationTargets(mutations: readonly StudentMutation[]): WriteTargets {
+  const targets = {
+    seasons: new Set<string>(),
+    students: new Set<string>(),
+    groups: new Set<string>(),
+  };
+  for (const mutation of mutations) {
+    if (mutation.table === "groupStudents") {
+      targets.groups.add(mutation.op === "insert" ? mutation.row.groupId : mutation.groupId);
+    } else if (mutation.op === "insert") {
+      targets.seasons.add(mutation.row.seasonId);
+    } else {
+      targets.students.add(mutation.id);
+    }
+  }
+  return targets;
+}
+
+/**
+ * Écrit des mutations en base, dans une transaction : tout ou rien. Refusé
+ * (`SeasonReadOnlyError`) si l'import touche une saison archivée.
+ */
 export async function persistStudentMutations(
   db: Db,
   mutations: readonly StudentMutation[],
 ): Promise<void> {
   const [first, ...rest] = toStatements(db, mutations);
   if (!first) return;
+  await assertWritable(db, studentMutationTargets(mutations));
   await db.batch([first, ...rest]);
 }
 

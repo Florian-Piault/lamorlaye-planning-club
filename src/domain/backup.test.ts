@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   type BackupInfo,
+  backupPasswordProblem,
   describeBackupReason,
+  encryptedExportFileName,
   exportFileName,
   formatDateTime,
   formatFileSize,
@@ -47,5 +49,23 @@ describe("sauvegardes", () => {
         backup("2026-10-02T10:00:00Z"),
       ]).map((b) => b.createdAt),
     ).toEqual(["2026-10-03T10:00:00Z", "2026-10-02T10:00:00Z", "2026-10-01T10:00:00Z"]);
+  });
+});
+
+describe("sauvegardes chiffrées", () => {
+  it("propose un nom de fichier distinct", () => {
+    expect(encryptedExportFileName(new Date(2026, 9, 14, 18, 30))).toBe(
+      "planning-club-2026-10-14-1830.pcenc",
+    );
+  });
+
+  it("vérifie le mot de passe et sa confirmation", () => {
+    expect(backupPasswordProblem("court", "court")).toBe(
+      "Le mot de passe doit comporter au moins 8 caractères.",
+    );
+    expect(backupPasswordProblem("assez long", "assez lonG")).toBe(
+      "Les deux mots de passe ne sont pas identiques.",
+    );
+    expect(backupPasswordProblem("assez long", "assez long")).toBeNull();
   });
 });

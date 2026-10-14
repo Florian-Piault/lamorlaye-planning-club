@@ -4,8 +4,9 @@
  * en mémoire de l'application ouverte. Jamais importés par l'application.
  */
 import { openAppDatabase } from "@/db";
-import { loadPlanningState } from "@/db/repositories/planning";
-import { getActiveSeason } from "@/db/repositories/seasons";
+import { createCourt, listCourts, updateCourt } from "@/db/repositories/courts";
+import { loadPlanningState, persistCommand } from "@/db/repositories/planning";
+import { getActiveSeason, listSeasons } from "@/db/repositories/seasons";
 import {
   closures,
   courts,
@@ -18,6 +19,8 @@ import {
   lessons,
   students,
 } from "@/db/schema";
+import { createClosure, emptyPlanningState } from "@/domain/commands";
+import { errorMessage } from "@/hooks/useLoader";
 
 export interface SeedInstructor {
   firstName: string;
@@ -73,6 +76,48 @@ async function activeSeason() {
   const season = await getActiveSeason(db);
   if (!season) throw new Error("Aucune saison active : créez-la d'abord.");
   return { db, season };
+}
+
+/** Saison désignée par son nom, ou saison active. */
+async function seasonNamed(name?: string) {
+  if (!name) return activeSeason();
+  const { db } = await openAppDatabase();
+  const season = (await listSeasons(db)).find((s) => s.name === name);
+  if (!season) throw new Error(`Saison inconnue : ${name}`);
+  return { db, season };
+}
+
+/**
+ * Tente d'écrire dans une saison sans passer par l'interface (repositories et
+ * persistance des commandes) ; renvoie le message de chaque refus, ou « ok ».
+ */
+export async function tryWritingSeason(name: string): Promise<string[]> {
+  const { db, season } = await seasonNamed(name);
+  const [court] = await listCourts(db, season.id);
+  const attempts: (() => Promise<unknown>)[] = [
+    () => createCourt(db, season.id, { name: "Intrus", kind: "indoor", active: true }),
+    () => updateCourt(db, court?.id ?? "", { name: "Renommé", kind: "indoor", active: true }),
+    () =>
+      persistCommand(
+        db,
+        createClosure(emptyPlanningState, {
+          seasonId: season.id,
+          label: "Intruse",
+          startDate: season.startDate,
+          endDate: season.startDate,
+        }),
+      ),
+  ];
+  const results: string[] = [];
+  for (const attempt of attempts) {
+    try {
+      await attempt();
+      results.push("ok");
+    } catch (error) {
+      results.push(errorMessage(error));
+    }
+  }
+  return results;
 }
 
 /** Insère les référentiels et les cours dans la saison active. */
@@ -238,8 +283,8 @@ export async function readPlanning(): Promise<{
   };
 }
 
-/** Cours enregistrés en base (lecture directe, pour vérifier la persistance). */
-export async function readLessons(): Promise<
+/** Cours enregistrés en base (lecture directe, pour vérifier la persistance), saison active par défaut. */
+export async function readLessons(seasonName?: string): Promise<
   {
     group: string;
     instructor: string;
@@ -249,7 +294,7 @@ export async function readLessons(): Promise<
     durationMinutes: number;
   }[]
 > {
-  const { db, season } = await activeSeason();
+  const { db, season } = await seasonNamed(seasonName);
   const state = await loadPlanningState(db, season.id);
   const [courtRows, instructorRows, groupRows] = await Promise.all([
     db.select().from(courts),

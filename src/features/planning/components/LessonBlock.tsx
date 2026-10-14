@@ -28,6 +28,8 @@ export interface LessonBlockProps {
   modified: boolean;
   /** Cours ponctuel (semaine datée). */
   oneOff: boolean;
+  /** Saison archivée : ni déplaçable ni redimensionnable. */
+  locked: boolean;
   selected: boolean;
   interaction: InteractionStore;
   onOpen: (id: string) => void;
@@ -43,12 +45,14 @@ export interface LessonBlockProps {
  * cible d'une pastille sont redessinés.
  */
 export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
-  const { id, interaction, onOpen, onHover, cancelled } = props;
+  const { id, interaction, onOpen, onHover, cancelled, locked } = props;
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `lesson:${id}`,
     data: { type: "move", lessonId: id },
-    disabled: cancelled,
-    attributes: { roleDescription: cancelled ? "séance annulée" : "cours déplaçable" },
+    disabled: cancelled || locked,
+    attributes: {
+      roleDescription: cancelled ? "séance annulée" : locked ? "cours" : "cours déplaçable",
+    },
   });
   const isSource = useInteraction(
     interaction,
@@ -97,6 +101,9 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
       data-replaced={props.replaced || undefined}
       data-modified={props.modified || undefined}
       data-one-off={props.oneOff || undefined}
+      data-locked={locked || undefined}
+      // Verrouillé (saison archivée), le cours reste consultable : il n'est pas « désactivé ».
+      aria-disabled={locked && !cancelled ? undefined : attributes["aria-disabled"]}
       aria-label={props.ariaLabel}
       title={props.title}
       onClick={() => onOpen(id)}
@@ -110,7 +117,8 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
         onHover(null);
       }}
       className={cn(
-        "group/lesson absolute z-[5] cursor-grab touch-none select-none overflow-hidden rounded-[5px] px-1.5 py-0.5 text-[11px] text-white leading-tight shadow-sm outline-none",
+        "group/lesson absolute z-[5] touch-none select-none overflow-hidden rounded-[5px] px-1.5 py-0.5 text-[11px] text-white leading-tight shadow-sm outline-none",
+        locked ? "cursor-pointer" : "cursor-grab",
         "focus-visible:ring-2 focus-visible:ring-ring",
         props.warning && "ring-2 ring-destructive",
         props.selected && "z-[6] ring-2 ring-foreground ring-offset-1 ring-offset-card",
@@ -137,7 +145,7 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
         warning={props.warning}
         marker={cancelled ? "✕" : props.replaced ? "⇄" : props.modified ? "✎" : null}
       />
-      {!cancelled && <ResizeHandle lessonId={id} />}
+      {!cancelled && !locked && <ResizeHandle lessonId={id} />}
     </div>
   );
 });

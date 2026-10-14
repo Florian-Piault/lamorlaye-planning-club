@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -38,7 +38,8 @@ const fullName = (i: { firstName: string; lastName: string }) => `${i.firstName}
 
 export function InstructorsTab() {
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
+  const readOnly = useReadOnly();
   const navigate = useNavigate();
   const load = useCallback(() => listInstructors(db, season.id), [db, season.id]);
   const { data, reload } = useLoader(load);
@@ -77,10 +78,12 @@ export function InstructorsTab() {
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <SearchInput value={query} onChange={setQuery} label="Rechercher un moniteur" />
-        <Button onClick={() => setCreating(true)}>
-          <Plus aria-hidden />
-          Nouveau moniteur
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setCreating(true)}>
+            <Plus aria-hidden />
+            Nouveau moniteur
+          </Button>
+        )}
       </div>
       <Table aria-label="Moniteurs">
         <TableHeader>
@@ -142,15 +145,17 @@ export function InstructorsTab() {
                 <StatusBadge active={instructor.active} />
               </TableCell>
               <TableCell>
-                <DeleteAction
-                  name={fullName(instructor)}
-                  subject={`le moniteur « ${fullName(instructor)} »`}
-                  archived={!instructor.active}
-                  getUsage={() => getInstructorUsage(db, instructor.id)}
-                  onDelete={() => deleteInstructor(db, instructor.id)}
-                  onArchive={() => setInstructorActive(db, instructor.id, false)}
-                  onDone={reload}
-                />
+                {!readOnly && (
+                  <DeleteAction
+                    name={fullName(instructor)}
+                    subject={`le moniteur « ${fullName(instructor)} »`}
+                    archived={!instructor.active}
+                    getUsage={() => getInstructorUsage(db, instructor.id)}
+                    onDelete={() => deleteInstructor(db, instructor.id)}
+                    onArchive={() => setInstructorActive(db, instructor.id, false)}
+                    onDone={reload}
+                  />
+                )}
               </TableCell>
             </TableRow>
           ))}

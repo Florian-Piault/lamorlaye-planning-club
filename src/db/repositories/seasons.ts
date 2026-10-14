@@ -1,11 +1,34 @@
 import { asc, desc, eq } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
+import {
+  type DuplicationContext,
+  type DuplicationSummary,
+  defaultDuplicationContext,
+  planSeasonDuplication,
+  type SeasonSnapshot,
+  summarizeDuplication,
+} from "@/domain/seasonDuplication";
 import type { SeasonInput } from "@/domain/validation";
 import type { Db } from "../client";
-import { type Season, seasons } from "../schema";
+import {
+  courts,
+  groupStudents,
+  groups,
+  instructorAvailabilities,
+  instructors,
+  lessons,
+  type Season,
+  seasons,
+  students,
+} from "../schema";
 
 /** Saison active (une seule à la fois, garanti par un index unique partiel). */
 export async function getActiveSeason(db: Db): Promise<Season | undefined> {
   return db.query.seasons.findFirst({ where: eq(seasons.status, "active") });
+}
+
+export async function getSeason(db: Db, id: string): Promise<Season | undefined> {
+  return db.query.seasons.findFirst({ where: eq(seasons.id, id) });
 }
 
 export async function listSeasons(db: Db): Promise<Season[]> {
@@ -22,11 +45,105 @@ export async function createSeason(db: Db, input: SeasonInput): Promise<Season> 
     db.update(seasons).set({ status: "archived" }).where(eq(seasons.status, "active")),
     db.insert(seasons).values({ id, ...input, status: "active" }),
   ]);
-  const created = await db.query.seasons.findFirst({ where: eq(seasons.id, id) });
+  const created = await getSeason(db, id);
   if (!created) throw new Error("La saison n'a pas été créée.");
   return created;
 }
 
+/** Modifie une saison (refusé pour une saison archivée, en lecture seule). */
 export async function updateSeason(db: Db, id: string, input: SeasonInput): Promise<void> {
   await db.update(seasons).set(input).where(eq(seasons.id, id));
+}
+
+/** Données d'une saison copiées par la duplication. */
+export async function loadSeasonSnapshot(db: Db, seasonId: string): Promise<SeasonSnapshot> {
+  const [
+    courtRows,
+    instructorRows,
+    availabilityRows,
+    groupRows,
+    studentRows,
+    memberships,
+    lessonRows,
+  ] = await Promise.all([
+    db
+      .select()
+      .from(courts)
+      .where(eq(courts.seasonId, seasonId))
+      .orderBy(asc(courts.sortOrder), asc(courts.name)),
+    db.select().from(instructors).where(eq(instructors.seasonId, seasonId)),
+    db
+      .select({ slot: instructorAvailabilities })
+      .from(instructorAvailabilities)
+      .innerJoin(instructors, eq(instructors.id, instructorAvailabilities.instructorId))
+      .where(eq(instructors.seasonId, seasonId)),
+    db.select().from(groups).where(eq(groups.seasonId, seasonId)),
+    db.select().from(students).where(eq(students.seasonId, seasonId)),
+    db
+      .select({ groupId: groupStudents.groupId, studentId: groupStudents.studentId })
+      .from(groupStudents)
+      .innerJoin(groups, eq(groups.id, groupStudents.groupId))
+      .where(eq(groups.seasonId, seasonId)),
+    db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.seasonId, seasonId))
+      .orderBy(asc(lessons.weekday), asc(lessons.startTime), asc(lessons.createdAt)),
+  ]);
+  return {
+    courts: courtRows,
+    instructors: instructorRows,
+    availabilities: availabilityRows.map((r) => r.slot),
+    groups: groupRows,
+    students: studentRows,
+    memberships,
+    lessons: lessonRows,
+  };
+}
+
+/** Lignes insérées par requête : au plus 13 colonnes, bien en deçà des limites de SQLite. */
+const CHUNK = 50;
+
+function chunked<T>(rows: readonly T[], insert: (part: T[]) => BatchItem<"sqlite">) {
+  const statements: BatchItem<"sqlite">[] = [];
+  for (let i = 0; i < rows.length; i += CHUNK) statements.push(insert(rows.slice(i, i + CHUNK)));
+  return statements;
+}
+
+/**
+ * Nouvelle saison par duplication de `sourceId` (§8.1) : courts, moniteurs et
+ * disponibilités récurrentes, groupes et composition, élèves, semaine type.
+ * Une seule transaction : archivage de la saison active, création de la
+ * nouvelle saison (active) et copie de toutes les lignes, ou rien.
+ */
+export async function duplicateSeason(
+  db: Db,
+  sourceId: string,
+  input: SeasonInput,
+  ctx: DuplicationContext = defaultDuplicationContext,
+): Promise<{ season: Season; summary: DuplicationSummary }> {
+  const source = await getSeason(db, sourceId);
+  if (!source) throw new Error("La saison à dupliquer est introuvable.");
+  const snapshot = await loadSeasonSnapshot(db, sourceId);
+  const id = ctx.newId();
+  const plan = planSeasonDuplication(
+    snapshot,
+    source.endDate,
+    { seasonId: id, startDate: input.startDate },
+    ctx,
+  );
+  await db.batch([
+    db.update(seasons).set({ status: "archived" }).where(eq(seasons.status, "active")),
+    db.insert(seasons).values({ id, ...input, status: "active" }),
+    ...chunked(plan.courts, (part) => db.insert(courts).values(part)),
+    ...chunked(plan.instructors, (part) => db.insert(instructors).values(part)),
+    ...chunked(plan.availabilities, (part) => db.insert(instructorAvailabilities).values(part)),
+    ...chunked(plan.groups, (part) => db.insert(groups).values(part)),
+    ...chunked(plan.students, (part) => db.insert(students).values(part)),
+    ...chunked(plan.memberships, (part) => db.insert(groupStudents).values(part)),
+    ...chunked(plan.lessons, (part) => db.insert(lessons).values(part)),
+  ]);
+  const season = await getSeason(db, id);
+  if (!season) throw new Error("La saison n'a pas été créée.");
+  return { season, summary: summarizeDuplication(snapshot, plan) };
 }

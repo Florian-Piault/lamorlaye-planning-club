@@ -28,6 +28,11 @@ thiserror = "2"
 # Ouverture des fichiers exportés dans l'application par défaut (lecteur PDF…),
 # appelée uniquement côté Rust (`output.rs`) : aucune permission accordée au front.
 tauri-plugin-opener = "2"
+# Chiffrement des sauvegardes exportées par mot de passe (`crypto.rs`) :
+# AES-256-GCM, clé dérivée du mot de passe par Argon2id (RustCrypto).
+aes-gcm = "0.10"
+argon2 = "0.5"
+zeroize = "1"
 
 [profile.release]
 codegen-units = 1

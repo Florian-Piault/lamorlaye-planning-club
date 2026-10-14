@@ -33,6 +33,8 @@ export interface LessonView extends Rect {
   replaced: boolean;
   modified: boolean;
   oneOff: boolean;
+  /** Saison archivée : cours consultable, non modifiable. */
+  locked: boolean;
 }
 
 /** Bande « Fermé — … » d'un jour couvert par une période de fermeture (§4.2). */

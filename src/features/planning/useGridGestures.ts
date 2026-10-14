@@ -105,12 +105,15 @@ export function useGridGestures({
   scrollerRef,
   context,
   handlers,
+  readOnly = false,
 }: {
   interaction: InteractionStore;
   boardRef: RefObject<HTMLDivElement | null>;
   scrollerRef: RefObject<HTMLDivElement | null>;
   context: GestureContext;
   handlers: GestureHandlers;
+  /** Saison archivée : aucun geste de modification (glisser, sélection d'un créneau). */
+  readOnly?: boolean;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: DRAG_THRESHOLD } }),
@@ -282,6 +285,7 @@ export function useGridGestures({
   }, [interaction, scrollerRef]);
 
   const onDragStart = (event: DragStartEvent) => {
+    if (readOnly) return;
     const data = event.active.data.current as DragData | undefined;
     const activator = event.activatorEvent as PointerEvent;
     pointer.current = {
@@ -365,6 +369,11 @@ export function useGridGestures({
 
   const onBoardPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as Element).closest("[data-lesson-id]")) return;
+    if (readOnly) {
+      // Pas de sélection de créneau : un clic dans le vide désélectionne seulement.
+      latest.current.handlers.onBoardClick();
+      return;
+    }
     const point = boardPoint(event);
     const column = columnAt(latest.current.context.geometry, point.x);
     if (!column) return;

@@ -20,7 +20,7 @@ use tauri_plugin_dialog::DialogExt;
 
 /// Taille maximale d'un document : 50 Mo, très au-delà d'un planning A3 ou d'un export.
 pub const MAX_OUTPUT_SIZE: usize = 50 * 1024 * 1024;
-/// En-tête portant le type de document (`pdf`, `csv`, `xlsx`).
+/// En-tête portant le type de document (`pdf`, `csv`, `xlsx`, `json`).
 const KIND_HEADER: &str = "x-output-kind";
 /// En-tête portant le nom de fichier proposé, encodé en pourcentage (UTF-8).
 const NAME_HEADER: &str = "x-output-name";
@@ -31,6 +31,8 @@ pub enum OutputKind {
     Pdf,
     Csv,
     Xlsx,
+    /// Export des données personnelles d'un élève (RGPD, §11.6).
+    Json,
 }
 
 impl OutputKind {
@@ -39,6 +41,7 @@ impl OutputKind {
             "pdf" => Some(Self::Pdf),
             "csv" => Some(Self::Csv),
             "xlsx" => Some(Self::Xlsx),
+            "json" => Some(Self::Json),
             _ => None,
         }
     }
@@ -48,6 +51,7 @@ impl OutputKind {
             Self::Pdf => "pdf",
             Self::Csv => "csv",
             Self::Xlsx => "xlsx",
+            Self::Json => "json",
         }
     }
 
@@ -56,13 +60,14 @@ impl OutputKind {
             Self::Pdf => "Document PDF",
             Self::Csv => "Fichier CSV",
             Self::Xlsx => "Classeur Excel",
+            Self::Json => "Fichier JSON",
         }
     }
 
     fn dialog_title(self) -> &'static str {
         match self {
             Self::Pdf => "Enregistrer le PDF",
-            Self::Csv | Self::Xlsx => "Enregistrer l'export",
+            Self::Csv | Self::Xlsx | Self::Json => "Enregistrer l'export",
         }
     }
 }
@@ -263,6 +268,8 @@ mod tests {
         assert_eq!(OutputKind::parse("pdf"), Some(OutputKind::Pdf));
         assert_eq!(OutputKind::parse("csv"), Some(OutputKind::Csv));
         assert_eq!(OutputKind::parse("xlsx"), Some(OutputKind::Xlsx));
+        assert_eq!(OutputKind::parse("json"), Some(OutputKind::Json));
+        assert_eq!(OutputKind::Json.extension(), "json");
         assert_eq!(OutputKind::parse("exe"), None);
         assert_eq!(OutputKind::parse("PDF"), None);
     }

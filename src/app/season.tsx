@@ -1,25 +1,54 @@
-import { createContext, type ReactNode, useCallback, useContext } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useState } from "react";
 import { useDatabase } from "@/db/DatabaseProvider";
-import { getActiveSeason } from "@/db/repositories/seasons";
+import { listSeasons } from "@/db/repositories/seasons";
 import type { Season } from "@/db/schema";
 import { useLoader } from "@/hooks/useLoader";
 
 interface SeasonContextValue {
-  /** Saison active ; `null` si aucune saison n'a encore été créée. */
+  /**
+   * Saison consultée : la saison active, sauf si une saison archivée a été
+   * choisie dans le sélecteur ; `null` si aucune saison n'a encore été créée.
+   */
   season: Season | null;
+  /** Saison active (une seule à la fois). */
+  activeSeason: Season | null;
+  /** Toutes les saisons, de la plus récente à la plus ancienne. */
+  seasons: Season[];
+  /**
+   * La saison consultée est archivée : elle est en lecture seule (§8.1) et
+   * les écrans n'y proposent aucune modification.
+   */
+  readOnly: boolean;
   loading: boolean;
   reload: () => void;
+  /** Consulte une saison ; `null` revient à la saison active. */
+  selectSeason: (id: string | null) => void;
 }
 
 const SeasonContext = createContext<SeasonContextValue | null>(null);
 
-/** Charge la saison active, partagée par tous les écrans. */
+/** Charge les saisons et la saison consultée, partagées par tous les écrans. */
 export function SeasonProvider({ children }: { children: ReactNode }) {
   const { db } = useDatabase();
-  const load = useCallback(async () => (await getActiveSeason(db)) ?? null, [db]);
+  const load = useCallback(() => listSeasons(db), [db]);
   const { data, loading, reload } = useLoader(load);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const seasons = data ?? [];
+  const activeSeason = seasons.find((s) => s.status === "active") ?? null;
+  const season = seasons.find((s) => s.id === selectedId) ?? activeSeason;
+  const selectSeason = useCallback((id: string | null) => setSelectedId(id), []);
   return (
-    <SeasonContext.Provider value={{ season: data ?? null, loading: loading && !data, reload }}>
+    <SeasonContext.Provider
+      value={{
+        season,
+        activeSeason,
+        seasons,
+        readOnly: season?.status === "archived",
+        loading: loading && !data,
+        reload,
+        selectSeason,
+      }}
+    >
       {children}
     </SeasonContext.Provider>
   );
@@ -31,9 +60,17 @@ export function useSeason(): SeasonContextValue {
   return value;
 }
 
-/** Saison active, pour les écrans qui ne s'affichent qu'une fois la saison créée. */
-export function useActiveSeason(): Season {
+/**
+ * Saison consultée, pour les écrans qui ne s'affichent qu'une fois une saison
+ * créée. Elle peut être archivée : voir `useReadOnly`.
+ */
+export function useViewedSeason(): Season {
   const { season } = useSeason();
-  if (!season) throw new Error("Aucune saison active.");
+  if (!season) throw new Error("Aucune saison.");
   return season;
+}
+
+/** La saison consultée est-elle archivée (lecture seule) ? */
+export function useReadOnly(): boolean {
+  return useSeason().readOnly;
 }

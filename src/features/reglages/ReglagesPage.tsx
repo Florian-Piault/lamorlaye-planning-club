@@ -1,6 +1,7 @@
 import { Page } from "@/components/layout/Page";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDatabase } from "@/db/DatabaseProvider";
+import { PrivacyCard } from "@/features/rgpd/PrivacyCard";
 import { BackupCard } from "./BackupCard";
 
 export function ReglagesPage() {
@@ -30,6 +31,7 @@ export function ReglagesPage() {
           </CardContent>
         </Card>
         <BackupCard />
+        <PrivacyCard />
       </div>
     </Page>
   );

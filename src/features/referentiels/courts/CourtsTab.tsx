@@ -1,6 +1,6 @@
 import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { ErrorAlert, Field } from "@/components/form/Field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,8 @@ type Editing = { mode: "create" } | { mode: "edit"; court: Court } | null;
 
 export function CourtsTab() {
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
+  const readOnly = useReadOnly();
   const load = useCallback(() => listCourts(db, season.id), [db, season.id]);
   const { data, reload } = useLoader(load);
   const [courts, setCourts] = useState<Court[]>([]);
@@ -63,12 +64,16 @@ export function CourtsTab() {
     <section className="flex max-w-3xl flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <p className="text-muted-foreground text-sm">
-          Glissez les courts pour choisir leur ordre d'affichage dans le planning.
+          {readOnly
+            ? "Courts de la saison, dans leur ordre d'affichage dans le planning."
+            : "Glissez les courts pour choisir leur ordre d'affichage dans le planning."}
         </p>
-        <Button onClick={() => setEditing({ mode: "create" })}>
-          <Plus aria-hidden />
-          Nouveau court
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setEditing({ mode: "create" })}>
+            <Plus aria-hidden />
+            Nouveau court
+          </Button>
+        )}
       </div>
       <ErrorAlert>{error}</ErrorAlert>
       {courts.length === 0 ? (
@@ -81,29 +86,34 @@ export function CourtsTab() {
           items={courts}
           itemName={(c) => c.name}
           onReorder={reorder}
+          readOnly={readOnly}
           renderItem={(court) => (
             <>
               <span className="flex-1 truncate font-medium">{court.name}</span>
               <Badge variant="outline">{KIND_LABELS[court.kind]}</Badge>
               <StatusBadge active={court.active} />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Modifier ${court.name}`}
-                title="Modifier"
-                onClick={() => setEditing({ mode: "edit", court })}
-              >
-                <Pencil aria-hidden />
-              </Button>
-              <DeleteAction
-                name={court.name}
-                subject={`le court « ${court.name} »`}
-                archived={!court.active}
-                getUsage={() => getCourtUsage(db, court.id)}
-                onDelete={() => deleteCourt(db, court.id)}
-                onArchive={() => setCourtActive(db, court.id, false)}
-                onDone={reload}
-              />
+              {!readOnly && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Modifier ${court.name}`}
+                    title="Modifier"
+                    onClick={() => setEditing({ mode: "edit", court })}
+                  >
+                    <Pencil aria-hidden />
+                  </Button>
+                  <DeleteAction
+                    name={court.name}
+                    subject={`le court « ${court.name} »`}
+                    archived={!court.active}
+                    getUsage={() => getCourtUsage(db, court.id)}
+                    onDelete={() => deleteCourt(db, court.id)}
+                    onArchive={() => setCourtActive(db, court.id, false)}
+                    onDone={reload}
+                  />
+                </>
+              )}
             </>
           )}
         />

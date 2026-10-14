@@ -1,6 +1,6 @@
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, ShieldCheck } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
 import { ageOn } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
 import { formatDate } from "@/domain/time";
+import { StudentPrivacyDialog } from "@/features/rgpd/StudentPrivacyDialog";
 import { useListState } from "@/hooks/useListState";
 import { useLoader } from "@/hooks/useLoader";
 import { DeleteAction } from "../components/DeleteAction";
@@ -37,7 +38,10 @@ type Editing = { mode: "create" } | { mode: "edit"; student: StudentListItem } |
 
 export function StudentsTab() {
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
+  const readOnly = useReadOnly();
+  const [privacy, setPrivacy] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const load = useCallback(async () => {
     const [students, groups, levels] = await Promise.all([
       listStudents(db, season.id),
@@ -102,12 +106,19 @@ export function StudentsTab() {
               ? `${students.length} élève${students.length > 1 ? "s" : ""}`
               : `${rows.length} sur ${students.length}`}
           </span>
-          <Button onClick={() => setEditing({ mode: "create" })}>
-            <Plus aria-hidden />
-            Nouvel élève
-          </Button>
+          {!readOnly && (
+            <Button onClick={() => setEditing({ mode: "create" })}>
+              <Plus aria-hidden />
+              Nouvel élève
+            </Button>
+          )}
         </div>
       </div>
+      {message && (
+        <output className="text-muted-foreground text-sm" data-testid="students-message">
+          {message}
+        </output>
+      )}
       <Table aria-label="Élèves">
         <TableHeader>
           <TableRow>
@@ -170,26 +181,42 @@ export function StudentsTab() {
                 </TableCell>
                 <TableCell>
                   <div className="flex">
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Modifier ${name}`}
+                        title="Modifier"
+                        onClick={() => setEditing({ mode: "edit", student })}
+                      >
+                        <Pencil aria-hidden />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label={`Modifier ${name}`}
-                      title="Modifier"
-                      onClick={() => setEditing({ mode: "edit", student })}
+                      aria-label={`Données personnelles de ${name}`}
+                      title="Données personnelles (RGPD)"
+                      onClick={() => {
+                        setMessage(null);
+                        setPrivacy(student.id);
+                      }}
                     >
-                      <Pencil aria-hidden />
+                      <ShieldCheck aria-hidden />
                     </Button>
-                    <DeleteAction
-                      name={name}
-                      subject={`l'élève « ${name} »`}
-                      warning={
-                        student.groups.length > 0
-                          ? `Il sera retiré de ${student.groups.length > 1 ? `ses ${student.groups.length} groupes` : "son groupe"}.`
-                          : undefined
-                      }
-                      onDelete={() => deleteStudent(db, student.id)}
-                      onDone={reload}
-                    />
+                    {!readOnly && (
+                      <DeleteAction
+                        name={name}
+                        subject={`l'élève « ${name} »`}
+                        warning={
+                          student.groups.length > 0
+                            ? `Il sera retiré de ${student.groups.length > 1 ? `ses ${student.groups.length} groupes` : "son groupe"} de cette saison. Pour effacer ses données de toutes les saisons, utilisez « Données personnelles ».`
+                            : "Pour effacer ses données de toutes les saisons, utilisez « Données personnelles »."
+                        }
+                        onDelete={() => deleteStudent(db, student.id)}
+                        onDone={reload}
+                      />
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -201,11 +228,14 @@ export function StudentsTab() {
       <Dialog
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
-        title={editing?.mode === "edit" ? "Modifier l'élève" : "Nouvel élève"}
+        title={
+          readOnly ? "Fiche élève" : editing?.mode === "edit" ? "Modifier l'élève" : "Nouvel élève"
+        }
         className="max-w-2xl"
       >
         {editing && (
           <StudentForm
+            readOnly={readOnly}
             initialValues={
               editing.mode === "edit" ? studentValues(editing.student) : emptyStudentValues
             }
@@ -224,6 +254,18 @@ export function StudentsTab() {
           />
         )}
       </Dialog>
+      <StudentPrivacyDialog
+        studentId={privacy}
+        allowErase={!readOnly}
+        onClose={() => setPrivacy(null)}
+        onErased={(count) => {
+          setPrivacy(null);
+          setMessage(
+            `Données de l'élève supprimées définitivement (${count} ${count > 1 ? "fiches" : "fiche"}).`,
+          );
+          reload();
+        }}
+      />
     </section>
   );
 }

@@ -20,6 +20,8 @@ interface UnavailabilitySectionProps {
   onAdd: (input: UnavailabilityInput) => Promise<void>;
   onUpdate: (id: string, input: UnavailabilityInput) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** Consultation seule (saison archivée). */
+  readOnly?: boolean;
 }
 
 const emptyForm: UnavailabilityForm = {
@@ -44,6 +46,7 @@ export function UnavailabilitySection({
   onAdd,
   onUpdate,
   onDelete,
+  readOnly = false,
 }: UnavailabilitySectionProps) {
   const [editing, setEditing] = useState<InstructorUnavailability | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,40 +67,46 @@ export function UnavailabilitySection({
                   </span>
                   {u.reason && <span className="text-muted-foreground"> — {u.reason}</span>}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Modifier l'indisponibilité ${period}`}
-                  onClick={() => setEditing(u)}
-                >
-                  <Pencil aria-hidden />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Supprimer l'indisponibilité ${period}`}
-                  onClick={async () => {
-                    try {
-                      await onDelete(u.id);
-                    } catch (e) {
-                      setError(errorMessage(e));
-                    }
-                  }}
-                >
-                  <Trash2 aria-hidden />
-                </Button>
+                {!readOnly && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Modifier l'indisponibilité ${period}`}
+                      onClick={() => setEditing(u)}
+                    >
+                      <Pencil aria-hidden />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Supprimer l'indisponibilité ${period}`}
+                      onClick={async () => {
+                        try {
+                          await onDelete(u.id);
+                        } catch (e) {
+                          setError(errorMessage(e));
+                        }
+                      }}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
+                  </>
+                )}
               </li>
             );
           })}
         </ul>
       )}
       <ErrorAlert>{error}</ErrorAlert>
-      <UnavailabilityFormView
-        key={unavailabilities.length}
-        initialValues={emptyForm}
-        submitLabel="Ajouter l'indisponibilité"
-        onSubmit={onAdd}
-      />
+      {!readOnly && (
+        <UnavailabilityFormView
+          key={unavailabilities.length}
+          initialValues={emptyForm}
+          submitLabel="Ajouter l'indisponibilité"
+          onSubmit={onAdd}
+        />
+      )}
       <Dialog
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}

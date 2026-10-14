@@ -1,7 +1,7 @@
 import { Plus, TriangleAlert } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -36,7 +36,8 @@ type SortKey = "name" | "level" | "age" | "size" | "active";
 
 export function GroupsTab() {
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
+  const readOnly = useReadOnly();
   const navigate = useNavigate();
   const load = useCallback(
     async () => ({ groups: await listGroups(db, season.id), levels: await listLevels(db) }),
@@ -81,10 +82,12 @@ export function GroupsTab() {
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <SearchInput value={query} onChange={setQuery} label="Rechercher un groupe" />
-        <Button onClick={() => setCreating(true)}>
-          <Plus aria-hidden />
-          Nouveau groupe
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setCreating(true)}>
+            <Plus aria-hidden />
+            Nouveau groupe
+          </Button>
+        )}
       </div>
       <Table aria-label="Groupes">
         <TableHeader>
@@ -143,20 +146,22 @@ export function GroupsTab() {
                   <StatusBadge active={group.active} />
                 </TableCell>
                 <TableCell>
-                  <DeleteAction
-                    name={group.name}
-                    subject={`le groupe « ${group.name} »`}
-                    archived={!group.active}
-                    warning={
-                      group.memberCount > 0
-                        ? "Les élèves du groupe sont conservés ; seule leur inscription dans ce groupe est retirée."
-                        : undefined
-                    }
-                    getUsage={() => getGroupUsage(db, group.id)}
-                    onDelete={() => deleteGroup(db, group.id)}
-                    onArchive={() => setGroupActive(db, group.id, false)}
-                    onDone={reload}
-                  />
+                  {!readOnly && (
+                    <DeleteAction
+                      name={group.name}
+                      subject={`le groupe « ${group.name} »`}
+                      archived={!group.active}
+                      warning={
+                        group.memberCount > 0
+                          ? "Les élèves du groupe sont conservés ; seule leur inscription dans ce groupe est retirée."
+                          : undefined
+                      }
+                      getUsage={() => getGroupUsage(db, group.id)}
+                      onDelete={() => deleteGroup(db, group.id)}
+                      onArchive={() => setGroupActive(db, group.id, false)}
+                      onDone={reload}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             );

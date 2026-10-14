@@ -1,7 +1,7 @@
 import { ArrowLeft, Plus, TriangleAlert, UserMinus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { SearchInput } from "@/components/data/ListControls";
 import { ErrorAlert } from "@/components/form/Field";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,8 @@ const MAX_RESULTS = 8;
 export function GroupPage() {
   const { id = "" } = useParams();
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
+  const readOnly = useReadOnly();
   const navigate = useNavigate();
   const load = useCallback(async () => {
     const [group, members, students, levels] = await Promise.all([
@@ -112,21 +113,23 @@ export function GroupPage() {
       <div className="flex items-center gap-3">
         <h2 className="font-semibold text-lg">{group.name}</h2>
         <StatusBadge active={group.active} />
-        <div className="ml-auto">
-          <DeleteAction
-            showLabel
-            name={group.name}
-            subject={`le groupe « ${group.name} »`}
-            archived={!group.active}
-            getUsage={() => getGroupUsage(db, id)}
-            onDelete={async () => {
-              await deleteGroup(db, id);
-              navigate("/referentiels/groupes");
-            }}
-            onArchive={() => setGroupActive(db, id, false)}
-            onDone={reload}
-          />
-        </div>
+        {!readOnly && (
+          <div className="ml-auto">
+            <DeleteAction
+              showLabel
+              name={group.name}
+              subject={`le groupe « ${group.name} »`}
+              archived={!group.active}
+              getUsage={() => getGroupUsage(db, id)}
+              onDelete={async () => {
+                await deleteGroup(db, id);
+                navigate("/referentiels/groupes");
+              }}
+              onArchive={() => setGroupActive(db, id, false)}
+              onDone={reload}
+            />
+          </div>
+        )}
       </div>
       <ErrorAlert>{error}</ErrorAlert>
 
@@ -141,6 +144,7 @@ export function GroupPage() {
               initialValues={groupValues(group)}
               levels={data.levels}
               submitLabel="Enregistrer"
+              readOnly={readOnly}
               onSubmit={async (input) => {
                 await updateGroup(db, id, input);
                 reload();
@@ -176,54 +180,61 @@ export function GroupPage() {
               </ul>
             )}
 
-            <div className="flex flex-col gap-2">
-              <SearchInput
-                value={query}
-                onChange={setQuery}
-                label="Ajouter un élève (nom, prénom, téléphone)"
-                className="max-w-md"
-              />
-              {query.trim() !== "" && (
-                <ul aria-label="Élèves trouvés" className="divide-y rounded-lg border">
-                  {candidates.length === 0 && (
-                    <li className="px-3 py-2 text-muted-foreground text-sm">Aucun élève trouvé.</li>
-                  )}
-                  {candidates.slice(0, MAX_RESULTS).map((student) => {
-                    const name = `${student.lastName} ${student.firstName}`;
-                    return (
-                      <li key={student.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
-                        <span className="flex-1">
-                          <span className="font-medium">{name}</span>
-                          {student.birthDate && (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              — {ageOn(student.birthDate, season.startDate)} ans
-                            </span>
-                          )}
-                          {student.levelLabel && (
-                            <span className="text-muted-foreground"> — {student.levelLabel}</span>
-                          )}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          aria-label={`Ajouter ${name}`}
-                          onClick={() => run(() => addGroupMember(db, id, student.id))}
-                        >
-                          <Plus aria-hidden />
-                          Ajouter
-                        </Button>
+            {!readOnly && (
+              <div className="flex flex-col gap-2">
+                <SearchInput
+                  value={query}
+                  onChange={setQuery}
+                  label="Ajouter un élève (nom, prénom, téléphone)"
+                  className="max-w-md"
+                />
+                {query.trim() !== "" && (
+                  <ul aria-label="Élèves trouvés" className="divide-y rounded-lg border">
+                    {candidates.length === 0 && (
+                      <li className="px-3 py-2 text-muted-foreground text-sm">
+                        Aucun élève trouvé.
                       </li>
-                    );
-                  })}
-                  {candidates.length > MAX_RESULTS && (
-                    <li className="px-3 py-2 text-muted-foreground text-xs">
-                      {candidates.length - MAX_RESULTS} autres résultats : précisez la recherche.
-                    </li>
-                  )}
-                </ul>
-              )}
-            </div>
+                    )}
+                    {candidates.slice(0, MAX_RESULTS).map((student) => {
+                      const name = `${student.lastName} ${student.firstName}`;
+                      return (
+                        <li
+                          key={student.id}
+                          className="flex items-center gap-3 px-3 py-1.5 text-sm"
+                        >
+                          <span className="flex-1">
+                            <span className="font-medium">{name}</span>
+                            {student.birthDate && (
+                              <span className="text-muted-foreground">
+                                {" "}
+                                — {ageOn(student.birthDate, season.startDate)} ans
+                              </span>
+                            )}
+                            {student.levelLabel && (
+                              <span className="text-muted-foreground"> — {student.levelLabel}</span>
+                            )}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            aria-label={`Ajouter ${name}`}
+                            onClick={() => run(() => addGroupMember(db, id, student.id))}
+                          >
+                            <Plus aria-hidden />
+                            Ajouter
+                          </Button>
+                        </li>
+                      );
+                    })}
+                    {candidates.length > MAX_RESULTS && (
+                      <li className="px-3 py-2 text-muted-foreground text-xs">
+                        {candidates.length - MAX_RESULTS} autres résultats : précisez la recherche.
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
 
             <Table aria-label="Élèves du groupe">
               <TableHeader>
@@ -267,15 +278,17 @@ export function GroupPage() {
                       </TableCell>
                       <TableCell>{student.phone}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Retirer ${name} du groupe`}
-                          title="Retirer du groupe"
-                          onClick={() => run(() => removeGroupMember(db, id, student.id))}
-                        >
-                          <UserMinus aria-hidden />
-                        </Button>
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Retirer ${name} du groupe`}
+                            title="Retirer du groupe"
+                            onClick={() => run(() => removeGroupMember(db, id, student.id))}
+                          >
+                            <UserMinus aria-hidden />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

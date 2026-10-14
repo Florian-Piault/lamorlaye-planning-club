@@ -1,6 +1,6 @@
 import { CalendarPlus, Pencil, Plus, WandSparkles } from "lucide-react";
 import { type FormEvent, useCallback, useMemo, useState } from "react";
-import { useActiveSeason } from "@/app/season";
+import { useReadOnly, useViewedSeason } from "@/app/season";
 import { ErrorAlert, Field } from "@/components/form/Field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,8 @@ type Editing = { mode: "create" } | { mode: "edit"; closure: Closure } | null;
  */
 export function ClosuresTab() {
   const { db } = useDatabase();
-  const season = useActiveSeason();
+  const season = useViewedSeason();
+  const readOnly = useReadOnly();
   const load = useCallback(() => loadPlanningState(db, season.id), [db, season.id]);
   const { data, reload } = useLoader(load);
   const [editing, setEditing] = useState<Editing>(null);
@@ -66,21 +67,24 @@ export function ClosuresTab() {
           Pendant une fermeture, les cours de la semaine type sont suspendus ; les cours ponctuels
           (stages) restent possibles.
         </p>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAssistant(true)}>
-            <WandSparkles aria-hidden />
-            Vacances et jours fériés…
-          </Button>
-          <Button onClick={() => setEditing({ mode: "create" })}>
-            <Plus aria-hidden />
-            Nouvelle fermeture
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setAssistant(true)}>
+              <WandSparkles aria-hidden />
+              Vacances et jours fériés…
+            </Button>
+            <Button onClick={() => setEditing({ mode: "create" })}>
+              <Plus aria-hidden />
+              Nouvelle fermeture
+            </Button>
+          </div>
+        )}
       </div>
       {closures.length === 0 ? (
         <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
-          Aucune période de fermeture. L'assistant propose les vacances scolaires de la zone B et
-          les jours fériés de la saison.
+          {readOnly
+            ? "Aucune période de fermeture."
+            : "Aucune période de fermeture. L'assistant propose les vacances scolaires de la zone B et les jours fériés de la saison."}
         </p>
       ) : (
         <ul aria-label="Périodes de fermeture" className="divide-y rounded-lg border">
@@ -95,20 +99,24 @@ export function ClosuresTab() {
                   </span>
                 </span>
                 <Badge variant="outline">{days === 1 ? "1 jour" : `${days} jours`}</Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Modifier ${closure.label}`}
-                  onClick={() => setEditing({ mode: "edit", closure })}
-                >
-                  <Pencil aria-hidden />
-                </Button>
-                <DeleteAction
-                  name={closure.label}
-                  subject={`la fermeture « ${closure.label} »`}
-                  onDelete={() => execute((state) => deleteClosure(state, closure.id))}
-                  onDone={() => undefined}
-                />
+                {!readOnly && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Modifier ${closure.label}`}
+                      onClick={() => setEditing({ mode: "edit", closure })}
+                    >
+                      <Pencil aria-hidden />
+                    </Button>
+                    <DeleteAction
+                      name={closure.label}
+                      subject={`la fermeture « ${closure.label} »`}
+                      onDelete={() => execute((state) => deleteClosure(state, closure.id))}
+                      onDone={() => undefined}
+                    />
+                  </>
+                )}
               </li>
             );
           })}

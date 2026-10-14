@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { readOnlyErrorOf } from "@/db/readOnly";
 
 export interface Loader<T> {
   data: T | undefined;
@@ -38,6 +39,8 @@ export function useLoader<T>(load: () => Promise<T>): Loader<T> {
 
 /** Message lisible d'une erreur (base de données, commande Tauri…). */
 export function errorMessage(error: unknown): string {
+  const readOnly = readOnlyErrorOf(error);
+  if (readOnly) return readOnly.message;
   if (error instanceof Error) return error.message;
   return String(error);
 }

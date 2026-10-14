@@ -1,5 +1,5 @@
 import { DndContext } from "@dnd-kit/core";
-import { FileDown, LandPlot, Plus, Redo2, Undo2, X } from "lucide-react";
+import { FileDown, LandPlot, Lock, Plus, Redo2, Undo2, X } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -13,6 +13,7 @@ import { Link } from "react-router";
 import { useSeason } from "@/app/season";
 import { ErrorAlert } from "@/components/form/Field";
 import { EmptyState, Page } from "@/components/layout/Page";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label, Select } from "@/components/ui/input";
 import { useDatabase } from "@/db/DatabaseProvider";
@@ -111,7 +112,7 @@ const rememberedModes = new Map<string, PlanningMode>();
 let rememberedPaper: PaperSize = "A4";
 
 export function PlanningPage() {
-  const { season } = useSeason();
+  const { season, readOnly } = useSeason();
   if (!season) {
     return (
       <Page title="Planning" description={DESCRIPTION}>
@@ -119,7 +120,7 @@ export function PlanningPage() {
       </Page>
     );
   }
-  return <PlanningScreen key={season.id} season={season} />;
+  return <PlanningScreen key={`${season.id}:${readOnly}`} season={season} readOnly={readOnly} />;
 }
 
 interface Loaded {
@@ -128,21 +129,24 @@ interface Loaded {
 }
 
 /** Charge les référentiels et le planning de la saison, puis affiche la grille. */
-function PlanningScreen({ season }: { season: Season }) {
+function PlanningScreen({ season, readOnly }: { season: Season; readOnly: boolean }) {
   const { db } = useDatabase();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadPlanningReferences(db, season.id), PlanningStore.load(db, season.id)]).then(
+    Promise.all([
+      loadPlanningReferences(db, season.id),
+      PlanningStore.load(db, season.id, { readOnly }),
+    ]).then(
       ([refs, store]) => !cancelled && setLoaded({ refs, store }),
       (e: unknown) => !cancelled && setError(e),
     );
     return () => {
       cancelled = true;
     };
-  }, [db, season.id]);
+  }, [db, season.id, readOnly]);
 
   const reloadReferences = useCallback(async () => {
     const refs = await loadPlanningReferences(db, season.id);
@@ -242,6 +246,8 @@ interface WorkspaceProps {
  */
 function PlanningWorkspace({ season, refs, store, onReferencesChanged }: WorkspaceProps) {
   const { db } = useDatabase();
+  // Saison archivée : consultation seule (aucun geste, panneau, raccourci ni annulation).
+  const readOnly = store.readOnly;
   const snapshot = usePlanningSnapshot(store);
   const interaction = useMemo(() => new InteractionStore(), []);
   const [filters, setFilters] = useState<PlanningFilters>(noFilters);
@@ -435,6 +441,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           }`,
           warning: messages.length > 0,
           dimmed: filtered && !matchesFilters(item, filters),
+          locked: readOnly,
           cancelled: item.cancelled,
           replaced: occurrence?.replaced ?? false,
           modified: occurrence?.modified ?? false,
@@ -451,6 +458,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     warnings,
     filters,
     instructorName,
+    readOnly,
   ]);
 
   const warningItems: WarningItem[] = useMemo(
@@ -599,6 +607,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
 
   const openNew = useCallback(
     (values?: Partial<LessonFormValues>) => {
+      if (readOnly) return;
       interaction.update({ draft: null });
       setSelectedId(null);
       setPanel({
@@ -616,7 +625,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         },
       });
     },
-    [interaction, weekdays, dayStart, dayEnd],
+    [interaction, weekdays, dayStart, dayEnd, readOnly],
   );
 
   const undo = useCallback(() => {
@@ -721,6 +730,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     interaction,
     boardRef,
     scrollerRef,
+    readOnly,
     context: {
       geometry,
       boxes,
@@ -785,6 +795,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     neighbours,
     changeMode,
     openPdf,
+    readOnly,
   });
   keyboard.current = {
     undo,
@@ -798,6 +809,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     neighbours,
     changeMode,
     openPdf,
+    readOnly,
   };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -821,6 +833,12 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         return;
       }
       if (isEditable(event.target) || event.altKey) return;
+      // Saison archivée : seuls les raccourcis de consultation restent actifs.
+      const writing =
+        (mod && (key === "z" || key === "y")) ||
+        (key === "n" && !event.shiftKey) ||
+        ((event.key === "Delete" || event.key === "Backspace") && !mod);
+      if (k.readOnly && writing) return;
       if (mod && key === "z") {
         event.preventDefault();
         if (event.shiftKey) k.redo();
@@ -881,6 +899,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     onCreateGroup: createQuickGroup,
     dayHeading: headingOf,
     dateOf,
+    readOnly,
   };
 
   const renderPanel = () => {
@@ -924,7 +943,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     if (item.kind === "lesson") {
       return <LessonPanel key={stamp} {...common} onDelete={() => removeLesson(item.id)} />;
     }
-    const actions = (
+    const actions = readOnly ? null : (
       <OccurrenceActions
         key={stamp}
         item={item}
@@ -1005,38 +1024,47 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             todayMonday={todayMonday}
             onChange={changeMode}
           />
-          <Button
-            size="sm"
-            onClick={() => openNew()}
-            title={
-              mode.kind === "dated"
-                ? "Nouveau cours ponctuel (Ctrl/⌘ N)"
-                : "Nouveau cours (Ctrl/⌘ N)"
-            }
-          >
-            <Plus aria-hidden />
-            Nouveau cours
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={undo}
-            disabled={!canUndo(snapshot.history)}
-            title={undoLabel(snapshot.history) ?? "Rien à annuler"}
-          >
-            <Undo2 aria-hidden />
-            Annuler
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={redo}
-            disabled={!canRedo(snapshot.history)}
-            title={redoLabel(snapshot.history) ?? "Rien à rétablir"}
-          >
-            <Redo2 aria-hidden />
-            Rétablir
-          </Button>
+          {readOnly ? (
+            <Badge variant="outline" data-testid="planning-read-only">
+              <Lock aria-hidden />
+              Lecture seule
+            </Badge>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                onClick={() => openNew()}
+                title={
+                  mode.kind === "dated"
+                    ? "Nouveau cours ponctuel (Ctrl/⌘ N)"
+                    : "Nouveau cours (Ctrl/⌘ N)"
+                }
+              >
+                <Plus aria-hidden />
+                Nouveau cours
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={undo}
+                disabled={!canUndo(snapshot.history)}
+                title={undoLabel(snapshot.history) ?? "Rien à annuler"}
+              >
+                <Undo2 aria-hidden />
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={redo}
+                disabled={!canRedo(snapshot.history)}
+                title={redoLabel(snapshot.history) ?? "Rien à rétablir"}
+              >
+                <Redo2 aria-hidden />
+                Rétablir
+              </Button>
+            </>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -1047,11 +1075,17 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             PDF
           </Button>
           <div className="ml-auto">
-            <Legend entries={legendEntries} totalMinutes={weekTotal} interaction={interaction} />
+            <Legend
+              entries={legendEntries}
+              totalMinutes={weekTotal}
+              interaction={interaction}
+              readOnly={readOnly}
+            />
           </div>
         </header>
         <ModeBar
           season={season}
+          readOnly={readOnly}
           mode={mode}
           interaction={interaction}
           names={legendEntries}
@@ -1140,12 +1174,14 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
 
 function ModeBar({
   season,
+  readOnly,
   mode,
   interaction,
   names,
   hiddenVersions,
 }: {
   season: Season;
+  readOnly: boolean;
   mode: PlanningMode;
   interaction: InteractionStore;
   names: readonly LegendEntry[];
@@ -1163,7 +1199,13 @@ function ModeBar({
           : "flex flex-wrap items-center gap-x-4 gap-y-1 bg-emerald-700 px-4 py-1 text-white text-xs dark:bg-emerald-800"
       }
     >
-      {mode.kind === "type" ? (
+      {readOnly ? (
+        <span>
+          ● Mode{" "}
+          <b>{mode.kind === "type" ? "Semaine type" : `Semaine du ${formatDate(mode.monday)}`}</b> —
+          saison {season.name} archivée, consultation seule
+        </span>
+      ) : mode.kind === "type" ? (
         <span>
           ● Mode <b>Semaine type</b> — saison {season.name} (les modifications s'appliquent à toute
           la saison)

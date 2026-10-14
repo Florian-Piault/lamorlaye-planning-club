@@ -30,6 +30,8 @@ interface AvailabilityEditorProps {
   dayEnd: string;
   color: string;
   onChange: (slots: WeeklySlot[]) => void;
+  /** Consultation seule (saison archivée) : grille et liste non modifiables. */
+  readOnly?: boolean;
 }
 
 interface Drag {
@@ -53,6 +55,7 @@ export function AvailabilityEditor({
   dayEnd,
   color,
   onChange,
+  readOnly = false,
 }: AvailabilityEditorProps) {
   const start = timeToMinutes(dayStart);
   const end = timeToMinutes(dayEnd);
@@ -101,8 +104,10 @@ export function AvailabilityEditor({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-muted-foreground text-sm">
-        Cliquez-glissez sur une ligne pour ajouter une plage de disponibilité ; partez d'une plage
-        existante pour l'effacer. Total : {formatDuration(totalWeeklyMinutes(slots))} par semaine.
+        {readOnly
+          ? ""
+          : "Cliquez-glissez sur une ligne pour ajouter une plage de disponibilité ; partez d'une plage existante pour l'effacer. "}
+        Total : {formatDuration(totalWeeklyMinutes(slots))} par semaine.
       </p>
       <div className="select-none overflow-x-auto">
         <div className="min-w-[720px]">
@@ -146,6 +151,7 @@ export function AvailabilityEditor({
                       data-available={available}
                       onPointerDown={(e) => {
                         e.preventDefault();
+                        if (readOnly) return;
                         setDrag(() => ({
                           weekday: day.value,
                           anchor: minute,
@@ -159,9 +165,10 @@ export function AvailabilityEditor({
                         )
                       }
                       className={cn(
-                        "h-full cursor-pointer",
+                        "h-full",
+                        !readOnly && "cursor-pointer",
                         minute % 60 === 0 && "border-border border-l",
-                        !shown && "hover:bg-accent",
+                        !shown && !readOnly && "hover:bg-accent",
                         preview === false && "bg-destructive/20",
                       )}
                       style={
@@ -175,12 +182,19 @@ export function AvailabilityEditor({
           ))}
         </div>
       </div>
-      <SlotList slots={slots} weekdays={weekdays.map((d) => d.value)} onChange={onChange} />
-      <AddSlotForm
+      <SlotList
+        slots={slots}
         weekdays={weekdays.map((d) => d.value)}
-        times={[...cells, end]}
-        onAdd={(weekday, from, to) => onChange(setAvailability(slots, weekday, from, to, true))}
+        onChange={onChange}
+        readOnly={readOnly}
       />
+      {!readOnly && (
+        <AddSlotForm
+          weekdays={weekdays.map((d) => d.value)}
+          times={[...cells, end]}
+          onAdd={(weekday, from, to) => onChange(setAvailability(slots, weekday, from, to, true))}
+        />
+      )}
     </div>
   );
 }
@@ -189,10 +203,12 @@ function SlotList({
   slots,
   weekdays,
   onChange,
+  readOnly,
 }: {
   slots: readonly WeeklySlot[];
   weekdays: readonly number[];
   onChange: (slots: WeeklySlot[]) => void;
+  readOnly: boolean;
 }) {
   const otherDays = [...new Set(slots.map((s) => s.weekday))].filter((d) => !weekdays.includes(d));
   const days = [...weekdays, ...otherDays];
@@ -212,24 +228,26 @@ function SlotList({
                   className="inline-flex items-center gap-1 rounded-md border bg-card py-0.5 pr-0.5 pl-2"
                 >
                   {label}
-                  <button
-                    type="button"
-                    aria-label={`Retirer ${weekdayLabel(weekday).toLowerCase()} ${label}`}
-                    className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    onClick={() =>
-                      onChange(
-                        setAvailability(
-                          slots,
-                          weekday,
-                          timeToMinutes(slot.startTime),
-                          timeToMinutes(slot.endTime),
-                          false,
-                        ),
-                      )
-                    }
-                  >
-                    <X className="size-3" aria-hidden />
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      aria-label={`Retirer ${weekdayLabel(weekday).toLowerCase()} ${label}`}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      onClick={() =>
+                        onChange(
+                          setAvailability(
+                            slots,
+                            weekday,
+                            timeToMinutes(slot.startTime),
+                            timeToMinutes(slot.endTime),
+                            false,
+                          ),
+                        )
+                      }
+                    >
+                      <X className="size-3" aria-hidden />
+                    </button>
+                  )}
                 </span>
               );
             })}

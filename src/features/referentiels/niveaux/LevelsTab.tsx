@@ -1,5 +1,6 @@
 import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { useReadOnly } from "@/app/season";
 import { ErrorAlert, Field } from "@/components/form/Field";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -32,6 +33,8 @@ type Editing = { mode: "create" } | { mode: "edit"; level: Level } | null;
 /** Référentiel des niveaux (§3.5 bis), commun à toutes les saisons. */
 export function LevelsTab() {
   const { db } = useDatabase();
+  // Pendant la consultation d'une saison archivée, tous les écrans sont en lecture seule.
+  const readOnly = useReadOnly();
   const load = useCallback(() => listLevels(db), [db]);
   const { data, reload } = useLoader(load);
   const [levels, setLevels] = useState<Level[]>([]);
@@ -59,13 +62,15 @@ export function LevelsTab() {
     <section className="flex max-w-3xl flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <p className="text-muted-foreground text-sm">
-          Niveaux proposés pour les groupes et les élèves, communs à toutes les saisons. Glissez
-          pour changer l'ordre.
+          Niveaux proposés pour les groupes et les élèves, communs à toutes les saisons.
+          {readOnly ? " Modifiables depuis la saison active." : " Glissez pour changer l'ordre."}
         </p>
-        <Button onClick={() => setEditing({ mode: "create" })}>
-          <Plus aria-hidden />
-          Nouveau niveau
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setEditing({ mode: "create" })}>
+            <Plus aria-hidden />
+            Nouveau niveau
+          </Button>
+        )}
       </div>
       <ErrorAlert>{error}</ErrorAlert>
       <SortableList
@@ -73,30 +78,35 @@ export function LevelsTab() {
         items={levels}
         itemName={(l) => l.label}
         onReorder={reorder}
+        readOnly={readOnly}
         renderItem={(level) => (
           <>
             <span className="flex-1 truncate font-medium">{level.label}</span>
             <StatusBadge active={level.active} />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Modifier ${level.label}`}
-              title="Modifier"
-              onClick={() => setEditing({ mode: "edit", level })}
-            >
-              <Pencil aria-hidden />
-            </Button>
-            <DeleteAction
-              name={level.label}
-              subject={`le niveau « ${level.label} »`}
-              archived={!level.active}
-              canDeleteWhenUsed
-              warning="En cas de suppression, les groupes et élèves concernés n'auront plus de niveau."
-              getUsage={() => getLevelUsage(db, level.id)}
-              onDelete={() => deleteLevel(db, level.id)}
-              onArchive={() => setLevelActive(db, level.id, false)}
-              onDone={reload}
-            />
+            {!readOnly && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Modifier ${level.label}`}
+                  title="Modifier"
+                  onClick={() => setEditing({ mode: "edit", level })}
+                >
+                  <Pencil aria-hidden />
+                </Button>
+                <DeleteAction
+                  name={level.label}
+                  subject={`le niveau « ${level.label} »`}
+                  archived={!level.active}
+                  canDeleteWhenUsed
+                  warning="En cas de suppression, les groupes et élèves concernés n'auront plus de niveau."
+                  getUsage={() => getLevelUsage(db, level.id)}
+                  onDelete={() => deleteLevel(db, level.id)}
+                  onArchive={() => setLevelActive(db, level.id, false)}
+                  onDone={reload}
+                />
+              </>
+            )}
           </>
         )}
       />

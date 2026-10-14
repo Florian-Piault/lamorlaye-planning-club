@@ -43,6 +43,8 @@ interface InstructorFormProps {
   submitLabel: string;
   onSubmit: (input: InstructorInput) => Promise<void>;
   onCancel?: () => void;
+  /** Consultation seule (saison archivée) : champs désactivés, sans bouton d'enregistrement. */
+  readOnly?: boolean;
 }
 
 /**
@@ -55,6 +57,7 @@ export function InstructorForm({
   submitLabel,
   onSubmit,
   onCancel,
+  readOnly = false,
 }: InstructorFormProps) {
   const [values, setValues] = useState(initialValues);
   const [initialsEdited, setInitialsEdited] = useState(initialValues.initials !== "");
@@ -98,94 +101,101 @@ export function InstructorForm({
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-4" aria-label="Fiche moniteur">
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Prénom" required error={errors.firstName}>
+      <fieldset disabled={readOnly} className="contents">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Prénom" required error={errors.firstName}>
+            {(props) => (
+              <Input
+                {...props}
+                value={values.firstName}
+                onChange={(e) => update({ firstName: e.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Nom" required error={errors.lastName}>
+            {(props) => (
+              <Input
+                {...props}
+                value={values.lastName}
+                onChange={(e) => update({ lastName: e.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Téléphone" error={errors.phone}>
+            {(props) => (
+              <Input
+                {...props}
+                type="tel"
+                value={values.phone}
+                onChange={(e) => update({ phone: e.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="E-mail" error={errors.email}>
+            {(props) => (
+              <Input
+                {...props}
+                type="email"
+                value={values.email}
+                onChange={(e) => update({ email: e.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+        <Field
+          label="Initiales"
+          required
+          error={errors.initials}
+          hint={
+            initialsTaken
+              ? "Ces initiales sont déjà utilisées par un autre moniteur."
+              : "Toujours affichées sur les cours (impression en noir et blanc, daltonisme)."
+          }
+          className="max-w-48"
+        >
           {(props) => (
             <Input
               {...props}
-              value={values.firstName}
-              onChange={(e) => update({ firstName: e.target.value })}
+              value={values.initials}
+              maxLength={4}
+              onChange={(e) => {
+                setInitialsEdited(true);
+                update({ initials: e.target.value });
+              }}
             />
           )}
         </Field>
-        <Field label="Nom" required error={errors.lastName}>
-          {(props) => (
-            <Input
-              {...props}
-              value={values.lastName}
-              onChange={(e) => update({ lastName: e.target.value })}
-            />
-          )}
-        </Field>
-        <Field label="Téléphone" error={errors.phone}>
-          {(props) => (
-            <Input
-              {...props}
-              type="tel"
-              value={values.phone}
-              onChange={(e) => update({ phone: e.target.value })}
-            />
-          )}
-        </Field>
-        <Field label="E-mail" error={errors.email}>
-          {(props) => (
-            <Input
-              {...props}
-              type="email"
-              value={values.email}
-              onChange={(e) => update({ email: e.target.value })}
-            />
-          )}
-        </Field>
-      </div>
-      <Field
-        label="Initiales"
-        required
-        error={errors.initials}
-        hint={
-          initialsTaken
-            ? "Ces initiales sont déjà utilisées par un autre moniteur."
-            : "Toujours affichées sur les cours (impression en noir et blanc, daltonisme)."
-        }
-        className="max-w-48"
-      >
-        {(props) => (
-          <Input
-            {...props}
-            value={values.initials}
-            maxLength={4}
-            onChange={(e) => {
-              setInitialsEdited(true);
-              update({ initials: e.target.value });
-            }}
+        <ColorPicker
+          value={values.color}
+          others={others}
+          error={errors.color}
+          onChange={(color) => update({ color })}
+          initials={values.initials}
+        />
+        <Label className="font-normal">
+          <Checkbox
+            checked={values.active}
+            onChange={(e) => update({ active: e.target.checked })}
           />
-        )}
-      </Field>
-      <ColorPicker
-        value={values.color}
-        others={others}
-        error={errors.color}
-        onChange={(color) => update({ color })}
-        initials={values.initials}
-      />
-      <Label className="font-normal">
-        <Checkbox checked={values.active} onChange={(e) => update({ active: e.target.checked })} />
-        Actif (proposé dans le planning)
-      </Label>
+          Actif (proposé dans le planning)
+        </Label>
+      </fieldset>
       <ErrorAlert>{error}</ErrorAlert>
-      <div className="flex items-center gap-2">
-        <Button type="submit" disabled={busy}>
-          {submitLabel}
-        </Button>
-        {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Annuler
+      {!readOnly && (
+        <div className="flex items-center gap-2">
+          <Button type="submit" disabled={busy}>
+            {submitLabel}
           </Button>
-        )}
-        {saved && (
-          <output className="text-muted-foreground text-sm">Modifications enregistrées.</output>
-        )}
-      </div>
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Annuler
+            </Button>
+          )}
+          {saved && (
+            <output className="text-muted-foreground text-sm">Modifications enregistrées.</output>
+          )}
+        </div>
+      )}
     </form>
   );
 }

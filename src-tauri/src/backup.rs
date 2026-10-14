@@ -3,8 +3,10 @@
 //! - copie automatique horodatée à chaque fermeture de l'application, par
 //!   `VACUUM INTO` (copie cohérente même si la base est ouverte), avec
 //!   conservation des 30 dernières ;
-//! - export manuel vers un fichier choisi par l'utilisateur ;
-//! - restauration d'un fichier exporté, après une sauvegarde de l'état courant.
+//! - export manuel vers un fichier choisi par l'utilisateur, éventuellement
+//!   chiffré par un mot de passe (§11.6, voir `crypto.rs`) ;
+//! - restauration d'un fichier exporté (chiffré ou non), après une sauvegarde
+//!   de l'état courant.
 //!
 //! Les copies passent par une connexion SQLite dédiée, indépendante du pool de
 //! `tauri-plugin-sql` : elles fonctionnent donc aussi pendant la fermeture,
@@ -21,6 +23,7 @@ use sqlx::{ConnectOptions, Connection, Row, SqliteConnection};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_sql::{DbInstances, DbPool};
 
+use crate::crypto::{self, CryptoError, KdfParams};
 use crate::db::DatabaseLocation;
 
 /// Nombre de sauvegardes conservées dans le dossier des sauvegardes.
@@ -43,6 +46,10 @@ pub enum BackupError {
     InvalidPath,
     #[error("Le fichier choisi n'est pas une sauvegarde valide de Planning Club.")]
     InvalidBackup,
+    #[error("Cette sauvegarde est chiffrée : saisissez son mot de passe.")]
+    PasswordRequired,
+    #[error(transparent)]
+    Crypto(#[from] CryptoError),
 }
 
 impl Serialize for BackupError {
@@ -291,19 +298,94 @@ pub async fn create_backup(
     Ok(destination)
 }
 
-/// Exporte la base vers `destination`, en remplaçant le fichier s'il existe.
-pub async fn export_backup(database: &Path, destination: &Path) -> BackupResult<()> {
+/// Chiffrement demandé pour un export : mot de passe et paramètres de dérivation.
+pub struct Encryption<'a> {
+    pub password: &'a str,
+    pub params: KdfParams,
+}
+
+/// Exporte la base vers `destination`, en remplaçant le fichier s'il existe ;
+/// le fichier est chiffré si `encryption` est fourni.
+pub async fn export_backup(
+    database: &Path,
+    destination: &Path,
+    encryption: Option<Encryption<'_>>,
+) -> BackupResult<()> {
     let file_name = destination
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or(BackupError::InvalidPath)?;
+    if encryption.as_ref().is_some_and(|e| e.password.is_empty()) {
+        return Err(CryptoError::EmptyPassword.into());
+    }
     let partial = destination.with_file_name(format!("{file_name}.partiel"));
     if partial.exists() {
         fs::remove_file(&partial)?;
     }
-    vacuum_into(database, &partial).await?;
+    match encryption {
+        None => vacuum_into(database, &partial).await?,
+        Some(Encryption { password, params }) => {
+            // Copie en clair à côté de la base (jamais sur le support de destination),
+            // supprimée dès qu'elle est chiffrée.
+            let plain = database.with_extension("db.export");
+            if plain.exists() {
+                fs::remove_file(&plain)?;
+            }
+            vacuum_into(database, &plain).await?;
+            let result = fs::read(&plain)
+                .map_err(BackupError::from)
+                .and_then(|bytes| Ok(crypto::encrypt(&bytes, password, params)?))
+                .and_then(|encrypted| Ok(fs::write(&partial, encrypted)?));
+            let _ = fs::remove_file(&plain);
+            if result.is_err() {
+                let _ = fs::remove_file(&partial);
+            }
+            result?;
+        }
+    }
     fs::rename(&partial, destination)?;
     Ok(())
+}
+
+/// Le fichier est-il une sauvegarde chiffrée (signature en tête) ?
+pub fn is_encrypted_file(path: &Path) -> BackupResult<bool> {
+    let mut magic = [0u8; crypto::MAGIC.len()];
+    let mut file = fs::File::open(path).map_err(|_| BackupError::InvalidBackup)?;
+    match file.read_exact(&mut magic) {
+        Ok(()) => Ok(crypto::is_encrypted(&magic)),
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
+/// Prépare une restauration : copie `source` vers `staged` (en la déchiffrant
+/// si elle est chiffrée), puis vérifie que la copie est une sauvegarde valide.
+/// Le mot de passe est ignoré pour une sauvegarde non chiffrée.
+pub async fn stage_backup(
+    source: &Path,
+    staged: &Path,
+    password: Option<&str>,
+) -> BackupResult<()> {
+    if staged.exists() {
+        fs::remove_file(staged)?;
+    }
+    let result = async {
+        if is_encrypted_file(source)? {
+            let password = password
+                .filter(|p| !p.is_empty())
+                .ok_or(BackupError::PasswordRequired)?;
+            let plain = crypto::decrypt(&fs::read(source)?, password)?;
+            fs::write(staged, plain)?;
+        } else {
+            fs::copy(source, staged)?;
+        }
+        validate_backup(staged).await
+    }
+    .await;
+    if result.is_err() {
+        let _ = fs::remove_file(staged);
+    }
+    result
 }
 
 /// Remplace le fichier de la base par `staged` (base déjà fermée).
@@ -353,36 +435,53 @@ pub async fn backup_create(
     backup_info(&path).ok_or(BackupError::InvalidPath)
 }
 
-/// Exporte une sauvegarde vers le fichier choisi par l'utilisateur.
+/// Exporte une sauvegarde vers le fichier choisi par l'utilisateur, chiffrée
+/// si un mot de passe est fourni.
 #[tauri::command]
 pub async fn backup_export(
     location: State<'_, DatabaseLocation>,
     destination: String,
+    password: Option<String>,
 ) -> BackupResult<()> {
-    export_backup(&location.0, Path::new(&destination)).await
+    let encryption = password.as_deref().map(|password| Encryption {
+        password,
+        params: crypto::DEFAULT_KDF,
+    });
+    export_backup(&location.0, Path::new(&destination), encryption).await
 }
 
-/// Restaure une sauvegarde : vérifie le fichier, sauvegarde l'état courant,
-/// ferme la base et remplace son fichier. Le front doit ensuite se recharger
-/// pour rouvrir la base (et appliquer les migrations éventuelles).
+/// Nature d'un fichier de sauvegarde choisi pour une restauration.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupFileInfo {
+    encrypted: bool,
+}
+
+/// Indique si le fichier choisi est chiffré (un mot de passe sera demandé).
+#[tauri::command]
+pub fn backup_inspect(source: String) -> BackupResult<BackupFileInfo> {
+    Ok(BackupFileInfo {
+        encrypted: is_encrypted_file(Path::new(&source))?,
+    })
+}
+
+/// Restaure une sauvegarde : la copie (déchiffrée au besoin) est vérifiée,
+/// l'état courant est sauvegardé, puis la base est fermée et son fichier
+/// remplacé. Le front doit ensuite se recharger pour rouvrir la base (et
+/// appliquer les migrations éventuelles).
 #[tauri::command]
 pub async fn backup_restore(
     instances: State<'_, DbInstances>,
     location: State<'_, DatabaseLocation>,
     directory: State<'_, BackupDirectory>,
     source: String,
+    password: Option<String>,
 ) -> BackupResult<()> {
     let database = location.0.as_path();
-    let source = Path::new(&source);
-    validate_backup(source).await?;
-
     // Copie préalable : la source peut être une sauvegarde que la rotation va supprimer.
     let staged = database.with_extension("db.restauration");
-    if staged.exists() {
-        fs::remove_file(&staged)?;
-    }
+    stage_backup(Path::new(&source), &staged, password.as_deref()).await?;
     let result = async {
-        fs::copy(source, &staged)?;
         create_backup(
             database,
             &directory.0,
@@ -560,7 +659,7 @@ mod tests {
             // Export par-dessus un fichier existant.
             let exported = dir.join("export.db");
             fs::write(&exported, b"ancien contenu").unwrap();
-            export_backup(&database, &exported).await.unwrap();
+            export_backup(&database, &exported, None).await.unwrap();
             assert_eq!(season_names(&exported).await, season_names(&database).await);
 
             // Restauration : remplacement du fichier de la base.
@@ -605,6 +704,131 @@ mod tests {
             ));
             assert!(validate_backup(&dir.join("absent.db")).await.is_err());
 
+            let _ = fs::remove_dir_all(&dir);
+        });
+    }
+
+    /// Paramètres de dérivation réduits : tests rapides en mode debug.
+    const FAST: KdfParams = KdfParams {
+        memory_kib: 64,
+        iterations: 1,
+        lanes: 1,
+    };
+
+    fn encryption(password: &str) -> Option<Encryption<'_>> {
+        Some(Encryption {
+            password,
+            params: FAST,
+        })
+    }
+
+    #[test]
+    fn exporte_et_restaure_une_sauvegarde_chiffree() {
+        tauri::async_runtime::block_on(async {
+            let dir = temp_dir("chiffrement");
+            let database = dir.join("planning.db");
+            sample_database(&database).await;
+
+            let exported = dir.join("export.pcenc");
+            export_backup(&database, &exported, encryption("correct horse"))
+                .await
+                .unwrap();
+            let bytes = fs::read(&exported).unwrap();
+            assert!(crypto::is_encrypted(&bytes));
+            assert!(!bytes
+                .windows(SQLITE_HEADER.len())
+                .any(|w| w == SQLITE_HEADER));
+            assert!(is_encrypted_file(&exported).unwrap());
+            assert!(!database.with_extension("db.export").exists());
+            assert!(!dir.join("export.pcenc.partiel").exists());
+            // Un fichier chiffré n'est pas une base SQLite : validation directe refusée.
+            assert!(matches!(
+                validate_backup(&exported).await,
+                Err(BackupError::InvalidBackup)
+            ));
+
+            let staged = dir.join("planning.db.restauration");
+            stage_backup(&exported, &staged, Some("correct horse"))
+                .await
+                .unwrap();
+            assert_eq!(
+                season_names(&staged).await,
+                vec!["2026-2027", "Saison « été »"]
+            );
+            let _ = fs::remove_dir_all(&dir);
+        });
+    }
+
+    #[test]
+    fn refuse_un_mauvais_mot_de_passe_ou_son_absence() {
+        tauri::async_runtime::block_on(async {
+            let dir = temp_dir("mauvais-mot-de-passe");
+            let database = dir.join("planning.db");
+            sample_database(&database).await;
+            let exported = dir.join("export.pcenc");
+            export_backup(&database, &exported, encryption("bon"))
+                .await
+                .unwrap();
+            let staged = dir.join("staged.db");
+
+            let wrong = stage_backup(&exported, &staged, Some("mauvais")).await;
+            assert!(matches!(
+                wrong,
+                Err(BackupError::Crypto(CryptoError::WrongPassword))
+            ));
+            assert_eq!(
+                wrong.unwrap_err().to_string(),
+                "Mot de passe incorrect, ou fichier de sauvegarde altéré."
+            );
+            assert!(!staged.exists(), "aucune copie intermédiaire laissée");
+            assert!(matches!(
+                stage_backup(&exported, &staged, None).await,
+                Err(BackupError::PasswordRequired)
+            ));
+            assert!(matches!(
+                stage_backup(&exported, &staged, Some("")).await,
+                Err(BackupError::PasswordRequired)
+            ));
+            assert!(matches!(
+                export_backup(&database, &dir.join("vide.pcenc"), encryption("")).await,
+                Err(BackupError::Crypto(CryptoError::EmptyPassword))
+            ));
+            let _ = fs::remove_dir_all(&dir);
+        });
+    }
+
+    #[test]
+    fn restaure_toujours_une_sauvegarde_non_chiffree() {
+        tauri::async_runtime::block_on(async {
+            let dir = temp_dir("non-chiffree");
+            let database = dir.join("planning.db");
+            sample_database(&database).await;
+            let exported = dir.join("export.db");
+            export_backup(&database, &exported, None).await.unwrap();
+            assert!(!is_encrypted_file(&exported).unwrap());
+
+            let staged = dir.join("staged.db");
+            stage_backup(&exported, &staged, None).await.unwrap();
+            assert_eq!(season_names(&staged).await, season_names(&database).await);
+            // Un mot de passe fourni par erreur est ignoré.
+            stage_backup(&exported, &staged, Some("inutile"))
+                .await
+                .unwrap();
+            assert_eq!(season_names(&staged).await, season_names(&database).await);
+
+            // Fichiers invalides : toujours refusés, sans copie laissée.
+            let text = dir.join("texte.db");
+            fs::write(&text, b"bonjour").unwrap();
+            assert!(!is_encrypted_file(&text).unwrap());
+            assert!(matches!(
+                stage_backup(&text, &staged, None).await,
+                Err(BackupError::InvalidBackup)
+            ));
+            assert!(!staged.exists());
+            assert!(matches!(
+                is_encrypted_file(&dir.join("absent.db")),
+                Err(BackupError::InvalidBackup)
+            ));
             let _ = fs::remove_dir_all(&dir);
         });
     }

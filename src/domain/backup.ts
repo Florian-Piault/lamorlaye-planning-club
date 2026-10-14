@@ -57,6 +57,29 @@ export function exportFileName(now: Date): string {
   return `planning-club-${date}-${pad(now.getHours())}${pad(now.getMinutes())}.db`;
 }
 
+/** Extension des sauvegardes chiffrées par mot de passe (§11.6). */
+export const ENCRYPTED_EXTENSION = "pcenc";
+
+/** Nom proposé pour une sauvegarde chiffrée : `planning-club-2026-10-14-1830.pcenc`. */
+export function encryptedExportFileName(now: Date): string {
+  return exportFileName(now).replace(/\.db$/, `.${ENCRYPTED_EXTENSION}`);
+}
+
+/** Longueur minimale du mot de passe d'une sauvegarde chiffrée. */
+export const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * Problème du mot de passe choisi pour chiffrer une sauvegarde, ou `null`.
+ * Aucune récupération n'est possible en cas d'oubli : il est saisi deux fois.
+ */
+export function backupPasswordProblem(password: string, confirmation: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Le mot de passe doit comporter au moins ${MIN_PASSWORD_LENGTH} caractères.`;
+  }
+  if (password !== confirmation) return "Les deux mots de passe ne sont pas identiques.";
+  return null;
+}
+
 /** Date et heure locales lisibles : « 14/10/2026 à 18:30 ». */
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);

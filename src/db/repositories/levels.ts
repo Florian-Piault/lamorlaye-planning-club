@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import type { Usage } from "@/domain/usage";
 import type { LevelInput } from "@/domain/validation";
 import type { Db } from "../client";
+import { isReadOnlyViolation, SeasonReadOnlyError } from "../readOnly";
 import { groups, type Level, levels, students } from "../schema";
 import { nextSortOrder, usageOf } from "./common";
 
@@ -40,7 +41,17 @@ export async function setLevelActive(db: Db, id: string, active: boolean): Promi
   await db.update(levels).set({ active }).where(eq(levels.id, id));
 }
 
-/** Supprime un niveau ; les groupes et élèves qui l'utilisaient n'ont plus de niveau. */
+/**
+ * Supprime un niveau ; les groupes et élèves qui l'utilisaient n'ont plus de
+ * niveau. Refusé si une saison archivée (lecture seule) l'utilise.
+ */
 export async function deleteLevel(db: Db, id: string): Promise<void> {
-  await db.delete(levels).where(eq(levels.id, id));
+  try {
+    await db.delete(levels).where(eq(levels.id, id));
+  } catch (error) {
+    if (!isReadOnlyViolation(error)) throw error;
+    throw new SeasonReadOnlyError(
+      "Ce niveau est utilisé par une saison archivée, en lecture seule : il ne peut pas être supprimé. Archivez-le plutôt.",
+    );
+  }
 }

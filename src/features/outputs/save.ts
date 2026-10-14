@@ -14,12 +14,14 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
  * en téléchargement par le navigateur.
  */
 
-export type OutputKind = "pdf" | "csv" | "xlsx";
+/** Types de document ; `json` : export des données personnelles d'un élève (RGPD). */
+export type OutputKind = "pdf" | "csv" | "xlsx" | "json";
 
 export const MIME_TYPES: Record<OutputKind, string> = {
   pdf: "application/pdf",
   csv: "text/csv;charset=utf-8",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  json: "application/json;charset=utf-8",
 };
 
 export interface OutputFile {
