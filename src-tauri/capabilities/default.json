@@ -1,7 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions de la fenêtre principale. Aucune permission HTTP : l'application fonctionne strictement hors ligne.",
+  "description": "Permissions de la fenêtre principale. Aucune permission HTTP : l'application fonctionne strictement hors ligne. Les dialogues « Ouvrir » / « Enregistrer sous » servent à l'export et à la restauration des sauvegardes.",
   "windows": ["main"],
-  "permissions": ["core:default", "sql:allow-load", "sql:allow-close"]
+  "permissions": [
+    "core:default",
+    "sql:allow-load",
+    "sql:allow-close",
+    "dialog:allow-open",
+    "dialog:allow-save"
+  ]
 }

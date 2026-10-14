@@ -55,11 +55,12 @@ jobs:
       - name: Build du front
         run: pnpm exec vite build
 
-      - name: Rust (format, clippy)
+      - name: Rust (format, clippy, tests)
         working-directory: src-tauri
         run: |
           cargo fmt --check
           cargo clippy --all-targets -- -D warnings
+          cargo test
 
       - name: Navigateurs Playwright
         run: pnpm exec playwright install --with-deps chromium webkit

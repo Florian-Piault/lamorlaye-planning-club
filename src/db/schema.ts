@@ -89,6 +89,8 @@ export const seasons = sqliteTable(
   (t) => [
     check("seasons_status_check", inList("status", seasonStatuses)),
     check("seasons_dates_check", sql`${t.startDate} <= ${t.endDate}`),
+    /** Une seule saison active à la fois. */
+    uniqueIndex("seasons_single_active_idx").on(t.status).where(sql`status = 'active'`),
   ],
 );
 

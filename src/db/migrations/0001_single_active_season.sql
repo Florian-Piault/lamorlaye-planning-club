@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `seasons_single_active_idx` ON `seasons` (`status`) WHERE status = 'active';
