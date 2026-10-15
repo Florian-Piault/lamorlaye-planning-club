@@ -38,7 +38,7 @@ export function WeekNavigator({
   const go = (target: string) => onChange({ kind: "dated", monday: target });
   const segment = (active: boolean) =>
     cn(
-      "rounded px-2.5 py-1 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      "rounded px-2.5 py-1 font-medium text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       active
         ? mode.kind === "type"
           ? "bg-sky-700 text-white"
