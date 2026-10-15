@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  arrowDirection,
   assignLanes,
   boardSize,
   clamp,
@@ -14,6 +15,7 @@ import {
   hatchRects,
   hoursLabel,
   itemAtPoint,
+  keyboardMoveTarget,
   layoutItems,
   MIN_COLUMN_WIDTH,
   minuteToY,
@@ -227,6 +229,57 @@ describe("hachures et graduations", () => {
       [570, true],
       [600, false],
     ]);
+  });
+});
+
+describe("déplacement au clavier", () => {
+  const slot = { weekday: 1, courtId: "c1", start: 17 * 60, durationMinutes: 60 };
+
+  it("reconnaît les flèches", () => {
+    expect(arrowDirection("ArrowUp")).toBe("up");
+    expect(arrowDirection("ArrowDown")).toBe("down");
+    expect(arrowDirection("ArrowLeft")).toBe("left");
+    expect(arrowDirection("ArrowRight")).toBe("right");
+    expect(arrowDirection("Enter")).toBeNull();
+  });
+
+  it("avance ou recule de 15 min (1 h avec Maj) dans l'amplitude", () => {
+    expect(keyboardMoveTarget(g, slot, "up").start).toBe(16 * 60 + 45);
+    expect(keyboardMoveTarget(g, slot, "down").start).toBe(17 * 60 + 15);
+    expect(keyboardMoveTarget(g, slot, "down", true).start).toBe(18 * 60);
+    expect(keyboardMoveTarget(g, { ...slot, start: 8 * 60 }, "up").start).toBe(8 * 60);
+    expect(keyboardMoveTarget(g, { ...slot, start: 21 * 60 }, "down").start).toBe(21 * 60);
+    // Un horaire hors grille est ramené au quart d'heure.
+    expect(keyboardMoveTarget(g, { ...slot, start: 17 * 60 + 5 }, "down").start).toBe(17 * 60 + 15);
+  });
+
+  it("change de court, puis de jour après le dernier court", () => {
+    expect(keyboardMoveTarget(g, slot, "right")).toMatchObject({ weekday: 1, courtId: "c2" });
+    expect(keyboardMoveTarget(g, { ...slot, courtId: "c2" }, "right")).toMatchObject({
+      weekday: 2,
+      courtId: "c1",
+    });
+    expect(keyboardMoveTarget(g, { ...slot, weekday: 2 }, "left")).toMatchObject({
+      weekday: 1,
+      courtId: "c2",
+    });
+    // Bords de la grille : le cours reste en place.
+    expect(keyboardMoveTarget(g, slot, "left")).toEqual(slot);
+    expect(keyboardMoveTarget(g, { ...slot, weekday: 3, courtId: "c2" }, "right")).toMatchObject({
+      weekday: 3,
+      courtId: "c2",
+    });
+  });
+
+  it("change de jour sur le même court avec Maj", () => {
+    expect(keyboardMoveTarget(g, slot, "right", true)).toMatchObject({ weekday: 2, courtId: "c1" });
+    expect(keyboardMoveTarget(g, { ...slot, weekday: 3 }, "left", true)).toMatchObject({
+      weekday: 2,
+      courtId: "c1",
+    });
+    expect(keyboardMoveTarget(g, { ...slot, weekday: 3 }, "right", true).weekday).toBe(3);
+    // Jour non affiché : rien ne change.
+    expect(keyboardMoveTarget(g, { ...slot, weekday: 7 }, "right")).toMatchObject({ weekday: 7 });
   });
 });
 

@@ -171,6 +171,49 @@ export function moveTarget(
   return { weekday: column.weekday, courtId: column.courtId, start, durationMinutes };
 }
 
+/** Direction d'un déplacement au clavier (flèches). */
+export type KeyboardDirection = "up" | "down" | "left" | "right";
+
+const ARROW_KEYS: Record<string, KeyboardDirection> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+};
+
+/** Direction associée à une touche (`event.key`), ou `null` si ce n'est pas une flèche. */
+export function arrowDirection(key: string): KeyboardDirection | null {
+  return ARROW_KEYS[key] ?? null;
+}
+
+/**
+ * Déplacement d'un cours au clavier (accessibilité, §12.1 dnd-kit) :
+ * - haut / bas : 15 min plus tôt / plus tard (1 h avec `large`) ;
+ * - gauche / droite : court précédent / suivant, en passant d'un jour à
+ *   l'autre après le dernier court ; avec `large`, jour précédent / suivant
+ *   sur le même court.
+ * Le créneau reste dans l'amplitude et dans les colonnes affichées.
+ */
+export function keyboardMoveTarget(
+  g: GridGeometry,
+  slot: SlotTarget,
+  direction: KeyboardDirection,
+  large = false,
+): SlotTarget {
+  const sign = direction === "up" || direction === "left" ? -1 : 1;
+  if (direction === "up" || direction === "down") {
+    const latest = Math.max(g.dayStart, g.dayEnd - slot.durationMinutes);
+    const step = large ? 60 : SNAP_MINUTES;
+    const start = clamp(snapMinutes(slot.start + sign * step), g.dayStart, latest);
+    return { ...slot, start };
+  }
+  const index = columnIndexOf(g, slot.weekday, slot.courtId);
+  const next = index + sign * (large ? g.courtIds.length : 1);
+  if (index < 0 || next < 0 || next >= columnCount(g)) return slot;
+  const column = columnAt(g, next * g.columnWidth) as GridColumn;
+  return { ...slot, weekday: column.weekday, courtId: column.courtId };
+}
+
 /** Redimensionnement par le bord inférieur : nouvelle durée aimantée et bornée. */
 export function resizeDuration(g: GridGeometry, y: number, start: number): number {
   const end = clamp(

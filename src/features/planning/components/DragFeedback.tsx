@@ -24,7 +24,11 @@ export function DragFeedback({ interaction, courtName, instructor, groupName }: 
   let heading: string;
   switch (drag.kind) {
     case "move":
-      heading = drag.duplicate ? "Duplication (Alt)" : "Déplacement";
+      heading = drag.duplicate
+        ? "Duplication (Alt)"
+        : drag.keyboard
+          ? "Déplacement au clavier — Espace ou Entrée : déposer, Échap : annuler"
+          : "Déplacement";
       break;
     case "resize":
       heading = `Durée : ${hoursLabel(candidate?.durationMinutes ?? 0)}`;

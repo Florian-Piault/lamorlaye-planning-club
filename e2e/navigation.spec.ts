@@ -15,7 +15,7 @@ test.describe("coque de l'application", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Planning" })).toBeVisible();
 
     const nav = page.getByRole("navigation", { name: "Navigation principale" });
-    for (const label of ["Référentiels", "Import/Export", "Réglages", "Planning"]) {
+    for (const label of ["Référentiels", "Import/Export", "Réglages", "À propos", "Planning"]) {
       await nav.getByRole("link", { name: label }).click();
       await expect(page.getByRole("heading", { level: 1, name: label })).toBeVisible();
     }
@@ -24,6 +24,13 @@ test.describe("coque de l'application", () => {
     await nav.getByRole("link", { name: "Réglages" }).click();
     await expect(page.getByTestId("storage-kind")).toHaveText("Base en mémoire (hors application)");
     await expect(page.getByText("0000_initial")).toBeVisible();
+
+    // Écran « À propos » : version de package.json, données en mémoire hors application.
+    await nav.getByRole("link", { name: "À propos" }).click();
+    await expect(page.getByTestId("app-version")).toHaveText(/^\d+\.\d+\.\d+$/);
+    await expect(page.getByTestId("database-location")).toHaveText(
+      "Base en mémoire (hors application)",
+    );
 
     expect(externalRequests).toEqual([]);
   });

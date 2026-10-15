@@ -20,6 +20,15 @@ export function Page({ title, description, children }: PageProps) {
   );
 }
 
+/** Indication de chargement (données ou écran chargé à la demande). */
+export function Loading({ className }: { className?: string }) {
+  return (
+    <p role="status" className={className ?? "text-muted-foreground text-sm"}>
+      Chargement…
+    </p>
+  );
+}
+
 interface EmptyStateProps {
   icon: LucideIcon;
   title: string;

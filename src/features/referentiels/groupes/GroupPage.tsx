@@ -1,5 +1,14 @@
-import { ArrowLeft, Plus, TriangleAlert, UserMinus } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { ArrowLeft, GripVertical, Plus, TriangleAlert, UserMinus } from "lucide-react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { SearchInput } from "@/components/data/ListControls";
@@ -31,11 +40,68 @@ import { listStudents } from "@/db/repositories/students";
 import { ageOn, groupAlerts, isInAgeRange } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
+import { cn } from "@/lib/utils";
 import { DeleteAction } from "../components/DeleteAction";
 import { StatusBadge } from "../components/StatusBadge";
 import { GroupForm, groupValues } from "./GroupForm";
 
 const MAX_RESULTS = 8;
+
+/** Zone de dépôt : la composition du groupe. */
+const COMPOSITION_DROP = "composition";
+
+interface CandidateData {
+  studentId: string;
+  name: string;
+}
+
+function dragName(data: unknown): string | null {
+  return (data as CandidateData | undefined)?.name ?? null;
+}
+
+/**
+ * Poignée d'un élève trouvé, à glisser sur la composition (§8). Le bouton
+ * « Ajouter » reste l'équivalent au clavier : la poignée est hors de l'ordre
+ * de tabulation.
+ */
+function DragHandle({ studentId, name }: CandidateData) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `eleve:${studentId}`,
+    data: { studentId, name } satisfies CandidateData,
+  });
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      tabIndex={-1}
+      aria-label={`Glisser ${name} dans le groupe`}
+      title="Glisser sur la composition du groupe"
+      className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+    >
+      <GripVertical className="size-4" aria-hidden />
+    </button>
+  );
+}
+
+function CompositionDropZone({ dragging, children }: { dragging: boolean; children: ReactNode }) {
+  const { isOver, setNodeRef } = useDroppable({ id: COMPOSITION_DROP });
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid="composition-drop"
+      data-over={isOver || undefined}
+      className={cn(
+        "rounded-lg",
+        dragging && "outline-2 outline-muted-foreground/40 outline-dashed outline-offset-4",
+        isOver && "bg-accent/50 outline-primary",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 
 /** Fiche d'un groupe et sa composition (§3.4, §8). */
 export function GroupPage() {
@@ -56,6 +122,8 @@ export function GroupPage() {
   const { data, loading, reload } = useLoader(load);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [dragged, setDragged] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const memberIds = useMemo(() => new Set(data?.members.map((m) => m.id)), [data]);
   const candidates = useMemo(
@@ -180,121 +248,162 @@ export function GroupPage() {
               </ul>
             )}
 
-            {!readOnly && (
-              <div className="flex flex-col gap-2">
-                <SearchInput
-                  value={query}
-                  onChange={setQuery}
-                  label="Ajouter un élève (nom, prénom, téléphone)"
-                  className="max-w-md"
-                />
-                {query.trim() !== "" && (
-                  <ul aria-label="Élèves trouvés" className="divide-y rounded-lg border">
-                    {candidates.length === 0 && (
-                      <li className="px-3 py-2 text-muted-foreground text-sm">
-                        Aucun élève trouvé.
-                      </li>
-                    )}
-                    {candidates.slice(0, MAX_RESULTS).map((student) => {
-                      const name = `${student.lastName} ${student.firstName}`;
-                      return (
-                        <li
-                          key={student.id}
-                          className="flex items-center gap-3 px-3 py-1.5 text-sm"
-                        >
-                          <span className="flex-1">
-                            <span className="font-medium">{name}</span>
-                            {student.birthDate && (
-                              <span className="text-muted-foreground">
-                                {" "}
-                                — {ageOn(student.birthDate, season.startDate)} ans
-                              </span>
-                            )}
-                            {student.levelLabel && (
-                              <span className="text-muted-foreground"> — {student.levelLabel}</span>
-                            )}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            aria-label={`Ajouter ${name}`}
-                            onClick={() => run(() => addGroupMember(db, id, student.id))}
-                          >
-                            <Plus aria-hidden />
-                            Ajouter
-                          </Button>
+            <DndContext
+              sensors={sensors}
+              accessibility={{
+                screenReaderInstructions: {
+                  draggable:
+                    "Glissez l'élève sur la composition du groupe pour l'y ajouter, ou utilisez le bouton « Ajouter ».",
+                },
+                announcements: {
+                  onDragStart: () => "Élève saisi.",
+                  onDragOver: () => undefined,
+                  onDragMove: () => undefined,
+                  onDragEnd: ({ over }) =>
+                    over ? "Élève ajouté au groupe." : "Élève relâché hors du groupe.",
+                  onDragCancel: () => "Glisser annulé.",
+                },
+              }}
+              onDragStart={(event) => setDragged(dragName(event.active.data.current))}
+              onDragCancel={() => setDragged(null)}
+              onDragEnd={(event) => {
+                setDragged(null);
+                const data = event.active.data.current as CandidateData | undefined;
+                if (event.over?.id === COMPOSITION_DROP && data) {
+                  run(() => addGroupMember(db, id, data.studentId));
+                }
+              }}
+            >
+              {!readOnly && (
+                <div className="flex flex-col gap-2">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    label="Ajouter un élève (nom, prénom, téléphone)"
+                    className="max-w-md"
+                  />
+                  {query.trim() !== "" && (
+                    <ul aria-label="Élèves trouvés" className="divide-y rounded-lg border">
+                      {candidates.length === 0 && (
+                        <li className="px-3 py-2 text-muted-foreground text-sm">
+                          Aucun élève trouvé.
                         </li>
+                      )}
+                      {candidates.slice(0, MAX_RESULTS).map((student) => {
+                        const name = `${student.lastName} ${student.firstName}`;
+                        return (
+                          <li
+                            key={student.id}
+                            className="flex items-center gap-3 px-3 py-1.5 text-sm"
+                          >
+                            <DragHandle studentId={student.id} name={name} />
+                            <span className="flex-1">
+                              <span className="font-medium">{name}</span>
+                              {student.birthDate && (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  — {ageOn(student.birthDate, season.startDate)} ans
+                                </span>
+                              )}
+                              {student.levelLabel && (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  — {student.levelLabel}
+                                </span>
+                              )}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              aria-label={`Ajouter ${name}`}
+                              onClick={() => run(() => addGroupMember(db, id, student.id))}
+                            >
+                              <Plus aria-hidden />
+                              Ajouter
+                            </Button>
+                          </li>
+                        );
+                      })}
+                      {candidates.length > MAX_RESULTS && (
+                        <li className="px-3 py-2 text-muted-foreground text-xs">
+                          {candidates.length - MAX_RESULTS} autres résultats : précisez la
+                          recherche.
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              <CompositionDropZone dragging={dragged !== null}>
+                <Table aria-label="Élèves du groupe">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nom</TableHead>
+                      <TableHead>Âge</TableHead>
+                      <TableHead>Téléphone</TableHead>
+                      <TableHead className="w-12">
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                          Aucun élève dans ce groupe.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {members.map((student) => {
+                      const name = `${student.lastName} ${student.firstName}`;
+                      const inRange = isInAgeRange(group, student.birthDate, season.startDate);
+                      return (
+                        <TableRow key={student.id}>
+                          <TableCell className="font-medium">{name}</TableCell>
+                          <TableCell>
+                            {student.birthDate ? (
+                              <span className="inline-flex items-center gap-1">
+                                {ageOn(student.birthDate, season.startDate)} ans
+                                {!inRange && (
+                                  <TriangleAlert
+                                    className="size-3.5 text-amber-600"
+                                    aria-label="Hors tranche d'âge"
+                                  />
+                                )}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                          <TableCell>{student.phone}</TableCell>
+                          <TableCell>
+                            {!readOnly && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Retirer ${name} du groupe`}
+                                title="Retirer du groupe"
+                                onClick={() => run(() => removeGroupMember(db, id, student.id))}
+                              >
+                                <UserMinus aria-hidden />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                    {candidates.length > MAX_RESULTS && (
-                      <li className="px-3 py-2 text-muted-foreground text-xs">
-                        {candidates.length - MAX_RESULTS} autres résultats : précisez la recherche.
-                      </li>
-                    )}
-                  </ul>
+                  </TableBody>
+                </Table>
+              </CompositionDropZone>
+              <DragOverlay>
+                {dragged && (
+                  <div className="w-fit rounded-md border bg-card px-3 py-1.5 font-medium text-sm shadow-lg">
+                    {dragged}
+                  </div>
                 )}
-              </div>
-            )}
-
-            <Table aria-label="Élèves du groupe">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Âge</TableHead>
-                  <TableHead>Téléphone</TableHead>
-                  <TableHead className="w-12">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {members.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
-                      Aucun élève dans ce groupe.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {members.map((student) => {
-                  const name = `${student.lastName} ${student.firstName}`;
-                  const inRange = isInAgeRange(group, student.birthDate, season.startDate);
-                  return (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-medium">{name}</TableCell>
-                      <TableCell>
-                        {student.birthDate ? (
-                          <span className="inline-flex items-center gap-1">
-                            {ageOn(student.birthDate, season.startDate)} ans
-                            {!inRange && (
-                              <TriangleAlert
-                                className="size-3.5 text-amber-600"
-                                aria-label="Hors tranche d'âge"
-                              />
-                            )}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>{student.phone}</TableCell>
-                      <TableCell>
-                        {!readOnly && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Retirer ${name} du groupe`}
-                            title="Retirer du groupe"
-                            onClick={() => run(() => removeGroupMember(db, id, student.id))}
-                          >
-                            <UserMinus aria-hidden />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+              </DragOverlay>
+            </DndContext>
           </CardContent>
         </Card>
       </div>

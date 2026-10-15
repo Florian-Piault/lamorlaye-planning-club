@@ -25,6 +25,8 @@ export type DragState =
       grabOffset: number;
       /** Alt / Option enfoncée : duplication. */
       duplicate: boolean;
+      /** Déplacement au clavier (flèches) plutôt qu'au pointeur. */
+      keyboard?: boolean;
       candidate: CandidateLesson | null;
       warnings: Conflict[];
     }

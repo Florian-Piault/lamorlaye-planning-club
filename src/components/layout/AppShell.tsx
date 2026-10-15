@@ -1,7 +1,9 @@
 import { Archive } from "lucide-react";
+import { Suspense } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { navigationItems } from "@/app/navigation";
 import { useSeason } from "@/app/season";
+import { Loading } from "@/components/layout/Page";
 import { Select } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +43,9 @@ export function AppShell() {
       </aside>
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">
         <ReadOnlyBanner />
-        <Outlet />
+        <Suspense fallback={<Loading className="p-8 text-muted-foreground text-sm" />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

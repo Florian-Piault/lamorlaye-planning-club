@@ -374,7 +374,7 @@ test.describe("grille semaine type", () => {
     );
   });
 
-  test("annule et rétablit au clavier ; Suppr, N et Échap", async ({ page }) => {
+  test("annule et rétablit au clavier ; Suppr, Ctrl/Cmd+N et Échap", async ({ page }) => {
     await openPlanning(page);
     const galaxie = lesson(page, "Galaxie vert");
     const target = await slotPoint(page, TUE, C2, "11:00");
@@ -406,8 +406,11 @@ test.describe("grille semaine type", () => {
     await page.keyboard.press("ControlOrMeta+z");
     await expect(galaxie).toHaveCount(1);
 
-    // N (ou Ctrl/Cmd+N) ouvre le panneau « Nouveau cours », Échap le ferme.
+    // Ctrl/Cmd+N ouvre le panneau « Nouveau cours » (§11.5), Échap le ferme ;
+    // N seul est sans effet (pas de raccourci d'une seule lettre, WCAG 2.1.4).
     await page.keyboard.press("n");
+    await expect(panel(page, "Nouveau cours")).toBeHidden();
+    await page.keyboard.press("ControlOrMeta+n");
     await expect(panel(page, "Nouveau cours")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(panel(page, "Nouveau cours")).toBeHidden();

@@ -1,5 +1,5 @@
 import { useDraggable } from "@dnd-kit/core";
-import { memo } from "react";
+import { memo, type PointerEventHandler } from "react";
 import { cn } from "@/lib/utils";
 import { hoursLabel } from "../grid/geometry";
 import { type InteractionStore, useInteraction } from "../interaction";
@@ -66,12 +66,17 @@ function InstructorPill({
   });
   const pinned = useInteraction(interaction, (s) => s.pinnedInstructorId === entry.id);
   const hours = hoursLabel(entry.minutes);
+  // Au clavier, Espace et Entrée activent la pastille (hachures) : le moniteur
+  // d'un cours se change alors dans son panneau. Seul le pointeur la glisse.
+  const pointerListeners = listeners?.onPointerDown
+    ? { onPointerDown: listeners.onPointerDown as PointerEventHandler<HTMLButtonElement> }
+    : undefined;
   return (
     <button
       type="button"
       ref={setNodeRef}
       {...attributes}
-      {...listeners}
+      {...pointerListeners}
       aria-pressed={pinned}
       aria-label={`${entry.name}, ${hours} cette semaine`}
       title={`${entry.name}${entry.noAvailability ? " — aucune disponibilité saisie" : ""}\nCliquer : afficher ses indisponibilités${readOnly ? "" : "\nGlisser sur un cours : le lui confier"}`}

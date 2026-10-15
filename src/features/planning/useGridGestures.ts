@@ -1,17 +1,28 @@
 import {
   type DragEndEvent,
   type DragStartEvent,
+  type KeyboardCodes,
+  type KeyboardCoordinateGetter,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { type PointerEvent as ReactPointerEvent, type RefObject, useEffect, useRef } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import type { ConflictIndex, PlanningSlot } from "@/domain/conflicts";
 import {
+  arrowDirection,
   boardSize,
   columnAt,
   type GridGeometry,
   itemAtPoint,
+  keyboardMoveTarget,
   moveTarget,
   type PlacedBox,
   type Point,
@@ -32,6 +43,17 @@ import type { DragState, InteractionStore } from "./interaction";
 
 /** Distance (px) à parcourir avant qu'un glisser commence : en deçà, c'est un clic. */
 const DRAG_THRESHOLD = 4;
+
+/**
+ * Glisser au clavier (dnd-kit) : Espace saisit le cours sélectionné, les
+ * flèches le déplacent, Espace ou Entrée le déposent, Échap (ou Tab, qui
+ * ferait perdre le focus) interrompt. Entrée seule ouvre le détail du cours.
+ */
+const KEYBOARD_CODES: KeyboardCodes = {
+  start: ["Space"],
+  cancel: ["Escape", "Tab"],
+  end: ["Space", "Enter"],
+};
 
 export interface GestureContext {
   geometry: GridGeometry;
@@ -115,8 +137,16 @@ export function useGridGestures({
   /** Saison archivée : aucun geste de modification (glisser, sélection d'un créneau). */
   readOnly?: boolean;
 }) {
+  // Les flèches ne déplacent pas de coordonnées dnd-kit : elles changent
+  // directement le créneau visé (`keyboardStep`), aimanté comme à la souris.
+  const keyboardStep = useRef<(event: KeyboardEvent) => void>(() => {});
+  const coordinateGetter = useCallback<KeyboardCoordinateGetter>((event) => {
+    keyboardStep.current(event);
+    return undefined;
+  }, []);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: DRAG_THRESHOLD } }),
+    useSensor(KeyboardSensor, { keyboardCodes: KEYBOARD_CODES, coordinateGetter }),
   );
   const latest = useRef({ context, handlers });
   latest.current = { context, handlers };
@@ -209,7 +239,48 @@ export function useGridGestures({
 
   const refresh = () => {
     const drag = interaction.get().drag;
-    if (drag) update(drag);
+    // Un déplacement au clavier ne suit pas le pointeur.
+    if (drag && !(drag.kind === "move" && drag.keyboard)) update(drag);
+  };
+
+  /** Déplacement au clavier : place le fantôme sur `candidate`, avec ses avertissements. */
+  const placeKeyboardCandidate = (drag: DragState, candidate: CandidateLesson) => {
+    const { slots, index, labels, dateOf } = latest.current.context;
+    const warnings = candidateWarnings(candidate, slots, index, labels, dateOf);
+    interaction.update({ drag: { ...drag, candidate, warnings } as DragState });
+    // Le fantôme reste visible (défilement) et l'infobulle le suit.
+    requestAnimationFrame(() => {
+      const ghost = boardRef.current?.querySelector<HTMLElement>('[data-testid="lesson-ghost"]');
+      if (!ghost || !interaction.get().drag) return;
+      ghost.scrollIntoView({ block: "nearest", inline: "nearest" });
+      const rect = ghost.getBoundingClientRect();
+      interaction.update({ pointer: { clientX: rect.left, clientY: rect.bottom } });
+    });
+  };
+
+  keyboardStep.current = (event: KeyboardEvent) => {
+    const drag = interaction.get().drag;
+    const direction = arrowDirection(event.key);
+    if (drag?.kind !== "move" || !drag.keyboard || !drag.candidate || !direction) return;
+    event.preventDefault();
+    const candidate = drag.candidate;
+    const target = keyboardMoveTarget(
+      latest.current.context.geometry,
+      {
+        weekday: candidate.weekday,
+        courtId: candidate.courtId ?? "",
+        start: candidate.start,
+        durationMinutes: candidate.durationMinutes,
+      },
+      direction,
+      event.shiftKey,
+    );
+    placeKeyboardCandidate(drag, {
+      ...candidate,
+      weekday: target.weekday,
+      courtId: target.courtId,
+      start: target.start,
+    });
   };
 
   // Suivi du pointeur, de la touche Alt et du défilement pendant un geste.
@@ -262,7 +333,7 @@ export function useGridGestures({
       if (event.key !== "Alt") return;
       pointer.current = { ...pointer.current, alt: event.type === "keydown" };
       const drag = interaction.get().drag;
-      if (drag?.kind === "move") {
+      if (drag?.kind === "move" && !drag.keyboard) {
         event.preventDefault();
         update(drag);
       }
@@ -287,13 +358,32 @@ export function useGridGestures({
   const onDragStart = (event: DragStartEvent) => {
     if (readOnly) return;
     const data = event.active.data.current as DragData | undefined;
+    const { geometry, lessonsById } = latest.current.context;
+    if (typeof KeyboardEvent !== "undefined" && event.activatorEvent instanceof KeyboardEvent) {
+      // Au clavier, seul le déplacement d'un cours est proposé (la durée et le
+      // moniteur se changent dans le panneau du cours).
+      const lesson = data?.type === "move" ? lessonsById.get(data.lessonId) : undefined;
+      if (!lesson || lesson.cancelled) return;
+      const drag: DragState = {
+        kind: "move",
+        lessonId: lesson.id,
+        instructorId: lesson.instructorId,
+        grabOffset: 0,
+        duplicate: false,
+        keyboard: true,
+        candidate: null,
+        warnings: [],
+      };
+      interaction.update({ drag, hoverInstructorId: null });
+      placeKeyboardCandidate(drag, toCandidate(lesson));
+      return;
+    }
     const activator = event.activatorEvent as PointerEvent;
     pointer.current = {
       clientX: activator.clientX,
       clientY: activator.clientY,
       alt: activator.altKey,
     };
-    const { geometry, lessonsById } = latest.current.context;
     let drag: DragState | null = null;
     if (data?.type === "move" || data?.type === "resize") {
       const lesson = lessonsById.get(data.lessonId);

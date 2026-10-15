@@ -1,5 +1,5 @@
 import { Pencil, Plus, ShieldCheck } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +60,14 @@ export function StudentsTab() {
     () => new Map((data?.levels ?? []).map((l) => [l.id, l.sortOrder])),
     [data],
   );
+
+  // Rappels stables : les lignes (mémoïsées) ne sont redessinées que si leur élève change.
+  const edit = useCallback((student: StudentListItem) => setEditing({ mode: "edit", student }), []);
+  const showPrivacy = useCallback((id: string) => {
+    setMessage(null);
+    setPrivacy(id);
+  }, []);
+  const remove = useCallback((id: string) => deleteStudent(db, id), [db]);
 
   const students = data?.students ?? [];
   const rows = useMemo(
@@ -149,79 +157,18 @@ export function StudentsTab() {
               {students.length === 0 ? "Aucun élève pour le moment." : "Aucun résultat."}
             </EmptyRow>
           )}
-          {rows.map((student) => {
-            const name = `${student.lastName} ${student.firstName}`;
-            return (
-              <TableRow key={student.id}>
-                <TableCell className="font-medium">
-                  <button
-                    type="button"
-                    className="text-left hover:underline"
-                    onClick={() => setEditing({ mode: "edit", student })}
-                  >
-                    {name}
-                  </button>
-                </TableCell>
-                <TableCell>
-                  {student.birthDate
-                    ? `${formatDate(student.birthDate)} (${ageOn(student.birthDate, season.startDate)} ans)`
-                    : "—"}
-                </TableCell>
-                <TableCell>{student.levelLabel ?? "—"}</TableCell>
-                <TableCell>{student.fftRanking ?? "—"}</TableCell>
-                <TableCell className="whitespace-nowrap">{student.phone}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {student.groups.map((g) => (
-                      <Badge key={g.id} variant="outline">
-                        {g.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex">
-                    {!readOnly && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Modifier ${name}`}
-                        title="Modifier"
-                        onClick={() => setEditing({ mode: "edit", student })}
-                      >
-                        <Pencil aria-hidden />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Données personnelles de ${name}`}
-                      title="Données personnelles (RGPD)"
-                      onClick={() => {
-                        setMessage(null);
-                        setPrivacy(student.id);
-                      }}
-                    >
-                      <ShieldCheck aria-hidden />
-                    </Button>
-                    {!readOnly && (
-                      <DeleteAction
-                        name={name}
-                        subject={`l'élève « ${name} »`}
-                        warning={
-                          student.groups.length > 0
-                            ? `Il sera retiré de ${student.groups.length > 1 ? `ses ${student.groups.length} groupes` : "son groupe"} de cette saison. Pour effacer ses données de toutes les saisons, utilisez « Données personnelles ».`
-                            : "Pour effacer ses données de toutes les saisons, utilisez « Données personnelles »."
-                        }
-                        onDelete={() => deleteStudent(db, student.id)}
-                        onDone={reload}
-                      />
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
+          {rows.map((student) => (
+            <StudentRow
+              key={student.id}
+              student={student}
+              seasonStart={season.startDate}
+              readOnly={readOnly}
+              onEdit={edit}
+              onPrivacy={showPrivacy}
+              onDelete={remove}
+              onDeleted={reload}
+            />
+          ))}
         </TableBody>
       </Table>
 
@@ -269,3 +216,92 @@ export function StudentsTab() {
     </section>
   );
 }
+
+interface StudentRowProps {
+  student: StudentListItem;
+  seasonStart: string;
+  readOnly: boolean;
+  onEdit: (student: StudentListItem) => void;
+  onPrivacy: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
+  onDeleted: () => void;
+}
+
+/**
+ * Ligne de la liste des élèves, mémoïsée : une recherche ou un tri parmi
+ * 500 élèves (§11.5) ne redessine pas les lignes inchangées.
+ */
+const StudentRow = memo(function StudentRow({
+  student,
+  seasonStart,
+  readOnly,
+  onEdit,
+  onPrivacy,
+  onDelete,
+  onDeleted,
+}: StudentRowProps) {
+  const name = `${student.lastName} ${student.firstName}`;
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        <button type="button" className="text-left hover:underline" onClick={() => onEdit(student)}>
+          {name}
+        </button>
+      </TableCell>
+      <TableCell>
+        {student.birthDate
+          ? `${formatDate(student.birthDate)} (${ageOn(student.birthDate, seasonStart)} ans)`
+          : "—"}
+      </TableCell>
+      <TableCell>{student.levelLabel ?? "—"}</TableCell>
+      <TableCell>{student.fftRanking ?? "—"}</TableCell>
+      <TableCell className="whitespace-nowrap">{student.phone}</TableCell>
+      <TableCell>
+        <div className="flex flex-wrap gap-1">
+          {student.groups.map((g) => (
+            <Badge key={g.id} variant="outline">
+              {g.name}
+            </Badge>
+          ))}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex">
+          {!readOnly && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Modifier ${name}`}
+              title="Modifier"
+              onClick={() => onEdit(student)}
+            >
+              <Pencil aria-hidden />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Données personnelles de ${name}`}
+            title="Données personnelles (RGPD)"
+            onClick={() => onPrivacy(student.id)}
+          >
+            <ShieldCheck aria-hidden />
+          </Button>
+          {!readOnly && (
+            <DeleteAction
+              name={name}
+              subject={`l'élève « ${name} »`}
+              warning={
+                student.groups.length > 0
+                  ? `Il sera retiré de ${student.groups.length > 1 ? `ses ${student.groups.length} groupes` : "son groupe"} de cette saison. Pour effacer ses données de toutes les saisons, utilisez « Données personnelles ».`
+                  : "Pour effacer ses données de toutes les saisons, utilisez « Données personnelles »."
+              }
+              onDelete={() => onDelete(student.id)}
+              onDone={onDeleted}
+            />
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});

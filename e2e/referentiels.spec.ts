@@ -202,6 +202,21 @@ test.describe("référentiels", () => {
     await page.getByRole("button", { name: "Retirer Éluard Zoé du groupe" }).click();
     await expect(page.getByTestId("group-size")).toHaveText("2 / 2");
     await expect(page.getByRole("list", { name: "Alertes" })).toBeHidden();
+
+    // Glisser-déposer d'un élève trouvé sur la composition (§8).
+    await search.fill("zoe");
+    const handle = page.getByRole("button", { name: "Glisser Éluard Zoé dans le groupe" });
+    const from = await handle.boundingBox();
+    const to = await members.boundingBox();
+    if (!from || !to) throw new Error("éléments introuvables");
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2, from.y + 20, { steps: 3 });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+    await expect(page.getByTestId("composition-drop")).toHaveAttribute("data-over", "true");
+    await page.mouse.up();
+    await expect(page.getByTestId("group-size")).toHaveText("3 / 2");
+    await expect(members.getByRole("row", { name: /Éluard Zoé/ })).toBeVisible();
   });
 
   test("trie les listes et propose l'archivage d'un élément utilisé", async ({ page }) => {

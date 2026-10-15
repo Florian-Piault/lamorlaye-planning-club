@@ -94,7 +94,8 @@ jobs:
           - name: Windows
             platform: windows-latest
             target: ""
-            args: --bundles msi
+            # .msi (par machine, droits administrateur) et .exe NSIS (sans droits administrateur, §11.1).
+            args: --bundles msi,nsis
           - name: Linux
             platform: ubuntu-22.04
             target: ""

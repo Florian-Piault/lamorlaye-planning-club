@@ -1,6 +1,6 @@
 [package]
 name = "planning-club"
-version = "0.1.0"
+version = "1.0.0"
 description = "Planning des cours collectifs du club de tennis"
 authors = ["Florian PIAULT"]
 edition = "2021"

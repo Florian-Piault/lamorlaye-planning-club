@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   CalendarDays,
   Clock,
+  Info,
   type LucideIcon,
   Settings,
   Users,
@@ -20,4 +21,5 @@ export const navigationItems: readonly NavigationItem[] = [
   { path: "/referentiels", label: "Référentiels", icon: Users },
   { path: "/import-export", label: "Import/Export", icon: ArrowLeftRight },
   { path: "/reglages", label: "Réglages", icon: Settings },
+  { path: "/a-propos", label: "À propos", icon: Info },
 ];

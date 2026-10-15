@@ -780,6 +780,39 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     },
   });
 
+  // --- Annonces pour les lecteurs d'écran (glisser-déposer dnd-kit) ----------
+  const describe = useRef<(activeId: string | number, withSlot?: boolean) => string>(() => "");
+  describe.current = (activeId, withSlot = false) => {
+    const [kind, id = ""] = String(activeId).split(/:(.*)/s);
+    if (kind === "instructor") return `pastille de ${instructorName(id)}`;
+    const item = itemsById.get(id);
+    if (!item) return "cours";
+    const group = item.groupId ? groupsById.get(item.groupId)?.name : undefined;
+    const name = group ?? (item.kind === "one_off" ? "cours ponctuel" : "cours");
+    return withSlot
+      ? `${name}, ${weekdayLabel(item.weekday).toLowerCase()} ${clockLabel(item.start)}`
+      : name;
+  };
+  const accessibility = useMemo(
+    () => ({
+      screenReaderInstructions: {
+        draggable:
+          "Cours de la grille. Entrée : ouvrir le détail. Espace : saisir le cours pour le déplacer au clavier, puis flèches haut et bas pour changer l'heure par pas de 15 minutes (Maj : 1 heure), flèches gauche et droite pour changer de court (Maj : changer de jour), Espace ou Entrée pour déposer, Échap pour annuler. À la souris : glisser pour déplacer, Alt pour dupliquer, bord inférieur pour changer la durée.",
+      },
+      announcements: {
+        onDragStart: ({ active }: { active: { id: string | number } }) =>
+          `Déplacement commencé : ${describe.current(active.id, true)}. Flèches pour déplacer, Espace ou Entrée pour déposer, Échap pour annuler.`,
+        onDragOver: () => undefined,
+        onDragMove: () => undefined,
+        onDragEnd: ({ active }: { active: { id: string | number } }) =>
+          `Déplacement terminé : ${describe.current(active.id)}.`,
+        onDragCancel: ({ active }: { active: { id: string | number } }) =>
+          `Déplacement annulé : ${describe.current(active.id)} reste à sa place.`,
+      },
+    }),
+    [],
+  );
+
   // --- Raccourcis clavier (§11.5) ---------------------------------------------
   const selected = selectedId && itemsById.has(selectedId) ? selectedId : null;
   const neighbours = mode.kind === "dated" ? weekNeighbours(seasonRange, mode.monday) : null;
@@ -832,11 +865,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         k.openPdf();
         return;
       }
-      if (isEditable(event.target) || event.altKey) return;
+      // Pendant un glisser (souris ou clavier), les touches appartiennent au geste.
+      if (isEditable(event.target) || event.altKey || interaction.get().drag) return;
       // Saison archivée : seuls les raccourcis de consultation restent actifs.
       const writing =
-        (mod && (key === "z" || key === "y")) ||
-        (key === "n" && !event.shiftKey) ||
+        (mod && (key === "z" || key === "y" || key === "n")) ||
         ((event.key === "Delete" || event.key === "Backspace") && !mod);
       if (k.readOnly && writing) return;
       if (mod && key === "z") {
@@ -846,7 +879,9 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       } else if (mod && key === "y") {
         event.preventDefault();
         k.redo();
-      } else if (key === "n" && !event.shiftKey) {
+      } else if (mod && key === "n" && !event.shiftKey) {
+        // Ctrl/Cmd+N seulement (§11.5) : pas de raccourci d'une seule lettre,
+        // qui se déclencherait par mégarde (WCAG 2.1.4).
         event.preventDefault();
         k.openNew();
       } else if ((event.key === "Delete" || event.key === "Backspace") && !mod && k.selected) {
@@ -856,8 +891,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
         !mod &&
         !event.shiftKey &&
-        k.neighbours &&
-        !interaction.get().drag
+        k.neighbours
       ) {
         // ← / → : semaine précédente / suivante (semaine datée).
         const target = event.key === "ArrowLeft" ? k.neighbours.previous : k.neighbours.next;
@@ -1000,19 +1034,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       onDragStart={gestures.onDragStart}
       onDragEnd={gestures.onDragEnd}
       onDragCancel={gestures.onDragCancel}
-      accessibility={{
-        screenReaderInstructions: {
-          draggable:
-            "Glissez un cours pour le déplacer, son bord inférieur pour changer sa durée, ou une pastille de moniteur sur un cours. Échap interrompt le glisser.",
-        },
-        announcements: {
-          onDragStart: () => "Glisser commencé.",
-          onDragOver: () => "",
-          onDragMove: () => "",
-          onDragEnd: () => "Élément déposé.",
-          onDragCancel: () => "Glisser interrompu.",
-        },
-      }}
+      accessibility={accessibility}
     >
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2.5">

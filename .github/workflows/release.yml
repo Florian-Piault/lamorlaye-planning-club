@@ -1,0 +1,162 @@
+name: Release
+
+# Publication d'une version : pousser un tag `vX.Y.Z` (identique à la version
+# de package.json, tauri.conf.json et Cargo.toml) crée une release GitHub en
+# brouillon, avec les installateurs des trois OS. Le brouillon est relu, puis
+# publié à la main depuis GitHub (binaires non signés : voir docs/INSTALLATION.md).
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  # Le tag correspond à la version de l'application, et le code est vérifié.
+  verify:
+    name: Vérification de la version
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Tag et version de l'application
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Le tag ${GITHUB_REF_NAME} ne correspond pas à la version ${version} de package.json."
+            exit 1
+          fi
+          if ! grep -q "## \[${version}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md ne contient pas de section [${version}]."
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Biome, TypeScript et Vitest (dont l'alignement des versions)
+        run: |
+          pnpm exec biome ci .
+          pnpm typecheck
+          pnpm test
+
+  # Release en brouillon, créée une seule fois avant les builds parallèles.
+  create-release:
+    name: Release en brouillon
+    needs: verify
+    runs-on: ubuntu-22.04
+    outputs:
+      release_id: ${{ steps.release.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("node:fs");
+            const tag = context.ref.replace("refs/tags/", "");
+            const version = tag.replace(/^v/, "");
+            // Notes de version : section du CHANGELOG correspondant au tag.
+            const changelog = fs.readFileSync("CHANGELOG.md", "utf8");
+            const start = changelog.indexOf(`## [${version}]`);
+            const next = changelog.indexOf("\n## [", start + 1);
+            const notes = changelog.slice(start, next < 0 ? undefined : next).trim();
+            const body = [
+              notes,
+              "",
+              "### Installation",
+              "",
+              "Les installateurs ne sont pas signés : suivez la notice `docs/INSTALLATION.md` pour contourner l'alerte de macOS (Gatekeeper) ou de Windows (SmartScreen).",
+              "",
+              "- macOS Apple Silicon et Intel : `.dmg`",
+              "- Windows 10/11 : `.exe` (installation sans droits administrateur) ou `.msi`",
+              "- Linux : `.AppImage` ou `.deb`",
+            ].join("\n");
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Planning Club ${version}`,
+              body,
+              draft: true,
+              prerelease: false,
+            });
+            return data.id;
+
+  # Installateurs des trois OS, joints à la release en brouillon.
+  publish:
+    name: Installateurs ${{ matrix.name }}
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            platform: macos-latest
+            target: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin --bundles dmg
+          - name: macOS Intel
+            platform: macos-latest
+            target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin --bundles dmg
+          - name: Windows
+            platform: windows-latest
+            target: ""
+            # .msi (par machine, droits administrateur) et .exe NSIS (sans droits administrateur, §11.1).
+            args: --bundles msi,nsis
+          - name: Linux
+            platform: ubuntu-22.04
+            target: ""
+            args: --bundles appimage,deb
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Dépendances système Tauri
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: release-${{ matrix.target }}
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          releaseDraft: true
+          prerelease: false
+          # Pas de mise à jour automatique (§12.2) : aucun fichier latest.json.
+          includeUpdaterJson: false
+          args: ${{ matrix.args }}

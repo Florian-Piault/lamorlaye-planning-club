@@ -1,3 +1,4 @@
+mod about;
 mod backup;
 mod crypto;
 mod db;
@@ -27,6 +28,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            about::app_info,
             db::database_url,
             db::db_select_rows,
             db::db_batch,

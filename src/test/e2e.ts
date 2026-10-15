@@ -21,6 +21,7 @@ import {
 } from "@/db/schema";
 import { createClosure, emptyPlanningState } from "@/domain/commands";
 import { errorMessage } from "@/hooks/useLoader";
+import { seedVolumeData } from "./volumetry";
 
 export interface SeedInstructor {
   firstName: string;
@@ -118,6 +119,16 @@ export async function tryWritingSeason(name: string): Promise<string[]> {
     }
   }
   return results;
+}
+
+/**
+ * Club à la volumétrie cible (§11.5) dans la saison active : 10 courts,
+ * 20 moniteurs, 60 groupes, 500 élèves, 150 cours (tests de charge).
+ */
+export async function seedVolume(): Promise<{ firstGroup: string; lessons: number }> {
+  const { db, season } = await activeSeason();
+  const data = await seedVolumeData(db, season.id);
+  return { firstGroup: data.groups[0]?.name ?? "", lessons: data.lessons.length };
 }
 
 /** Insère les référentiels et les cours dans la saison active. */

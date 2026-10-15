@@ -1,8 +1,8 @@
 import { CalendarPlus } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { useSeason } from "@/app/season";
-import { EmptyState, Page } from "@/components/layout/Page";
+import { EmptyState, Loading, Page } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +47,9 @@ export function ReferentielsPage() {
           </NavLink>
         ))}
       </nav>
-      <Outlet />
+      <Suspense fallback={<Loading />}>
+        <Outlet />
+      </Suspense>
     </Page>
   );
 }
@@ -55,7 +57,7 @@ export function ReferentielsPage() {
 /** N'affiche son contenu qu'une fois une saison créée. */
 export function RequireSeason({ children }: { children: ReactNode }) {
   const { season, loading } = useSeason();
-  if (loading) return <p className="text-muted-foreground text-sm">Chargement…</p>;
+  if (loading) return <Loading />;
   if (!season) {
     return (
       <EmptyState icon={CalendarPlus} title="Aucune saison">

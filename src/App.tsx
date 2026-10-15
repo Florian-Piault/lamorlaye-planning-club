@@ -1,23 +1,60 @@
-import type { ReactNode } from "react";
+import { type ComponentType, type LazyExoticComponent, lazy, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router";
 import { SeasonProvider } from "@/app/season";
 import { AppShell } from "@/components/layout/AppShell";
 import { type AppDatabase, openAppDatabase } from "@/db";
 import { DatabaseProvider } from "@/db/DatabaseProvider";
-import { HoursPage } from "@/features/hours/HoursPage";
-import { ImportExportPage } from "@/features/import-export/ImportExportPage";
-import { PlanningPage } from "@/features/planning/PlanningPage";
-import { CourtsTab } from "@/features/referentiels/courts/CourtsTab";
-import { StudentsTab } from "@/features/referentiels/eleves/StudentsTab";
-import { ClosuresTab } from "@/features/referentiels/fermetures/ClosuresTab";
-import { GroupPage } from "@/features/referentiels/groupes/GroupPage";
-import { GroupsTab } from "@/features/referentiels/groupes/GroupsTab";
-import { InstructorPage } from "@/features/referentiels/moniteurs/InstructorPage";
-import { InstructorsTab } from "@/features/referentiels/moniteurs/InstructorsTab";
-import { LevelsTab } from "@/features/referentiels/niveaux/LevelsTab";
 import { ReferentielsPage, RequireSeason } from "@/features/referentiels/ReferentielsPage";
-import { SeasonTab } from "@/features/referentiels/saison/SeasonTab";
-import { ReglagesPage } from "@/features/reglages/ReglagesPage";
+
+/**
+ * Écran chargé à la demande (découpage du bundle par route) : le premier
+ * affichage ne charge que la coque et l'écran ouvert.
+ */
+function lazyScreen<K extends string>(
+  load: () => Promise<Record<K, ComponentType>>,
+  name: K,
+): LazyExoticComponent<ComponentType> {
+  return lazy<ComponentType>(() => load().then((module) => ({ default: module[name] })));
+}
+
+const PlanningPage = lazyScreen(() => import("@/features/planning/PlanningPage"), "PlanningPage");
+const HoursPage = lazyScreen(() => import("@/features/hours/HoursPage"), "HoursPage");
+const ImportExportPage = lazyScreen(
+  () => import("@/features/import-export/ImportExportPage"),
+  "ImportExportPage",
+);
+const ReglagesPage = lazyScreen(() => import("@/features/reglages/ReglagesPage"), "ReglagesPage");
+const AboutPage = lazyScreen(() => import("@/features/about/AboutPage"), "AboutPage");
+const SeasonTab = lazyScreen(() => import("@/features/referentiels/saison/SeasonTab"), "SeasonTab");
+const CourtsTab = lazyScreen(() => import("@/features/referentiels/courts/CourtsTab"), "CourtsTab");
+const InstructorsTab = lazyScreen(
+  () => import("@/features/referentiels/moniteurs/InstructorsTab"),
+  "InstructorsTab",
+);
+const InstructorPage = lazyScreen(
+  () => import("@/features/referentiels/moniteurs/InstructorPage"),
+  "InstructorPage",
+);
+const LevelsTab = lazyScreen(
+  () => import("@/features/referentiels/niveaux/LevelsTab"),
+  "LevelsTab",
+);
+const GroupsTab = lazyScreen(
+  () => import("@/features/referentiels/groupes/GroupsTab"),
+  "GroupsTab",
+);
+const GroupPage = lazyScreen(
+  () => import("@/features/referentiels/groupes/GroupPage"),
+  "GroupPage",
+);
+const StudentsTab = lazyScreen(
+  () => import("@/features/referentiels/eleves/StudentsTab"),
+  "StudentsTab",
+);
+const ClosuresTab = lazyScreen(
+  () => import("@/features/referentiels/fermetures/ClosuresTab"),
+  "ClosuresTab",
+);
 
 const withSeason = (element: ReactNode) => <RequireSeason>{element}</RequireSeason>;
 
@@ -42,6 +79,7 @@ export function AppRoutes() {
         <Route path="heures" element={<HoursPage />} />
         <Route path="import-export" element={<ImportExportPage />} />
         <Route path="reglages" element={<ReglagesPage />} />
+        <Route path="a-propos" element={<AboutPage />} />
         <Route path="*" element={<Navigate to="/planning" replace />} />
       </Route>
     </Routes>

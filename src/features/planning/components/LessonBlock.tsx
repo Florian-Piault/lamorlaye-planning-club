@@ -77,8 +77,11 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
     [onHover],
   );
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Enter") {
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Espace saisit le cours pour le déplacer au clavier (dnd-kit).
+    listeners?.onKeyDown?.(event);
+    // Entrée ouvre le détail, sauf pendant un déplacement (elle dépose alors le cours).
+    if (event.key === "Enter" && !interaction.get().drag) {
       event.preventDefault();
       onOpen(id);
     }
@@ -117,9 +120,10 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
         onHover(null);
       }}
       className={cn(
-        "group/lesson absolute z-[5] touch-none select-none overflow-hidden rounded-[5px] px-1.5 py-0.5 text-[11px] text-white leading-tight shadow-sm outline-none",
+        "group/lesson absolute z-[5] touch-none select-none overflow-hidden rounded-[5px] px-1.5 py-0.5 text-[11px] text-white leading-tight shadow-sm",
         locked ? "cursor-pointer" : "cursor-grab",
-        "focus-visible:ring-2 focus-visible:ring-ring",
+        // Focus clavier : contour épais distinct des anneaux d'avertissement et de sélection.
+        "focus-visible:z-[9] focus-visible:outline-3 focus-visible:outline-foreground focus-visible:outline-offset-2 focus-visible:outline-solid",
         props.warning && "ring-2 ring-destructive",
         props.selected && "z-[6] ring-2 ring-foreground ring-offset-1 ring-offset-card",
         props.selected && props.warning && "ring-destructive ring-offset-2",

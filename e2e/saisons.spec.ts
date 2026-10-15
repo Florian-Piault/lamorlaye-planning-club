@@ -256,11 +256,11 @@ test.describe("saisons", () => {
     await expect(
       detail.getByRole("button", { name: /Enregistrer|Supprimer|Appliquer/ }),
     ).toHaveCount(0);
-    // Suppr, Ctrl/Cmd+Z, N : sans effet.
+    // Suppr, Ctrl/Cmd+Z, Ctrl/Cmd+N : sans effet.
     await page.keyboard.press("Delete");
     await page.keyboard.press("ControlOrMeta+z");
     await detail.getByRole("button", { name: "Fermer le panneau" }).click();
-    await page.keyboard.press("n");
+    await page.keyboard.press("ControlOrMeta+n");
     await expect(page.getByRole("form", { name: "Nouveau cours" })).toHaveCount(0);
     // Glisser un cours ou sélectionner un créneau : sans effet.
     await dragMouse(
