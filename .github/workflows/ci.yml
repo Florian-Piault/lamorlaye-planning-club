@@ -79,6 +79,9 @@ jobs:
   build:
     name: Build ${{ matrix.name }}
     needs: check
+    # Coûteux (macOS ×10, Windows ×2) : à la demande seulement,
+    # les installateurs de release sont produits par release.yml.
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
