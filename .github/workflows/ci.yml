@@ -1,9 +1,9 @@
 name: CI
 
+# Déclenchement automatique suspendu (push sur main, pull requests) : les jobs
+# ne démarrent plus faute de facturation du compte GitHub. Lancement manuel
+# seulement, en attendant de rétablir `push: { branches: [main] }` et `pull_request:`.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
