@@ -29,7 +29,7 @@ export function AboutPage() {
         )}
         <Card className="max-w-3xl">
           <CardHeader>
-            <CardTitle>Planning Club</CardTitle>
+            <CardTitle>Kairos</CardTitle>
             <CardDescription>
               Planning des cours collectifs du club de tennis. Application de bureau entièrement
               hors ligne : aucune donnée ne quitte ce poste, aucune mise à jour automatique.

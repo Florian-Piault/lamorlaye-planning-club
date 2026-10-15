@@ -29,7 +29,7 @@ Club de démonstration minimal : saison 2026-2027 (lundi → samedi, 8h–22h), 
 |---|---|---|---|---|
 | 1.1 | La procédure de `docs/INSTALLATION.md` (Gatekeeper : clic droit › Ouvrir ou *Ouvrir quand même* ; SmartScreen : *Informations complémentaires › Exécuter quand même* ; AppImage `chmod +x` / `apt install ./…deb`) aboutit sans autre manipulation. | | | |
 | 1.2 | Windows `.exe` : installation **sans** demande de droits administrateur. `.msi` : installation pour tous les utilisateurs. | — | | — |
-| 1.3 | Premier lancement : la fenêtre s'ouvre en 1440 × 900 environ, ne descend pas sous 1366 × 768, titre « Planning Club », icône correcte (Dock, barre des tâches, menu des applications). | | | |
+| 1.3 | Premier lancement : la fenêtre s'ouvre en 1440 × 900 environ, ne descend pas sous 1366 × 768, titre « Kairos », icône correcte (Dock, barre des tâches, menu des applications). | | | |
 | 1.4 | Le fichier `planning.db` est créé dans le dossier de données indiqué par l'écran **À propos** (et par `docs/INSTALLATION.md`). | | | |
 | 1.5 | **À propos** : version 1.0.0 (identique au nom de l'installateur), version de Tauri, système et architecture corrects, chemins des données et des sauvegardes exacts. | | | |
 | 1.6 | Hors ligne strict : avec un moniteur réseau (Little Snitch / LuLu, Moniteur de ressources, `nethogs` ou `ss -tp`), **aucune** connexion sortante au démarrage ni pendant la recette. | | | |

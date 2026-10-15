@@ -68,7 +68,7 @@ pub enum CryptoError {
     #[error("Le fichier chiffré est incomplet ou illisible.")]
     Malformed,
     #[error(
-        "Ce fichier chiffré utilise un format (version {0}) inconnu de cette version de Planning Club."
+        "Ce fichier chiffré utilise un format (version {0}) inconnu de cette version de Kairos."
     )]
     UnsupportedVersion(u8),
     #[error("Le chiffrement de la sauvegarde a échoué.")]

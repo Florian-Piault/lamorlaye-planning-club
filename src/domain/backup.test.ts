@@ -25,7 +25,7 @@ describe("sauvegardes", () => {
   });
 
   it("propose un nom de fichier d'export horodaté", () => {
-    expect(exportFileName(new Date(2026, 9, 4, 8, 5))).toBe("planning-club-2026-10-04-0805.db");
+    expect(exportFileName(new Date(2026, 9, 4, 8, 5))).toBe("kairos-2026-10-04-0805.db");
   });
 
   it("formate une date-heure en heure locale", () => {
@@ -55,7 +55,7 @@ describe("sauvegardes", () => {
 describe("sauvegardes chiffrées", () => {
   it("propose un nom de fichier distinct", () => {
     expect(encryptedExportFileName(new Date(2026, 9, 14, 18, 30))).toBe(
-      "planning-club-2026-10-14-1830.pcenc",
+      "kairos-2026-10-14-1830.pcenc",
     );
   });
 

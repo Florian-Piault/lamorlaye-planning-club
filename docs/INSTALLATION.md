@@ -1,8 +1,8 @@
-# Notice d'installation — Planning Club
+# Notice d'installation — Kairos
 
 > Version 1.0 — applicable à macOS, Windows et Linux.
 
-Planning Club est une application de bureau **entièrement hors ligne** : elle ne se connecte jamais à internet, ne crée aucun compte et ne se met pas à jour toute seule. Les données restent sur le poste où elle est installée.
+Kairos est une application de bureau **entièrement hors ligne** : elle ne se connecte jamais à internet, ne crée aucun compte et ne se met pas à jour toute seule. Les données restent sur le poste où elle est installée.
 
 ## Avant de commencer : binaires non signés
 
@@ -12,12 +12,12 @@ Téléchargez **uniquement** les installateurs publiés dans les *Releases* du d
 
 | Système | Fichier à télécharger | Exemple de nom |
 |---|---|---|
-| macOS Apple Silicon (M1, M2…) | `.dmg` `aarch64` | `Planning Club_1.0.0_aarch64.dmg` |
-| macOS Intel | `.dmg` `x64` | `Planning Club_1.0.0_x64.dmg` |
-| Windows 10 / 11 (sans droits administrateur) | `.exe` | `Planning Club_1.0.0_x64-setup.exe` |
-| Windows 10 / 11 (installation pour tous les utilisateurs) | `.msi` | `Planning Club_1.0.0_x64_fr-FR.msi` |
-| Linux (toutes distributions) | `.AppImage` | `Planning Club_1.0.0_amd64.AppImage` |
-| Linux Debian / Ubuntu | `.deb` | `Planning Club_1.0.0_amd64.deb` |
+| macOS Apple Silicon (M1, M2…) | `.dmg` `aarch64` | `Kairos_1.0.0_aarch64.dmg` |
+| macOS Intel | `.dmg` `x64` | `Kairos_1.0.0_x64.dmg` |
+| Windows 10 / 11 (sans droits administrateur) | `.exe` | `Kairos_1.0.0_x64-setup.exe` |
+| Windows 10 / 11 (installation pour tous les utilisateurs) | `.msi` | `Kairos_1.0.0_x64_fr-FR.msi` |
+| Linux (toutes distributions) | `.AppImage` | `Kairos_1.0.0_amd64.AppImage` |
+| Linux Debian / Ubuntu | `.deb` | `Kairos_1.0.0_amd64.deb` |
 
 Pour savoir si votre Mac est Apple Silicon ou Intel : menu  › *À propos de ce Mac* › ligne *Puce* (Apple M…) ou *Processeur* (Intel).
 
@@ -30,15 +30,15 @@ Configuration minimale : écran de **1366 × 768** ou plus ; macOS récent, Wind
 ### Installation
 
 1. Ouvrez le fichier `.dmg` téléchargé.
-2. Faites glisser **Planning Club** sur le dossier **Applications**.
+2. Faites glisser **Kairos** sur le dossier **Applications**.
 3. Éjectez l'image disque (icône d'éjection dans le Finder).
 
 ### Premier lancement (Gatekeeper)
 
 Au premier lancement, macOS indique que l'application « ne peut pas être ouverte car Apple ne peut pas vérifier qu'elle ne contient pas de logiciel malveillant ». Pour l'autoriser :
 
-- **macOS 14 (Sonoma) et antérieurs** : dans le dossier *Applications*, faites un **clic droit** (ou Ctrl + clic) sur *Planning Club*, choisissez **Ouvrir**, puis confirmez avec **Ouvrir** dans la fenêtre d'avertissement.
-- **macOS 15 (Sequoia) et suivants** : le clic droit ne suffit plus. Lancez l'application une première fois (l'avertissement s'affiche, fermez-le), puis ouvrez **Réglages Système › Confidentialité et sécurité**, descendez jusqu'à la section *Sécurité* et cliquez sur **Ouvrir quand même** en face de « Planning Club ». Confirmez avec votre mot de passe.
+- **macOS 14 (Sonoma) et antérieurs** : dans le dossier *Applications*, faites un **clic droit** (ou Ctrl + clic) sur *Kairos*, choisissez **Ouvrir**, puis confirmez avec **Ouvrir** dans la fenêtre d'avertissement.
+- **macOS 15 (Sequoia) et suivants** : le clic droit ne suffit plus. Lancez l'application une première fois (l'avertissement s'affiche, fermez-le), puis ouvrez **Réglages Système › Confidentialité et sécurité**, descendez jusqu'à la section *Sécurité* et cliquez sur **Ouvrir quand même** en face de « Kairos ». Confirmez avec votre mot de passe.
 
 Ces étapes ne sont à faire qu'une fois : les lancements suivants se font normalement.
 
@@ -47,15 +47,15 @@ Ces étapes ne sont à faire qu'une fois : les lancements suivants se font norma
 Ce message apparaît parfois pour une application non signée téléchargée par un navigateur (attribut de quarantaine). Ouvrez l'application **Terminal** et saisissez :
 
 ```sh
-xattr -dr com.apple.quarantine "/Applications/Planning Club.app"
+xattr -dr com.apple.quarantine "/Applications/Kairos.app"
 ```
 
-puis relancez Planning Club depuis le dossier *Applications*.
+puis relancez Kairos depuis le dossier *Applications*.
 
 ### Désinstallation
 
-1. Quittez Planning Club.
-2. Faites glisser *Planning Club* du dossier *Applications* vers la corbeille.
+1. Quittez Kairos.
+2. Faites glisser *Kairos* du dossier *Applications* vers la corbeille.
 3. Les données ne sont **pas** supprimées (voir [Emplacement des données](#emplacement-des-données)). Pour les effacer aussi, supprimez le dossier `~/Library/Application Support/fr.tc-lamorlaye.planning` (dans le Finder : menu *Aller › Aller au dossier…*).
 
 ---
@@ -70,17 +70,17 @@ Deux installateurs sont proposés :
 ### Installation et filtre SmartScreen
 
 1. Double-cliquez sur le fichier téléchargé.
-2. Windows affiche « **Windows a protégé votre ordinateur** » (Microsoft Defender SmartScreen). Cliquez sur **Informations complémentaires**, vérifiez que l'application est bien *Planning Club*, puis cliquez sur **Exécuter quand même**.
+2. Windows affiche « **Windows a protégé votre ordinateur** » (Microsoft Defender SmartScreen). Cliquez sur **Informations complémentaires**, vérifiez que l'application est bien *Kairos*, puis cliquez sur **Exécuter quand même**.
 3. Suivez l'assistant d'installation. Un raccourci est créé dans le menu Démarrer.
 
 Si le navigateur (Edge, Chrome) bloque le téléchargement, choisissez *Conserver* dans la liste des téléchargements (menu « … » › *Conserver* › *Conserver quand même*).
 
-Planning Club utilise le composant **Microsoft Edge WebView2**, présent d'office sur Windows 11 et sur les Windows 10 à jour. S'il est absent, l'installateur l'installe : c'est la **seule** étape qui peut nécessiter une connexion internet, au moment de l'installation uniquement. L'application elle-même ne se connecte jamais.
+Kairos utilise le composant **Microsoft Edge WebView2**, présent d'office sur Windows 11 et sur les Windows 10 à jour. S'il est absent, l'installateur l'installe : c'est la **seule** étape qui peut nécessiter une connexion internet, au moment de l'installation uniquement. L'application elle-même ne se connecte jamais.
 
 ### Désinstallation
 
 1. **Paramètres › Applications › Applications installées** (ou *Panneau de configuration › Programmes et fonctionnalités*).
-2. Choisissez *Planning Club* › **Désinstaller**.
+2. Choisissez *Kairos* › **Désinstaller**.
 3. Les données ne sont **pas** supprimées. Pour les effacer aussi, supprimez le dossier `%APPDATA%\fr.tc-lamorlaye.planning` (à coller dans la barre d'adresse de l'Explorateur).
 
 ---
@@ -92,14 +92,14 @@ Planning Club utilise le composant **Microsoft Edge WebView2**, présent d'offic
 1. Rendez le fichier exécutable :
 
    ```sh
-   chmod +x "Planning Club_1.0.0_amd64.AppImage"
+   chmod +x "Kairos_1.0.0_amd64.AppImage"
    ```
 
    (ou, dans le gestionnaire de fichiers : clic droit › *Propriétés* › *Permissions* › *Autoriser l'exécution*).
 2. Lancez-le par un double-clic ou depuis un terminal :
 
    ```sh
-   ./"Planning Club_1.0.0_amd64.AppImage"
+   ./"Kairos_1.0.0_amd64.AppImage"
    ```
 
 Sur Ubuntu 22.04 et suivants, si l'AppImage ne démarre pas en signalant `libfuse.so.2`, installez la bibliothèque FUSE 2 : `sudo apt install libfuse2` (Ubuntu 24.04 : `sudo apt install libfuse2t64`).
@@ -107,7 +107,7 @@ Sur Ubuntu 22.04 et suivants, si l'AppImage ne démarre pas en signalant `libfus
 ### Paquet .deb (Debian, Ubuntu et dérivées)
 
 ```sh
-sudo apt install "./Planning Club_1.0.0_amd64.deb"
+sudo apt install "./Kairos_1.0.0_amd64.deb"
 ```
 
 `apt` installe aussi les dépendances (WebKitGTK 4.1). L'application apparaît ensuite dans le menu des applications (catégorie *Bureautique*).
@@ -117,7 +117,7 @@ Fedora et autres distributions sans `.deb` : utilisez l'AppImage (WebKitGTK 4.1 
 ### Désinstallation
 
 - AppImage : supprimez le fichier `.AppImage`.
-- Paquet `.deb` : `sudo apt remove planning-club`.
+- Paquet `.deb` : `sudo apt remove kairos`.
 - Dans les deux cas, les données ne sont **pas** supprimées : pour les effacer, supprimez `~/.local/share/fr.tc-lamorlaye.planning`.
 
 ---
@@ -148,7 +148,7 @@ Les données d'élèves (dont des mineurs) sont des données personnelles : acti
 ## Changer de poste
 
 1. Sur l'ancien poste : **Réglages › Exporter une sauvegarde…** (chiffrée de préférence) vers une clé USB.
-2. Sur le nouveau poste : installez Planning Club, puis **Réglages › Restaurer une sauvegarde…** et choisissez le fichier (le mot de passe est demandé pour une sauvegarde chiffrée).
+2. Sur le nouveau poste : installez Kairos, puis **Réglages › Restaurer une sauvegarde…** et choisissez le fichier (le mot de passe est demandé pour une sauvegarde chiffrée).
 
 ## En cas de problème
 

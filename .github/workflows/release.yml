@@ -89,7 +89,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
-              name: `Planning Club ${version}`,
+              name: `Kairos ${version}`,
               body,
               draft: true,
               prerelease: false,

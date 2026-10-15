@@ -1,4 +1,4 @@
-# Guide de démarrage rapide — Planning Club
+# Guide de démarrage rapide — Kairos
 
 Ce guide accompagne la première prise en main : de la création de la saison jusqu'à la diffusion du planning. Comptez une à deux heures pour saisir un club complet. Chaque modification est **enregistrée immédiatement** : il n'y a pas de bouton « Enregistrer » à chercher, et l'application peut être fermée à tout moment.
 

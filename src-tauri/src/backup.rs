@@ -44,7 +44,7 @@ pub enum BackupError {
     Io(#[from] std::io::Error),
     #[error("chemin de fichier invalide")]
     InvalidPath,
-    #[error("Le fichier choisi n'est pas une sauvegarde valide de Planning Club.")]
+    #[error("Le fichier choisi n'est pas une sauvegarde valide de Kairos.")]
     InvalidBackup,
     #[error("Cette sauvegarde est chiffrée : saisissez son mot de passe.")]
     PasswordRequired,

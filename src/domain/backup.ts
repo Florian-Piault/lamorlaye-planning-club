@@ -51,16 +51,16 @@ export function formatFileSize(bytes: number): string {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** Nom proposé pour une sauvegarde exportée : `planning-club-2026-10-14-1830.db`. */
+/** Nom proposé pour une sauvegarde exportée : `kairos-2026-10-14-1830.db`. */
 export function exportFileName(now: Date): string {
   const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  return `planning-club-${date}-${pad(now.getHours())}${pad(now.getMinutes())}.db`;
+  return `kairos-${date}-${pad(now.getHours())}${pad(now.getMinutes())}.db`;
 }
 
 /** Extension des sauvegardes chiffrées par mot de passe (§11.6). */
 export const ENCRYPTED_EXTENSION = "pcenc";
 
-/** Nom proposé pour une sauvegarde chiffrée : `planning-club-2026-10-14-1830.pcenc`. */
+/** Nom proposé pour une sauvegarde chiffrée : `kairos-2026-10-14-1830.pcenc`. */
 export function encryptedExportFileName(now: Date): string {
   return exportFileName(now).replace(/\.db$/, `.${ENCRYPTED_EXTENSION}`);
 }
