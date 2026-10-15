@@ -4,9 +4,11 @@
 /*
  * Thème shadcn/ui, palette « court bleu » : fond gris froid, panneaux blancs,
  * bleu court en couleur principale et jaune balle (`--highlight`) en touche
- * ponctuelle. Le mode sombre suit le réglage du système
- * (`prefers-color-scheme`), comme la variante `dark:` de Tailwind.
+ * ponctuelle. Le thème (clair ou sombre) est posé sur `<html data-theme>`
+ * par `src/app/theme.ts`, selon le réglage choisi ou celui du système.
  */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
   --radius: 0.5rem;
@@ -40,36 +42,35 @@
   --panel-shadow: 0 1px 2px oklch(0.2 0.02 260 / 0.05), 0 6px 20px -10px oklch(0.2 0.02 260 / 0.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.14 0.015 262);
-    --foreground: oklch(0.95 0.008 255);
-    --card: oklch(0.19 0.02 262);
-    --card-foreground: oklch(0.95 0.008 255);
-    --popover: oklch(0.19 0.02 262);
-    --popover-foreground: oklch(0.95 0.008 255);
-    --primary: oklch(0.68 0.15 262);
-    --primary-foreground: oklch(0.16 0.04 262);
-    --secondary: oklch(0.25 0.02 262);
-    --secondary-foreground: oklch(0.95 0.008 255);
-    --muted: oklch(0.24 0.02 262);
-    --muted-foreground: oklch(0.7 0.02 258);
-    --accent: oklch(0.27 0.045 262);
-    --accent-foreground: oklch(0.9 0.06 262);
-    --destructive: oklch(0.7 0.19 22);
-    --border: oklch(1 0 0 / 9%);
-    --input: oklch(1 0 0 / 14%);
-    --ring: oklch(0.68 0.15 262);
-    --sidebar: oklch(0.19 0.02 262);
-    --sidebar-foreground: oklch(0.95 0.008 255);
-    --sidebar-primary: oklch(0.68 0.15 262);
-    --sidebar-primary-foreground: oklch(0.16 0.04 262);
-    --sidebar-accent: oklch(0.27 0.045 262);
-    --sidebar-accent-foreground: oklch(0.92 0.05 262);
-    --sidebar-border: oklch(1 0 0 / 8%);
-    --sidebar-ring: oklch(0.68 0.15 262);
-    --panel-shadow: 0 1px 2px oklch(0 0 0 / 0.3);
-  }
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.14 0.015 262);
+  --foreground: oklch(0.95 0.008 255);
+  --card: oklch(0.19 0.02 262);
+  --card-foreground: oklch(0.95 0.008 255);
+  --popover: oklch(0.19 0.02 262);
+  --popover-foreground: oklch(0.95 0.008 255);
+  --primary: oklch(0.68 0.15 262);
+  --primary-foreground: oklch(0.16 0.04 262);
+  --secondary: oklch(0.25 0.02 262);
+  --secondary-foreground: oklch(0.95 0.008 255);
+  --muted: oklch(0.24 0.02 262);
+  --muted-foreground: oklch(0.7 0.02 258);
+  --accent: oklch(0.27 0.045 262);
+  --accent-foreground: oklch(0.9 0.06 262);
+  --destructive: oklch(0.7 0.19 22);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.68 0.15 262);
+  --sidebar: oklch(0.19 0.02 262);
+  --sidebar-foreground: oklch(0.95 0.008 255);
+  --sidebar-primary: oklch(0.68 0.15 262);
+  --sidebar-primary-foreground: oklch(0.16 0.04 262);
+  --sidebar-accent: oklch(0.27 0.045 262);
+  --sidebar-accent-foreground: oklch(0.92 0.05 262);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.68 0.15 262);
+  --panel-shadow: 0 1px 2px oklch(0 0 0 / 0.3);
 }
 
 @theme inline {
@@ -114,7 +115,7 @@
   }
 
   html {
-    color-scheme: light dark;
+    color-scheme: light;
   }
 
   body {
