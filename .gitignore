@@ -24,8 +24,22 @@ playwright/.cache/
 npm-debug.log*
 pnpm-debug.log*
 
+# TypeScript / Vite
+*.tsbuildinfo
+.vite/
+
+# Environnement
+.env
+.env.*
+
 # Éditeurs
 .idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code (fichiers locaux)
+.claude/settings.local.json
+.claude/*.lock
 .vscode/*
 !.vscode/extensions.json
 *.swp
