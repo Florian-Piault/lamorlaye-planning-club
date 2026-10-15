@@ -1,0 +1,710 @@
+diff --git a/src/components/layout/AppShell.prototype.css b/src/components/layout/AppShell.prototype.css
+new file mode 100644
+index 0000000..22e9688
+--- /dev/null
++++ b/src/components/layout/AppShell.prototype.css
+@@ -0,0 +1,220 @@
++/*
++ * PROTOTYPE — palettes de l'itération 2 (voir AppShell.prototype.tsx).
++ * `html[data-proto]` l'emporte sur `:root` (spécificité supérieure).
++ * Angles : boutons/champs 6 px (--radius 0.5rem), panneaux 12 px.
++ */
++
++html[data-proto="D"],
++html[data-proto="E"],
++html[data-proto="F"] {
++  --radius: 0.5rem;
++}
++
++.proto-panel {
++  border: 1px solid var(--border);
++  box-shadow:
++    0 1px 2px oklch(0.2 0.02 260 / 0.05),
++    0 6px 20px -10px oklch(0.2 0.02 260 / 0.12);
++}
++.proto-section-label {
++  color: color-mix(in oklch, var(--sidebar-foreground) 50%, transparent);
++}
++.proto-dot {
++  background: var(--proto-highlight, var(--primary));
++}
++
++html[data-proto] [data-slot="page-header"] {
++  padding: 1.5rem 1.75rem 1.125rem;
++}
++html[data-proto] [data-slot="page-header"] h1 {
++  font-size: 1.375rem;
++  font-weight: 650;
++  letter-spacing: -0.02em;
++}
++html[data-proto] [data-slot="page-header"] + div {
++  padding: 1.5rem 1.75rem;
++}
++
++/* ------------------------------------------------------ D — Court bleu --- */
++
++html[data-proto="D"] {
++  --background: oklch(0.95 0.007 255);
++  --foreground: oklch(0.21 0.025 262);
++  --card: oklch(1 0 0);
++  --card-foreground: oklch(0.21 0.025 262);
++  --popover: oklch(1 0 0);
++  --popover-foreground: oklch(0.21 0.025 262);
++  --primary: oklch(0.5 0.16 262);
++  --primary-foreground: oklch(0.99 0 0);
++  --secondary: oklch(0.955 0.008 255);
++  --secondary-foreground: oklch(0.25 0.03 262);
++  --muted: oklch(0.965 0.006 255);
++  --muted-foreground: oklch(0.52 0.02 258);
++  --accent: oklch(0.955 0.022 262);
++  --accent-foreground: oklch(0.42 0.15 262);
++  --border: oklch(0.915 0.008 255);
++  --input: oklch(0.885 0.01 255);
++  --ring: oklch(0.5 0.16 262);
++  --sidebar: oklch(1 0 0);
++  --sidebar-foreground: oklch(0.21 0.025 262);
++  --sidebar-primary: oklch(0.5 0.16 262);
++  --sidebar-primary-foreground: oklch(0.99 0 0);
++  --sidebar-accent: oklch(0.95 0.025 262);
++  --sidebar-accent-foreground: oklch(0.42 0.16 262);
++  --sidebar-border: oklch(0.925 0.008 255);
++  --sidebar-ring: oklch(0.5 0.16 262);
++  --proto-highlight: oklch(0.84 0.2 125);
++}
++
++/* ------------------------------------------------- E — Graphite & sapin --- */
++
++html[data-proto="E"] {
++  --background: oklch(0.955 0.003 250);
++  --foreground: oklch(0.2 0.01 260);
++  --card: oklch(1 0 0);
++  --card-foreground: oklch(0.2 0.01 260);
++  --popover: oklch(1 0 0);
++  --popover-foreground: oklch(0.2 0.01 260);
++  --primary: oklch(0.5 0.105 172);
++  --primary-foreground: oklch(0.99 0.01 170);
++  --secondary: oklch(0.955 0.004 250);
++  --secondary-foreground: oklch(0.24 0.01 260);
++  --muted: oklch(0.965 0.003 250);
++  --muted-foreground: oklch(0.52 0.01 260);
++  --accent: oklch(0.955 0.022 172);
++  --accent-foreground: oklch(0.38 0.08 172);
++  --border: oklch(0.915 0.004 250);
++  --input: oklch(0.885 0.005 250);
++  --ring: oklch(0.5 0.105 172);
++  --sidebar: oklch(0.235 0.008 260);
++  --sidebar-foreground: oklch(0.94 0.004 260);
++  --sidebar-primary: oklch(0.8 0.12 172);
++  --sidebar-primary-foreground: oklch(0.2 0.04 172);
++  --sidebar-accent: oklch(1 0 0 / 9%);
++  --sidebar-accent-foreground: oklch(1 0 0);
++  --sidebar-border: oklch(1 0 0 / 8%);
++  --sidebar-ring: oklch(0.8 0.12 172);
++  --proto-highlight: oklch(0.62 0.13 172);
++}
++
++/* ----------------------------------------------- F — Aubergine & sauge --- */
++
++html[data-proto="F"] {
++  --background: oklch(0.955 0.008 80);
++  --foreground: oklch(0.22 0.02 300);
++  --card: oklch(0.995 0.002 80);
++  --card-foreground: oklch(0.22 0.02 300);
++  --popover: oklch(0.995 0.002 80);
++  --popover-foreground: oklch(0.22 0.02 300);
++  --primary: oklch(0.43 0.13 308);
++  --primary-foreground: oklch(0.99 0.005 300);
++  --secondary: oklch(0.955 0.008 80);
++  --secondary-foreground: oklch(0.26 0.03 300);
++  --muted: oklch(0.96 0.007 80);
++  --muted-foreground: oklch(0.52 0.02 300);
++  --accent: oklch(0.945 0.03 140);
++  --accent-foreground: oklch(0.38 0.07 145);
++  --border: oklch(0.91 0.01 80);
++  --input: oklch(0.88 0.012 80);
++  --ring: oklch(0.43 0.13 308);
++  --sidebar: oklch(0.995 0.002 80);
++  --sidebar-foreground: oklch(0.22 0.02 300);
++  --sidebar-primary: oklch(0.43 0.13 308);
++  --sidebar-primary-foreground: oklch(0.99 0.005 300);
++  --sidebar-accent: oklch(0.95 0.025 140);
++  --sidebar-accent-foreground: oklch(0.36 0.07 145);
++  --sidebar-border: oklch(0.92 0.01 80);
++  --sidebar-ring: oklch(0.43 0.13 308);
++  --proto-highlight: oklch(0.65 0.1 145);
++}
++html[data-proto="F"] .proto-section-label {
++  color: oklch(0.5 0.06 145);
++}
++
++/* ------------------------------------------------------- Mode sombre --- */
++
++@media (prefers-color-scheme: dark) {
++  .proto-panel {
++    box-shadow: 0 1px 2px oklch(0 0 0 / 0.3);
++  }
++
++  html[data-proto="D"] {
++    --background: oklch(0.14 0.015 262);
++    --foreground: oklch(0.95 0.008 255);
++    --card: oklch(0.19 0.02 262);
++    --card-foreground: oklch(0.95 0.008 255);
++    --popover: oklch(0.19 0.02 262);
++    --popover-foreground: oklch(0.95 0.008 255);
++    --primary: oklch(0.68 0.15 262);
++    --primary-foreground: oklch(0.16 0.04 262);
++    --secondary: oklch(0.25 0.02 262);
++    --secondary-foreground: oklch(0.95 0.008 255);
++    --muted: oklch(0.24 0.02 262);
++    --muted-foreground: oklch(0.7 0.02 258);
++    --accent: oklch(0.27 0.045 262);
++    --accent-foreground: oklch(0.9 0.06 262);
++    --border: oklch(1 0 0 / 9%);
++    --input: oklch(1 0 0 / 14%);
++    --ring: oklch(0.68 0.15 262);
++    --sidebar: oklch(0.19 0.02 262);
++    --sidebar-foreground: oklch(0.95 0.008 255);
++    --sidebar-primary: oklch(0.68 0.15 262);
++    --sidebar-primary-foreground: oklch(0.16 0.04 262);
++    --sidebar-accent: oklch(0.27 0.045 262);
++    --sidebar-accent-foreground: oklch(0.92 0.05 262);
++    --sidebar-border: oklch(1 0 0 / 8%);
++    --sidebar-ring: oklch(0.68 0.15 262);
++  }
++
++  html[data-proto="E"] {
++    --background: oklch(0.13 0.004 260);
++    --foreground: oklch(0.95 0.004 260);
++    --card: oklch(0.185 0.006 260);
++    --card-foreground: oklch(0.95 0.004 260);
++    --popover: oklch(0.185 0.006 260);
++    --popover-foreground: oklch(0.95 0.004 260);
++    --primary: oklch(0.72 0.11 172);
++    --primary-foreground: oklch(0.18 0.03 172);
++    --secondary: oklch(0.25 0.006 260);
++    --secondary-foreground: oklch(0.95 0.004 260);
++    --muted: oklch(0.24 0.006 260);
++    --muted-foreground: oklch(0.7 0.008 260);
++    --accent: oklch(0.27 0.03 172);
++    --accent-foreground: oklch(0.88 0.07 172);
++    --border: oklch(1 0 0 / 9%);
++    --input: oklch(1 0 0 / 14%);
++    --ring: oklch(0.72 0.11 172);
++    --sidebar: oklch(0.185 0.006 260);
++  }
++
++  html[data-proto="F"] {
++    --background: oklch(0.15 0.01 300);
++    --foreground: oklch(0.95 0.008 300);
++    --card: oklch(0.195 0.014 300);
++    --card-foreground: oklch(0.95 0.008 300);
++    --popover: oklch(0.195 0.014 300);
++    --popover-foreground: oklch(0.95 0.008 300);
++    --primary: oklch(0.72 0.12 308);
++    --primary-foreground: oklch(0.18 0.04 308);
++    --secondary: oklch(0.255 0.014 300);
++    --secondary-foreground: oklch(0.95 0.008 300);
++    --muted: oklch(0.245 0.012 300);
++    --muted-foreground: oklch(0.7 0.02 300);
++    --accent: oklch(0.28 0.035 145);
++    --accent-foreground: oklch(0.88 0.07 145);
++    --border: oklch(1 0 0 / 9%);
++    --input: oklch(1 0 0 / 14%);
++    --ring: oklch(0.72 0.12 308);
++    --sidebar: oklch(0.195 0.014 300);
++    --sidebar-foreground: oklch(0.95 0.008 300);
++    --sidebar-primary: oklch(0.72 0.12 308);
++    --sidebar-primary-foreground: oklch(0.18 0.04 308);
++    --sidebar-accent: oklch(0.28 0.035 145);
++    --sidebar-accent-foreground: oklch(0.9 0.06 145);
++    --sidebar-border: oklch(1 0 0 / 8%);
++    --sidebar-ring: oklch(0.72 0.12 308);
++  }
++  html[data-proto="F"] .proto-section-label {
++    color: oklch(0.72 0.07 145);
++  }
++}
+diff --git a/src/components/layout/AppShell.prototype.tsx b/src/components/layout/AppShell.prototype.tsx
+new file mode 100644
+index 0000000..b31a9a2
+--- /dev/null
++++ b/src/components/layout/AppShell.prototype.tsx
+@@ -0,0 +1,299 @@
++/**
++ * PROTOTYPE — itération 2 : panneaux flottants (ex-B) + barre haute (ex-C),
++ * angles resserrés ; on explore les palettes et la place de la barre haute.
++ * « Trois variantes de la coque basculables via `?variant=` sur toutes les routes. »
++ * Itération 1 (A Club house, B Terre battue, C Court central) : voir l'historique.
++ * Jetable : à archiver dans `.plan/` puis retirer une fois le choix fait.
++ */
++import { Archive, ChevronsUpDown, type LucideIcon } from "lucide-react";
++import { type ReactNode, Suspense } from "react";
++import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
++import { navigationItems } from "@/app/navigation";
++import { useSeason } from "@/app/season";
++import { Loading } from "@/components/layout/Page";
++import { cn } from "@/lib/utils";
++import "./AppShell.prototype.css";
++
++export const SHELL_VARIANTS = [
++  { key: "0", name: "Actuel" },
++  { key: "D", name: "Court bleu — barre haute dans le panneau" },
++  { key: "E", name: "Graphite & sapin — barre haute pleine largeur" },
++  { key: "F", name: "Aubergine & sauge — barre haute dans le panneau" },
++] as const;
++export type ShellVariant = (typeof SHELL_VARIANTS)[number]["key"];
++
++const DETAIL_PAGE = /^\/referentiels\/(moniteurs|groupes)\/.+$/;
++
++const SECTIONS: { label: string; paths: string[] }[] = [
++  { label: "Planifier", paths: ["/planning", "/heures"] },
++  { label: "Gérer", paths: ["/referentiels", "/import-export"] },
++  { label: "Application", paths: ["/reglages", "/a-propos"] },
++];
++const itemsFor = (paths: string[]) => navigationItems.filter((i) => paths.includes(i.path));
++
++const PANEL = "proto-panel rounded-xl";
++
++function useSeasonSelect() {
++  const { season, seasons, readOnly, selectSeason } = useSeason();
++  const navigate = useNavigate();
++  const location = useLocation();
++  const onChange = (id: string) => {
++    const chosen = seasons.find((s) => s.id === id);
++    selectSeason(chosen && chosen.status !== "active" ? chosen.id : null);
++    const detail = DETAIL_PAGE.exec(location.pathname);
++    if (detail) navigate(`/referentiels/${detail[1]}`);
++  };
++  return { season, seasons, readOnly, onChange };
++}
++
++/** Sélecteur de saison : `<select>` natif invisible posé sur une pastille. */
++function SeasonPicker() {
++  const { season, seasons, readOnly, onChange } = useSeasonSelect();
++  if (seasons.length === 0) return null;
++  return (
++    <div className="relative">
++      <div
++        className={cn(
++          "flex h-8 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs transition-colors",
++          readOnly
++            ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
++            : "bg-card hover:bg-accent",
++        )}
++      >
++        {readOnly ? (
++          <Archive className="size-3.5" />
++        ) : (
++          <span className="proto-dot size-2 rounded-full" />
++        )}
++        <span className="text-muted-foreground">Saison</span>
++        <span className="font-semibold">{season?.name}</span>
++        <span className="text-muted-foreground">{readOnly ? "archivée" : "active"}</span>
++        <ChevronsUpDown className="size-3.5 text-muted-foreground" />
++      </div>
++      <select
++        aria-label="Saison consultée"
++        className="absolute inset-0 cursor-pointer opacity-0"
++        value={season?.id ?? ""}
++        onChange={(e) => onChange(e.target.value)}
++      >
++        {seasons.map((s) => (
++          <option key={s.id} value={s.id}>
++            {s.name}
++            {s.status === "archived" ? " (archivée)" : " (active)"}
++          </option>
++        ))}
++      </select>
++    </div>
++  );
++}
++
++function Breadcrumb({ withApp = true }: { withApp?: boolean }) {
++  const location = useLocation();
++  const current = navigationItems.find((i) => location.pathname.startsWith(i.path));
++  return (
++    <p className="flex items-center gap-2 text-sm">
++      {withApp && (
++        <>
++          <span className="text-muted-foreground">Planning Club</span>
++          <span className="text-muted-foreground/50">/</span>
++        </>
++      )}
++      <span className="font-medium">{current?.label}</span>
++    </p>
++  );
++}
++
++function Brand({ subtitle = true }: { subtitle?: boolean }) {
++  return (
++    <div className="flex items-center gap-2.5">
++      <img src="/favicon.svg" alt="" className="size-8 rounded-lg" />
++      <div className="leading-tight">
++        <p className="font-semibold text-sm tracking-tight">Planning Club</p>
++        {subtitle && <p className="text-muted-foreground text-xs">TC Lamorlaye</p>}
++      </div>
++    </div>
++  );
++}
++
++function Content({ banner }: { banner: ReactNode }) {
++  return (
++    <>
++      {banner}
++      <Suspense fallback={<Loading className="p-8 text-muted-foreground text-sm" />}>
++        <Outlet />
++      </Suspense>
++    </>
++  );
++}
++
++/** Entrées groupées par section ; le rendu de l'entrée active varie. */
++function SectionedNav({ item }: { item: (i: NavEntry) => ReactNode }) {
++  return (
++    <nav aria-label="Navigation principale" className="flex flex-1 flex-col gap-5 p-3">
++      {SECTIONS.map((section, i) => (
++        <div key={section.label} className={cn("flex flex-col gap-0.5", i === 2 && "mt-auto")}>
++          <p className="proto-section-label px-2.5 pb-1 font-medium text-[11px]">{section.label}</p>
++          {itemsFor(section.paths).map((entry) => (
++            <div key={entry.path}>{item(entry)}</div>
++          ))}
++        </div>
++      ))}
++    </nav>
++  );
++}
++type NavEntry = { path: string; label: string; icon: LucideIcon };
++
++const navBase =
++  "relative flex items-center gap-3 rounded-lg px-2.5 py-2 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring";
++
++/* ------------------------------------------------------------------ D -- */
++
++/**
++ * D — Court bleu : panneaux blancs sur gris froid, bleu court en primaire,
++ * repère jaune balle sur l'entrée active, barre haute en tête du panneau.
++ */
++export function ShellD({ banner }: { banner: ReactNode }) {
++  return (
++    <div className="flex h-screen gap-2.5 overflow-hidden bg-background p-2.5">
++      <aside
++        className={cn(PANEL, "flex w-56 shrink-0 flex-col bg-sidebar text-sidebar-foreground")}
++      >
++        <div className="flex h-14 items-center border-sidebar-border border-b px-4">
++          <Brand />
++        </div>
++        <SectionedNav
++          item={({ path, label, icon: Icon }) => (
++            <NavLink
++              to={path}
++              className={({ isActive }) =>
++                cn(
++                  navBase,
++                  isActive
++                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
++                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
++                )
++              }
++            >
++              {({ isActive }) => (
++                <>
++                  <Icon className="size-4" strokeWidth={isActive ? 2.25 : 1.9} aria-hidden />
++                  {label}
++                  {isActive && <span className="proto-dot ml-auto size-1.5 rounded-full" />}
++                </>
++              )}
++            </NavLink>
++          )}
++        />
++      </aside>
++      <main className={cn(PANEL, "flex min-w-0 flex-1 flex-col overflow-auto bg-card")}>
++        <div className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-card/85 px-6 backdrop-blur">
++          <Breadcrumb />
++          <SeasonPicker />
++        </div>
++        <Content banner={banner} />
++      </main>
++    </div>
++  );
++}
++
++/* ------------------------------------------------------------------ E -- */
++
++/**
++ * E — Graphite & sapin : barre haute pleine largeur posée sur le fond
++ * (logo, fil d'Ariane, saison), puis deux panneaux : sidebar graphite et contenu.
++ */
++export function ShellE({ banner }: { banner: ReactNode }) {
++  return (
++    <div className="flex h-screen flex-col overflow-hidden bg-background">
++      <header className="flex h-14 shrink-0 items-center gap-4 px-5">
++        <div className="w-[13.25rem]">
++          <Brand subtitle={false} />
++        </div>
++        <Breadcrumb withApp={false} />
++        <div className="ml-auto">
++          <SeasonPicker />
++        </div>
++      </header>
++      <div className="flex min-h-0 flex-1 gap-2.5 px-2.5 pb-2.5">
++        <aside
++          className={cn(PANEL, "flex w-56 shrink-0 flex-col bg-sidebar text-sidebar-foreground")}
++        >
++          <SectionedNav
++            item={({ path, label, icon: Icon }) => (
++              <NavLink
++                to={path}
++                className={({ isActive }) =>
++                  cn(
++                    navBase,
++                    isActive
++                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
++                      : "text-sidebar-foreground/65 hover:bg-white/5 hover:text-sidebar-foreground",
++                  )
++                }
++              >
++                {({ isActive }) => (
++                  <>
++                    <Icon
++                      className={cn("size-4", isActive && "text-sidebar-primary")}
++                      strokeWidth={isActive ? 2.25 : 1.9}
++                      aria-hidden
++                    />
++                    {label}
++                  </>
++                )}
++              </NavLink>
++            )}
++          />
++        </aside>
++        <main className={cn(PANEL, "flex min-w-0 flex-1 flex-col overflow-auto bg-card")}>
++          <Content banner={banner} />
++        </main>
++      </div>
++    </div>
++  );
++}
++
++/* ------------------------------------------------------------------ F -- */
++
++/**
++ * F — Aubergine & sauge : fond pierre chaud, entrée active pleine aubergine,
++ * barre haute en tête du panneau, sections soulignées de sauge.
++ */
++export function ShellF({ banner }: { banner: ReactNode }) {
++  return (
++    <div className="flex h-screen gap-2.5 overflow-hidden bg-background p-2.5">
++      <aside
++        className={cn(PANEL, "flex w-56 shrink-0 flex-col bg-sidebar text-sidebar-foreground")}
++      >
++        <div className="flex h-14 items-center px-4">
++          <Brand />
++        </div>
++        <SectionedNav
++          item={({ path, label, icon: Icon }) => (
++            <NavLink
++              to={path}
++              className={({ isActive }) =>
++                cn(
++                  navBase,
++                  isActive
++                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
++                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
++                )
++              }
++            >
++              <Icon className="size-4" aria-hidden />
++              {label}
++            </NavLink>
++          )}
++        />
++      </aside>
++      <main className={cn(PANEL, "flex min-w-0 flex-1 flex-col overflow-auto bg-card")}>
++        <div className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-card/85 px-6 backdrop-blur">
++          <Breadcrumb />
++          <SeasonPicker />
++        </div>
++        <Content banner={banner} />
++      </main>
++    </div>
++  );
++}
+diff --git a/src/components/layout/AppShell.tsx b/src/components/layout/AppShell.tsx
+index b09fca0..37d5f43 100644
+--- a/src/components/layout/AppShell.tsx
++++ b/src/components/layout/AppShell.tsx
+@@ -1,14 +1,43 @@
+ import { Archive } from "lucide-react";
+-import { Suspense } from "react";
++import { Suspense, useEffect } from "react";
+ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+ import { navigationItems } from "@/app/navigation";
+ import { useSeason } from "@/app/season";
++import {
++  SHELL_VARIANTS,
++  ShellD,
++  ShellE,
++  ShellF,
++  type ShellVariant,
++} from "@/components/layout/AppShell.prototype";
+ import { Loading } from "@/components/layout/Page";
++import { PrototypeSwitcher, usePrototypeVariant } from "@/components/prototype/PrototypeSwitcher";
+ import { Select } from "@/components/ui/input";
+ import { cn } from "@/lib/utils";
+ 
+-/** Coque de l'application : barre latérale de navigation + zone de contenu. */
++// PROTOTYPE — bascule entre variantes de coque (`?variant=`), à retirer.
++const VARIANT_KEYS = SHELL_VARIANTS.map((v) => v.key);
++
+ export function AppShell() {
++  const [variant, setVariant] = usePrototypeVariant<ShellVariant>(VARIANT_KEYS, "0");
++  const active = import.meta.env.DEV ? variant : "0";
++  useEffect(() => {
++    document.documentElement.dataset.proto = active;
++  }, [active]);
++  const banner = <ReadOnlyBanner />;
++  return (
++    <>
++      {active === "0" && <CurrentShell />}
++      {active === "D" && <ShellD banner={banner} />}
++      {active === "E" && <ShellE banner={banner} />}
++      {active === "F" && <ShellF banner={banner} />}
++      <PrototypeSwitcher variants={SHELL_VARIANTS} current={active} onChange={setVariant} />
++    </>
++  );
++}
++
++/** Coque de l'application : barre latérale de navigation + zone de contenu. */
++function CurrentShell() {
+   return (
+     <div className="flex h-screen overflow-hidden">
+       <aside className="flex w-56 shrink-0 flex-col border-sidebar-border border-r bg-sidebar text-sidebar-foreground">
+diff --git a/src/components/layout/Page.tsx b/src/components/layout/Page.tsx
+index 1a207d8..6242627 100644
+--- a/src/components/layout/Page.tsx
++++ b/src/components/layout/Page.tsx
+@@ -11,7 +11,7 @@ interface PageProps {
+ export function Page({ title, description, children }: PageProps) {
+   return (
+     <div className="flex flex-1 flex-col">
+-      <header className="border-b px-8 py-5">
++      <header data-slot="page-header" className="border-b px-8 py-5">
+         <h1 className="font-semibold text-xl tracking-tight">{title}</h1>
+         {description && <p className="mt-1 text-muted-foreground text-sm">{description}</p>}
+       </header>
+diff --git a/src/components/prototype/PrototypeSwitcher.tsx b/src/components/prototype/PrototypeSwitcher.tsx
+new file mode 100644
+index 0000000..ad9ffaa
+--- /dev/null
++++ b/src/components/prototype/PrototypeSwitcher.tsx
+@@ -0,0 +1,110 @@
++/**
++ * PROTOTYPE — barre flottante de bascule entre variantes (`?variant=`).
++ * Jetable : à retirer de l'application une fois la variante choisie.
++ */
++import { ChevronLeft, ChevronRight } from "lucide-react";
++import { useCallback, useEffect } from "react";
++import { useSearchParams } from "react-router";
++
++const STORAGE_KEY = "prototype-variant";
++
++/**
++ * Variante courante : paramètre `?variant=` de l'URL, sinon la dernière
++ * choisie (mémorisée pour survivre aux liens internes qui perdent le paramètre).
++ */
++export function usePrototypeVariant<K extends string>(keys: readonly K[], fallback: K) {
++  const [params, setParams] = useSearchParams();
++  const fromUrl = params.get("variant");
++  let stored: string | null = null;
++  try {
++    stored = sessionStorage.getItem(STORAGE_KEY);
++  } catch {}
++  const raw = fromUrl ?? stored;
++  const variant = keys.includes(raw as K) ? (raw as K) : fallback;
++
++  useEffect(() => {
++    try {
++      sessionStorage.setItem(STORAGE_KEY, variant);
++    } catch {}
++  }, [variant]);
++
++  const setVariant = useCallback(
++    (next: K) => {
++      setParams(
++        (prev) => {
++          const p = new URLSearchParams(prev);
++          p.set("variant", next);
++          return p;
++        },
++        { replace: true },
++      );
++    },
++    [setParams],
++  );
++  return [variant, setVariant] as const;
++}
++
++interface PrototypeSwitcherProps<K extends string> {
++  variants: readonly { key: K; name: string }[];
++  current: K;
++  onChange: (key: K) => void;
++}
++
++export function PrototypeSwitcher<K extends string>({
++  variants,
++  current,
++  onChange,
++}: PrototypeSwitcherProps<K>) {
++  const index = Math.max(
++    0,
++    variants.findIndex((v) => v.key === current),
++  );
++  const cycle = useCallback(
++    (delta: number) => {
++      const next = variants[(index + delta + variants.length) % variants.length];
++      if (next) onChange(next.key);
++    },
++    [index, variants, onChange],
++  );
++
++  useEffect(() => {
++    const onKey = (e: KeyboardEvent) => {
++      const t = e.target as HTMLElement | null;
++      if (t?.closest("input, textarea, select, [contenteditable]")) return;
++      if (e.key === "ArrowLeft") cycle(-1);
++      if (e.key === "ArrowRight") cycle(1);
++    };
++    window.addEventListener("keydown", onKey);
++    return () => window.removeEventListener("keydown", onKey);
++  }, [cycle]);
++
++  if (!import.meta.env.DEV) return null;
++  const v = variants[index];
++  return (
++    <div
++      style={{ fontFamily: "ui-monospace, monospace" }}
++      className="fixed bottom-4 left-1/2 z-[9999] flex -translate-x-1/2 items-center gap-1 rounded-full bg-black px-2 py-1.5 text-white text-xs shadow-2xl ring-2 ring-fuchsia-500"
++    >
++      <button
++        type="button"
++        aria-label="Variante précédente"
++        className="rounded-full p-1 hover:bg-white/20"
++        onClick={() => cycle(-1)}
++      >
++        <ChevronLeft className="size-4" />
++      </button>
++      <span className="min-w-56 text-center">
++        <b className="text-fuchsia-300">PROTO</b> {v?.key} ({v?.name}) · {index + 1}/
++        {variants.length}
++      </span>
++      <button
++        type="button"
++        aria-label="Variante suivante"
++        className="rounded-full p-1 hover:bg-white/20"
++        onClick={() => cycle(1)}
++      >
++        <ChevronRight className="size-4" />
++      </button>
++    </div>
++  );
++}

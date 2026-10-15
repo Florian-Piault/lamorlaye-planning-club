@@ -11,11 +11,11 @@ interface PageProps {
 export function Page({ title, description, children }: PageProps) {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b px-8 py-5">
-        <h1 className="font-semibold text-xl tracking-tight">{title}</h1>
+      <header className="border-b px-7 pt-6 pb-4.5">
+        <h1 className="font-semibold text-[1.375rem] tracking-[-0.02em]">{title}</h1>
         {description && <p className="mt-1 text-muted-foreground text-sm">{description}</p>}
       </header>
-      <div className="flex flex-1 flex-col p-8">{children}</div>
+      <div className="flex flex-1 flex-col px-7 py-6">{children}</div>
     </div>
   );
 }

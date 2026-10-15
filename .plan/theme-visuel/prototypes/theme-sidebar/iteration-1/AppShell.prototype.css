@@ -1,0 +1,238 @@
+/*
+ * PROTOTYPE — palettes des variantes de coque (voir AppShell.prototype.tsx).
+ * `html[data-proto]` l'emporte sur `:root` (spécificité supérieure).
+ */
+
+.proto-serif {
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+}
+
+/* ---------------------------------------------------- A — Club house --- */
+
+html[data-proto="A"] {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.006 95);
+  --foreground: oklch(0.22 0.025 160);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.025 160);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.025 160);
+  --primary: oklch(0.47 0.1 158);
+  --primary-foreground: oklch(0.99 0.01 150);
+  --secondary: oklch(0.955 0.012 95);
+  --secondary-foreground: oklch(0.25 0.03 160);
+  --muted: oklch(0.96 0.01 95);
+  --muted-foreground: oklch(0.5 0.025 150);
+  --accent: oklch(0.955 0.03 60);
+  --accent-foreground: oklch(0.45 0.13 45);
+  --border: oklch(0.91 0.013 95);
+  --input: oklch(0.89 0.015 95);
+  --ring: oklch(0.47 0.1 158);
+  --sidebar: oklch(0.29 0.055 162);
+  --sidebar-foreground: oklch(0.96 0.015 150);
+  --sidebar-primary: oklch(0.7 0.16 48);
+  --sidebar-primary-foreground: oklch(0.2 0.04 45);
+  --sidebar-accent: oklch(1 0 0 / 9%);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.7 0.16 48);
+}
+
+html[data-proto="A"] .proto-a-sidebar {
+  background-image:
+    radial-gradient(120% 60% at 0% 0%, oklch(0.4 0.08 158 / 0.55), transparent 60%),
+    linear-gradient(to bottom, var(--sidebar), oklch(0.24 0.045 165));
+  box-shadow: inset -1px 0 0 oklch(0 0 0 / 0.2);
+}
+
+html[data-proto="A"] [data-slot="page-header"] {
+  border-bottom-color: var(--border);
+  background: linear-gradient(to bottom, var(--card), var(--background));
+  padding-top: 1.75rem;
+  padding-bottom: 1.25rem;
+}
+html[data-proto="A"] [data-slot="page-header"] h1 {
+  font-family: ui-serif, "Iowan Old Style", Georgia, serif;
+  font-size: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+html[data-proto="A"] [data-slot="page-header"] h1::after {
+  content: "";
+  display: block;
+  width: 2rem;
+  height: 3px;
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  background: oklch(0.65 0.16 45);
+}
+
+/* --------------------------------------------------- B — Terre battue --- */
+
+html[data-proto="B"] {
+  --radius: 0.875rem;
+  --background: oklch(0.94 0.022 68);
+  --foreground: oklch(0.26 0.03 40);
+  --card: oklch(0.995 0.004 80);
+  --card-foreground: oklch(0.26 0.03 40);
+  --popover: oklch(0.995 0.004 80);
+  --popover-foreground: oklch(0.26 0.03 40);
+  --primary: oklch(0.58 0.155 40);
+  --primary-foreground: oklch(0.99 0.01 60);
+  --secondary: oklch(0.95 0.018 70);
+  --secondary-foreground: oklch(0.3 0.04 40);
+  --muted: oklch(0.96 0.014 70);
+  --muted-foreground: oklch(0.52 0.035 50);
+  --accent: oklch(0.95 0.035 55);
+  --accent-foreground: oklch(0.45 0.13 40);
+  --border: oklch(0.9 0.02 70);
+  --input: oklch(0.87 0.025 65);
+  --ring: oklch(0.58 0.155 40);
+  --sidebar: oklch(0.995 0.004 80);
+  --sidebar-foreground: oklch(0.26 0.03 40);
+  --sidebar-primary: oklch(0.58 0.155 40);
+  --sidebar-primary-foreground: oklch(0.99 0.01 60);
+  --sidebar-accent: oklch(0.955 0.025 60);
+  --sidebar-accent-foreground: oklch(0.42 0.12 40);
+  --sidebar-border: oklch(0.9 0.02 70);
+  --sidebar-ring: oklch(0.58 0.155 40);
+}
+
+html[data-proto="B"] [data-slot="page-header"] {
+  border-bottom-style: dashed;
+  padding: 1.75rem 2rem 1.25rem;
+}
+html[data-proto="B"] [data-slot="page-header"] h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* -------------------------------------------------- C — Court central --- */
+
+html[data-proto="C"] {
+  --radius: 0.4rem;
+  --background: oklch(0.975 0.005 250);
+  --foreground: oklch(0.21 0.03 262);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.03 262);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.03 262);
+  --primary: oklch(0.5 0.17 258);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.955 0.008 255);
+  --secondary-foreground: oklch(0.25 0.03 262);
+  --muted: oklch(0.96 0.007 255);
+  --muted-foreground: oklch(0.5 0.025 258);
+  --accent: oklch(0.95 0.025 258);
+  --accent-foreground: oklch(0.4 0.15 260);
+  --border: oklch(0.91 0.01 255);
+  --input: oklch(0.89 0.012 255);
+  --ring: oklch(0.5 0.17 258);
+  --sidebar: oklch(0.23 0.055 264);
+  --sidebar-foreground: oklch(0.96 0.01 255);
+  --sidebar-primary: oklch(0.92 0.19 122);
+  --sidebar-primary-foreground: oklch(0.25 0.06 130);
+  --sidebar-accent: oklch(1 0 0 / 10%);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.92 0.19 122);
+}
+
+html[data-proto="C"] .proto-c-rail {
+  background-image: linear-gradient(to bottom, oklch(0.27 0.07 264), var(--sidebar));
+}
+
+html[data-proto="C"] [data-slot="page-header"] {
+  padding: 1.25rem 1.5rem 1rem;
+  background: var(--card);
+}
+html[data-proto="C"] [data-slot="page-header"] h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+html[data-proto="C"] [data-slot="page-header"] + div {
+  padding: 1.5rem;
+}
+
+/* ------------------------------------------------------- Mode sombre --- */
+
+@media (prefers-color-scheme: dark) {
+  html[data-proto="A"] {
+    --background: oklch(0.17 0.014 160);
+    --foreground: oklch(0.95 0.012 140);
+    --card: oklch(0.205 0.018 160);
+    --card-foreground: oklch(0.95 0.012 140);
+    --popover: oklch(0.205 0.018 160);
+    --popover-foreground: oklch(0.95 0.012 140);
+    --primary: oklch(0.72 0.13 158);
+    --primary-foreground: oklch(0.18 0.03 158);
+    --secondary: oklch(0.26 0.018 160);
+    --secondary-foreground: oklch(0.95 0.012 140);
+    --muted: oklch(0.25 0.016 160);
+    --muted-foreground: oklch(0.7 0.02 150);
+    --accent: oklch(0.3 0.05 50);
+    --accent-foreground: oklch(0.88 0.08 55);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 14%);
+    --ring: oklch(0.72 0.13 158);
+    --sidebar: oklch(0.2 0.035 162);
+  }
+  html[data-proto="A"] .proto-a-sidebar {
+    background-image:
+      radial-gradient(120% 60% at 0% 0%, oklch(0.32 0.07 158 / 0.5), transparent 60%),
+      linear-gradient(to bottom, var(--sidebar), oklch(0.15 0.025 165));
+  }
+
+  html[data-proto="B"] {
+    --background: oklch(0.15 0.01 50);
+    --foreground: oklch(0.95 0.012 70);
+    --card: oklch(0.2 0.014 50);
+    --card-foreground: oklch(0.95 0.012 70);
+    --popover: oklch(0.2 0.014 50);
+    --popover-foreground: oklch(0.95 0.012 70);
+    --primary: oklch(0.68 0.15 45);
+    --primary-foreground: oklch(0.18 0.03 40);
+    --secondary: oklch(0.26 0.016 50);
+    --secondary-foreground: oklch(0.95 0.012 70);
+    --muted: oklch(0.25 0.014 50);
+    --muted-foreground: oklch(0.7 0.025 60);
+    --accent: oklch(0.29 0.04 45);
+    --accent-foreground: oklch(0.88 0.08 50);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 14%);
+    --ring: oklch(0.68 0.15 45);
+    --sidebar: oklch(0.2 0.014 50);
+    --sidebar-foreground: oklch(0.95 0.012 70);
+    --sidebar-primary: oklch(0.68 0.15 45);
+    --sidebar-primary-foreground: oklch(0.18 0.03 40);
+    --sidebar-accent: oklch(0.27 0.025 50);
+    --sidebar-accent-foreground: oklch(0.9 0.07 50);
+    --sidebar-border: oklch(1 0 0 / 9%);
+  }
+
+  html[data-proto="C"] {
+    --background: oklch(0.16 0.02 264);
+    --foreground: oklch(0.95 0.008 255);
+    --card: oklch(0.2 0.025 264);
+    --card-foreground: oklch(0.95 0.008 255);
+    --popover: oklch(0.2 0.025 264);
+    --popover-foreground: oklch(0.95 0.008 255);
+    --primary: oklch(0.7 0.14 258);
+    --primary-foreground: oklch(0.16 0.04 260);
+    --secondary: oklch(0.26 0.025 264);
+    --secondary-foreground: oklch(0.95 0.008 255);
+    --muted: oklch(0.25 0.022 264);
+    --muted-foreground: oklch(0.7 0.02 258);
+    --accent: oklch(0.29 0.05 262);
+    --accent-foreground: oklch(0.9 0.06 258);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 14%);
+    --ring: oklch(0.7 0.14 258);
+    --sidebar: oklch(0.13 0.03 264);
+  }
+  html[data-proto="C"] .proto-c-rail {
+    background-image: linear-gradient(to bottom, oklch(0.18 0.045 264), var(--sidebar));
+  }
+}
