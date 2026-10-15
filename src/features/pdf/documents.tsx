@@ -110,7 +110,7 @@ function Footer({ meta }: { meta: DocumentMeta }) {
   return (
     <View style={base.footer} fixed>
       <Text>
-        Planning Club · saison {meta.seasonName} · édité le {formatDate(meta.printedOn)}
+        Kairos · saison {meta.seasonName} · édité le {formatDate(meta.printedOn)}
       </Text>
       <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`} />
     </View>
@@ -231,7 +231,7 @@ export function WeekDocument({
   const yOf = (minute: number) => ((minute - sheet.dayStart) / span) * gridHeight;
 
   return (
-    <Document title={meta.title} author="Planning Club" creator="Planning Club" language="fr">
+    <Document title={meta.title} author="Kairos" creator="Kairos" language="fr">
       <Page size={paper} orientation="landscape" style={[base.page, { fontFamily: meta.fonts }]}>
         <View style={[base.header, { height: headerHeight }]}>
           <View>
@@ -502,7 +502,7 @@ export function InstructorsDocument({
   meta: RenderMeta;
 }) {
   return (
-    <Document title={meta.title} author="Planning Club" creator="Planning Club" language="fr">
+    <Document title={meta.title} author="Kairos" creator="Kairos" language="fr">
       {sheets.map((sheet) => (
         <InstructorPage key={sheet.instructorId} sheet={sheet} meta={meta} />
       ))}
@@ -586,7 +586,7 @@ export function AttendanceDocument({
   meta: RenderMeta;
 }) {
   return (
-    <Document title={meta.title} author="Planning Club" creator="Planning Club" language="fr">
+    <Document title={meta.title} author="Kairos" creator="Kairos" language="fr">
       {sheets.map((sheet) => (
         <AttendancePage key={sheet.groupId} sheet={sheet} meta={meta} />
       ))}

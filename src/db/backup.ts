@@ -8,9 +8,9 @@ import { ENCRYPTED_EXTENSION, encryptedExportFileName, exportFileName } from "@/
  * sont faits côté Rust (`src-tauri/src/backup.rs`, `src-tauri/src/crypto.rs`).
  */
 
-const PLAIN_FILTER = { name: "Sauvegarde Planning Club", extensions: ["db"] };
+const PLAIN_FILTER = { name: "Sauvegarde Kairos", extensions: ["db"] };
 const ENCRYPTED_FILTER = {
-  name: "Sauvegarde chiffrée Planning Club",
+  name: "Sauvegarde chiffrée Kairos",
   extensions: [ENCRYPTED_EXTENSION],
 };
 
@@ -51,7 +51,7 @@ export async function chooseBackupFile(): Promise<string | null> {
     title: "Restaurer une sauvegarde",
     multiple: false,
     directory: false,
-    filters: [{ name: "Sauvegardes Planning Club", extensions: ["db", ENCRYPTED_EXTENSION] }],
+    filters: [{ name: "Sauvegardes Kairos", extensions: ["db", ENCRYPTED_EXTENSION] }],
   });
   return typeof selected === "string" ? selected : null;
 }

@@ -1,4 +1,4 @@
-# Planning Club
+# Kairos
 
 Application de bureau pour construire et tenir à jour le **planning des cours collectifs** d'un club de tennis : groupes d'élèves, répartition entre les moniteurs selon leurs disponibilités, affectation aux courts, semaines réelles avec leurs exceptions, et diffusion en PDF.
 

@@ -1,6 +1,12 @@
 # Journal des modifications
 
-Toutes les évolutions notables de Planning Club sont consignées ici. Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et la numérotation [SemVer](https://semver.org/lang/fr/).
+Toutes les évolutions notables de Kairos sont consignées ici. Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et la numérotation [SemVer](https://semver.org/lang/fr/).
+
+## [Non publié]
+
+### Modifié
+
+- L'application s'appelle désormais **Kairos**, du nom du dieu grec du moment opportun : nouvelle icône (ses ailes, d'après la fresque de Salviati, sur un court en dur vert et bleu), nouveau titre de fenêtre, en-tête des PDF et noms des sauvegardes (`kairos-….db`). L'identifiant de l'application ne change pas : les données et les sauvegardes existantes restent en place.
 
 ## [1.0.0] - 2026-10-15
 

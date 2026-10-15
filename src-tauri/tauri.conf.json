@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Planning Club",
+  "productName": "Kairos",
   "version": "1.0.0",
   "identifier": "fr.tc-lamorlaye.planning",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "Planning Club",
+        "title": "Kairos",
         "width": 1440,
         "height": 900,
         "minWidth": 1366,

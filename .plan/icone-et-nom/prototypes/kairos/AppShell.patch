@@ -1,0 +1,9 @@
+Branchement du prototype dans src/components/layout/AppShell.tsx (à réappliquer à la main) :
+
+  import { BrandSwitcher, useBrandVariant } from "./brand-prototype/BrandPrototype";
+
+  AppShell()      : const brand = useBrandVariant();
+                    <img src="/favicon.svg" …/>  →  <brand.Icon size={32} />
+                    nom / sous-titre             →  {brand.name} / {brand.tagline}
+                    avant </div> final           →  {import.meta.env.DEV && <BrandSwitcher />}
+  Breadcrumb()    : const brand = useBrandVariant();  nom  →  {brand.name}

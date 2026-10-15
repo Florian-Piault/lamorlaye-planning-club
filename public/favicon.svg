@@ -1,16 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <title>Planning Club</title>
-  <rect width="1024" height="1024" rx="224" fill="#1f6f4a"/>
-  <rect x="192" y="232" width="640" height="560" rx="48" fill="#f8fafc"/>
-  <rect x="192" y="232" width="640" height="128" rx="48" fill="#c2410c"/>
-  <rect x="192" y="312" width="640" height="48" fill="#c2410c"/>
-  <g fill="#1f6f4a">
-    <rect x="248" y="408" width="152" height="112" rx="20"/>
-    <rect x="436" y="408" width="152" height="112" rx="20" opacity=".55"/>
-    <rect x="624" y="408" width="152" height="112" rx="20"/>
-    <rect x="248" y="560" width="152" height="176" rx="20" opacity=".55"/>
-    <rect x="436" y="560" width="152" height="176" rx="20"/>
+  <title>Kairos</title>
+  <!-- Les ailes de Kairos (d'après la fresque de Salviati) sur un court en dur vert et bleu. -->
+  <defs>
+    <linearGradient id="court" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f63b8"/>
+      <stop offset="1" stop-color="#3e7d57"/>
+    </linearGradient>
+    <!-- Aile : bord d'attaque courbe, bord de fuite festonné (une bosse par plume). -->
+    <path id="wing" d="M250 900 Q190 330 800 120 Q835 218 734 244 Q771 336 675 363 Q712 450 622 479 Q660 560 575 590 Q613 666 534 698 Q573 768 499 801 Q539 866 470 900 Z"/>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#court)"/>
+  <!-- Aile arrière, estompée ; puis aile avant. Bandes crème, sauge, saumon depuis la racine. -->
+  <g opacity=".75" transform="rotate(5 430 860) translate(230 45) scale(.82)">
+    <use href="#wing" fill="#f3d9bf"/>
+    <use href="#wing" fill="#a6bb9c" transform="translate(250 900) scale(.74) translate(-250 -900)"/>
+    <use href="#wing" fill="#e48f76" transform="translate(250 900) scale(.52) translate(-250 -900)"/>
+    <use href="#wing" fill="#f3d9bf" transform="translate(250 900) scale(.3) translate(-250 -900)"/>
   </g>
-  <circle cx="700" cy="648" r="88" fill="#d9f99d" stroke="#1f6f4a" stroke-width="12"/>
-  <path d="M620 612c40 10 70 46 70 112M780 684c-40-10-70-46-70-112" fill="none" stroke="#1f6f4a" stroke-width="12"/>
+  <g transform="rotate(-6 220 870) translate(-20 150) scale(.8)">
+    <use href="#wing" fill="#fff3e2"/>
+    <use href="#wing" fill="#b9cbb0" transform="translate(250 900) scale(.74) translate(-250 -900)"/>
+    <use href="#wing" fill="#efa58c" transform="translate(250 900) scale(.52) translate(-250 -900)"/>
+    <use href="#wing" fill="#fff3e2" transform="translate(250 900) scale(.3) translate(-250 -900)"/>
+  </g>
 </svg>

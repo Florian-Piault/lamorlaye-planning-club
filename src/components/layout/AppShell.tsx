@@ -26,7 +26,7 @@ export function AppShell() {
         <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
           <img src="/favicon.svg" alt="" className="size-8 rounded-lg" />
           <div className="leading-tight">
-            <p className="font-semibold text-sm tracking-tight">Planning Club</p>
+            <p className="font-semibold text-sm tracking-tight">Kairos</p>
             <p className="text-muted-foreground text-xs">Cours collectifs</p>
           </div>
         </div>
@@ -82,7 +82,7 @@ function Breadcrumb() {
   const current = navigationItems.find((item) => pathname.startsWith(item.path));
   return (
     <p className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Planning Club</span>
+      <span className="text-muted-foreground">Kairos</span>
       <span className="text-muted-foreground" aria-hidden>
         /
       </span>

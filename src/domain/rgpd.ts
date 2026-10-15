@@ -87,7 +87,7 @@ export function buildStudentExport(records: readonly StudentRecord[], exportedAt
   const sorted = [...records].sort((a, b) => a.season.startDate.localeCompare(b.season.startDate));
   const first = sorted[0]?.student;
   return {
-    document: "Données personnelles d'un élève — Planning Club",
+    document: "Données personnelles d'un élève — Kairos",
     version: 1,
     exportéLe: exportedAt,
     personne: first
