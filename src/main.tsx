@@ -4,6 +4,9 @@ import { createRoot } from "react-dom/client";
 import "@fontsource-variable/inter";
 import "./index.css";
 import { App } from "./App";
+import { initTheme } from "./app/theme";
+
+initTheme();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Élément #root introuvable.");
