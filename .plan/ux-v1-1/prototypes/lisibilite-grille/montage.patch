@@ -1,0 +1,768 @@
+diff --git a/src/components/layout/AppShell.tsx b/src/components/layout/AppShell.tsx
+index 2e29e84..2043649 100644
+--- a/src/components/layout/AppShell.tsx
++++ b/src/components/layout/AppShell.tsx
+@@ -4,6 +4,12 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+ import { navigationItems, navigationSections } from "@/app/navigation";
+ import { useSeason } from "@/app/season";
+ import { Loading } from "@/components/layout/Page";
++import {
++  NavCollapseButton,
++  protoHideTopBar,
++  protoNav,
++  useProto,
++} from "@/features/grid-prototype/GridPrototype"; // PROTOTYPE
+ import { cn } from "@/lib/utils";
+ 
+ /** Panneau flottant (barre latérale, contenu) posé sur le fond de l'application. */
+@@ -15,22 +21,38 @@ const PANEL = "rounded-xl border shadow-panel";
+  * le sélecteur de saison.
+  */
+ export function AppShell() {
++  // PROTOTYPE : menu réductible, barre haute masquable sur le Planning.
++  const proto = useProto();
++  const nav = protoNav(proto);
++  const icons = nav === "icons";
++  const onPlanning = useLocation().pathname.startsWith("/planning");
++  const hideTop = onPlanning && protoHideTopBar(proto);
+   return (
+-    <div className="flex h-screen gap-2.5 overflow-hidden bg-background p-2.5">
++    <div
++      className={cn(
++        "flex h-screen gap-2.5 overflow-hidden bg-background",
++        nav === "hidden" ? "p-0" : "p-2.5",
++      )}
++    >
+       <aside
+         className={cn(
+           PANEL,
+-          "flex w-56 shrink-0 flex-col border-sidebar-border bg-sidebar text-sidebar-foreground",
++          "flex shrink-0 flex-col border-sidebar-border bg-sidebar text-sidebar-foreground",
++          icons ? "w-14" : "w-56",
++          nav === "hidden" && "hidden",
+         )}
+       >
+-        <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
++        <div className={cn("flex h-14 shrink-0 items-center gap-2.5", icons ? "px-3" : "px-4")}>
+           <img src="/favicon.svg" alt="" className="size-8 rounded-lg" />
+-          <div className="leading-tight">
++          <div className={cn("leading-tight", icons && "hidden")}>
+             <p className="font-semibold text-sm tracking-tight">Kairos</p>
+             <p className="text-muted-foreground text-xs">Cours collectifs</p>
+           </div>
+         </div>
+-        <nav aria-label="Navigation principale" className="flex flex-1 flex-col gap-5 p-3">
++        <nav
++          aria-label="Navigation principale"
++          className={cn("flex flex-1 flex-col gap-5", icons ? "p-1.5" : "p-3")}
++        >
+           {navigationSections.map(({ label, items }, index) => (
+             <div
+               key={label}
+@@ -39,11 +61,19 @@ export function AppShell() {
+                 index === navigationSections.length - 1 && "mt-auto",
+               )}
+             >
+-              <p className="px-2.5 pb-1 font-medium text-[11px] text-muted-foreground">{label}</p>
++              <p
++                className={cn(
++                  "px-2.5 pb-1 font-medium text-[11px] text-muted-foreground",
++                  icons && "sr-only",
++                )}
++              >
++                {label}
++              </p>
+               {items.map(({ path, label, icon: Icon }) => (
+                 <NavLink
+                   key={path}
+                   to={path}
++                  title={icons ? label : undefined}
+                   className={({ isActive }) =>
+                     cn(
+                       "flex items-center gap-3 rounded-lg px-2.5 py-2 font-medium text-sm",
+@@ -55,15 +85,21 @@ export function AppShell() {
+                   }
+                 >
+                   <Icon className="size-4" aria-hidden />
+-                  {label}
++                  <span className={cn(icons && "sr-only")}>{label}</span>
+                 </NavLink>
+               ))}
++              {index === navigationSections.length - 1 && <NavCollapseButton collapsed={icons} />}
+             </div>
+           ))}
+         </nav>
+       </aside>
+       <main className={cn(PANEL, "flex min-w-0 flex-1 flex-col overflow-auto bg-card")}>
+-        <div className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-card/85 px-6 backdrop-blur">
++        <div
++          className={cn(
++            "sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-card/85 px-6 backdrop-blur",
++            hideTop && "hidden",
++          )}
++        >
+           <Breadcrumb />
+           <SeasonSelector />
+         </div>
+@@ -99,7 +135,7 @@ const DETAIL_PAGE = /^\/referentiels\/(moniteurs|groupes)\/.+$/;
+  * Liste native transparente posée sur une pastille, pour garder le comportement
+  * clavier et l'accessibilité du `<select>`.
+  */
+-function SeasonSelector() {
++export function SeasonSelector() {
+   const { season, seasons, readOnly, selectSeason } = useSeason();
+   const navigate = useNavigate();
+   const location = useLocation();
+diff --git a/src/features/planning/PlanningPage.tsx b/src/features/planning/PlanningPage.tsx
+index a84f742..1bd4783 100644
+--- a/src/features/planning/PlanningPage.tsx
++++ b/src/features/planning/PlanningPage.tsx
+@@ -1,6 +1,7 @@
+ import { DndContext } from "@dnd-kit/core";
+ import { FileDown, LandPlot, Lock, Plus, Redo2, Undo2, X } from "lucide-react";
+ import {
++  type ReactNode,
+   type RefObject,
+   useCallback,
+   useEffect,
+@@ -12,6 +13,7 @@ import {
+ import { Link } from "react-router";
+ import { useSeason } from "@/app/season";
+ import { ErrorAlert } from "@/components/form/Field";
++import { SeasonSelector } from "@/components/layout/AppShell"; // PROTOTYPE
+ import { EmptyState, Page } from "@/components/layout/Page";
+ import { Badge } from "@/components/ui/badge";
+ import { Button } from "@/components/ui/button";
+@@ -27,11 +29,29 @@ import { unavailableIntervals } from "@/domain/instructorAvailability";
+ import { weekOccurrences } from "@/domain/occurrences";
+ import { formatDate, timeToMinutes, WEEKDAYS, weekdayLabel } from "@/domain/time";
+ import type { GroupInput } from "@/domain/validation";
++import {
++  FiltersPopover,
++  FoldedPanelRail,
++  GridProtoBar,
++  LessonHoverCard,
++  PrototypeSwitcher,
++  protoColumnWidth,
++  protoCompact,
++  protoHourHeight,
++  protoPanelFolded,
++  protoShowFilters,
++  protoShowRail,
++  protoSlimModeBar,
++  protoWeekdays,
++  protoWeekNav,
++  useProto,
++} from "@/features/grid-prototype/GridPrototype"; // PROTOTYPE
+ import { weekPdfJob } from "@/features/pdf/jobs";
+ import { PAPER_SIZES, type PaperSize } from "@/features/pdf/model";
+ import { PdfPreviewDialog } from "@/features/pdf/PdfPreviewDialog";
+ import { RequireSeason } from "@/features/referentiels/ReferentielsPage";
+ import { errorMessage } from "@/hooks/useLoader";
++import { cn } from "@/lib/utils"; // PROTOTYPE
+ import { DragFeedback } from "./components/DragFeedback";
+ import { Filters } from "./components/Filters";
+ import { Legend, type LegendEntry } from "./components/Legend";
+@@ -55,14 +75,7 @@ import {
+   restoreItem,
+   saveItem,
+ } from "./grid/actions";
+-import {
+-  AXIS_WIDTH,
+-  clockLabel,
+-  fitColumnWidth,
+-  type GridGeometry,
+-  HOUR_HEIGHT,
+-  layoutItems,
+-} from "./grid/geometry";
++import { AXIS_WIDTH, clockLabel, type GridGeometry, layoutItems } from "./grid/geometry";
+ import {
+   activeItems,
+   clampWeek,
+@@ -117,6 +130,7 @@ export function PlanningPage() {
+     return (
+       <Page title="Planning" description={DESCRIPTION}>
+         <RequireSeason>{null}</RequireSeason>
++        <PrototypeSwitcher /> {/* PROTOTYPE */}
+       </Page>
+     );
+   }
+@@ -308,17 +322,22 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+   );
+ 
+   const weekdayList = displayedWeekdays(season.displayedDays, items);
+-  const weekdays = useStable(weekdayList, weekdayList.join(","));
++  const allWeekdays = useStable(weekdayList, weekdayList.join(","));
++  const proto = useProto(); // PROTOTYPE
++  const protoDays = protoWeekdays(proto, allWeekdays); // PROTOTYPE
++  const weekdays = useStable(protoDays, protoDays.join(","));
+   const courtList = displayedCourts(refs.courts, items);
+   const courts = useStable(courtList, courtList.map((c) => c.id).join(","));
+   const courtIds = useMemo(() => courts.map((c) => c.id), [courts]);
+-  const columnWidth = fitColumnWidth(
++  const columnWidth = protoColumnWidth(
++    proto, // PROTOTYPE
+     scrollerWidth - AXIS_WIDTH - 2,
+     weekdays.length * courtIds.length,
+   );
++  const hourHeight = protoHourHeight(proto); // PROTOTYPE
+   const geometry: GridGeometry = useMemo(
+-    () => ({ dayStart, dayEnd, hourHeight: HOUR_HEIGHT, columnWidth, weekdays, courtIds }),
+-    [dayStart, dayEnd, columnWidth, weekdays, courtIds],
++    () => ({ dayStart, dayEnd, hourHeight, columnWidth, weekdays, courtIds }),
++    [dayStart, dayEnd, hourHeight, columnWidth, weekdays, courtIds],
+   );
+   const closedDayList = useMemo(
+     () => closedDays(mode, weekdays, closures),
+@@ -1028,6 +1047,32 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+     );
+   };
+ 
++  // PROTOTYPE : filtres déplaçables (ligne, bouton, menu déroulant).
++  const compact = protoCompact(proto);
++  const weekNavAt = protoWeekNav(proto);
++  const weekNav = (part: "nav" | "band") =>
++    mode.kind === "dated" ? (
++      <WeekNavigator
++        mode={mode}
++        season={seasonRange}
++        datedMonday={datedMonday}
++        todayMonday={todayMonday}
++        onChange={changeMode}
++        part={part}
++      />
++    ) : null;
++  const filterCount =
++    filters.instructorIds.length + filters.courtIds.length + (filters.groupId ? 1 : 0);
++  const filtersRow = (
++    <Filters
++      filters={filters}
++      onChange={setFilters}
++      instructors={filterOptions.instructors}
++      courts={filterOptions.courts}
++      groups={filterOptions.groups}
++    />
++  );
++
+   return (
+     <DndContext
+       sensors={gestures.sensors}
+@@ -1037,14 +1082,22 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+       accessibility={accessibility}
+     >
+       <div className="flex min-h-0 flex-1 flex-col">
+-        <header className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2.5">
+-          <h1 className="mr-2 font-semibold text-lg tracking-tight">Planning</h1>
++        <header
++          className={cn(
++            "flex flex-wrap items-center gap-2 border-b bg-card px-4",
++            compact ? "py-1.5" : "py-2.5",
++          )}
++        >
++          <h1 className={cn("mr-2 font-semibold text-lg tracking-tight", compact && "sr-only")}>
++            Planning
++          </h1>
+           <WeekNavigator
+             mode={mode}
+             season={seasonRange}
+             datedMonday={datedMonday}
+             todayMonday={todayMonday}
+             onChange={changeMode}
++            part={weekNavAt === "header" ? "all" : weekNavAt === "inline" ? "inline" : "segment"}
+           />
+           {readOnly ? (
+             <Badge variant="outline" data-testid="planning-read-only">
+@@ -1073,7 +1126,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+                 title={undoLabel(snapshot.history) ?? "Rien à annuler"}
+               >
+                 <Undo2 aria-hidden />
+-                Annuler
++                {compact ? <span className="sr-only">Annuler</span> : "Annuler"}
+               </Button>
+               <Button
+                 size="sm"
+@@ -1083,7 +1136,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+                 title={redoLabel(snapshot.history) ?? "Rien à rétablir"}
+               >
+                 <Redo2 aria-hidden />
+-                Rétablir
++                {compact ? <span className="sr-only">Rétablir</span> : "Rétablir"}
+               </Button>
+             </>
+           )}
+@@ -1094,15 +1147,17 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+             title="PDF de la semaine affichée (Ctrl/⌘ P)"
+           >
+             <FileDown aria-hidden />
+-            PDF
++            {compact ? <span className="sr-only">PDF</span> : "PDF"}
+           </Button>
+-          <div className="ml-auto">
++          {compact && <FiltersPopover active={filterCount}>{filtersRow}</FiltersPopover>}
++          <div className="ml-auto flex items-center gap-2">
+             <Legend
+               entries={legendEntries}
+               totalMinutes={weekTotal}
+               interaction={interaction}
+               readOnly={readOnly}
+             />
++            {compact && <SeasonSelector />}
+           </div>
+         </header>
+         <ModeBar
+@@ -1112,14 +1167,10 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+           interaction={interaction}
+           names={legendEntries}
+           hiddenVersions={mode.kind === "type" ? lessons.length - items.length : 0}
++          slim={protoSlimModeBar(proto)}
++          navSlot={weekNavAt === "band" ? weekNav("band") : null}
+         />
+-        <Filters
+-          filters={filters}
+-          onChange={setFilters}
+-          instructors={filterOptions.instructors}
+-          courts={filterOptions.courts}
+-          groups={filterOptions.groups}
+-        />
++        {protoShowFilters(proto) && filtersRow /* PROTOTYPE */}
+         {snapshot.error && (
+           <div className="flex items-start gap-2 border-b px-4 py-2">
+             <div className="flex-1">
+@@ -1135,6 +1186,16 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+             </Button>
+           </div>
+         )}
++        <GridProtoBar
++          allWeekdays={allWeekdays}
++          itemWeekdays={items.map((i) => i.weekday)}
++          dayHeading={headingOf}
++          geometry={geometry}
++          scrollerRef={scrollerRef}
++          filterCount={filterCount}
++          weekNav={weekNavAt === "daybar" ? weekNav("nav") : null}
++        />{" "}
++        {/* PROTOTYPE */}
+         <div className="flex min-h-0 flex-1">
+           <PlanningGrid
+             geometry={geometry}
+@@ -1151,12 +1212,16 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+             dayHeading={headingOf}
+             closedDays={closedDayList}
+           />
+-          <aside
+-            aria-label="Panneau latéral"
+-            className="w-80 shrink-0 overflow-y-auto border-l bg-card p-4"
+-          >
+-            {renderPanel()}
+-          </aside>
++          {protoPanelFolded(proto) && !(panel && panelOpen) ? (
++            protoShowRail(proto) && <FoldedPanelRail /> // PROTOTYPE
++          ) : (
++            <aside
++              aria-label="Panneau latéral"
++              className="w-80 shrink-0 overflow-y-auto border-l bg-card p-4"
++            >
++              {renderPanel()}
++            </aside>
++          )}
+         </div>
+       </div>
+       <DragFeedback
+@@ -1168,6 +1233,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+         }}
+         groupName={(id) => (id ? (groupsById.get(id)?.name ?? "cours") : "cours")}
+       />
++      <PrototypeSwitcher /> {/* PROTOTYPE */}
++      <LessonHoverCard /> {/* PROTOTYPE */}
+       {toast && <ToastMessage key={toast.key} toast={toast} onUndo={undo} onClose={hideToast} />}
+       <PdfPreviewDialog
+         job={pdfJob}
+@@ -1201,7 +1268,11 @@ function ModeBar({
+   interaction,
+   names,
+   hiddenVersions,
++  slim = false,
++  navSlot = null,
+ }: {
++  slim?: boolean; // PROTOTYPE
++  navSlot?: ReactNode; // PROTOTYPE
+   season: Season;
+   readOnly: boolean;
+   mode: PlanningMode;
+@@ -1215,11 +1286,12 @@ function ModeBar({
+     <div
+       data-testid="mode-bar"
+       data-mode={mode.kind}
+-      className={
++      className={cn(
+         mode.kind === "type"
+           ? "flex flex-wrap items-center gap-x-4 gap-y-1 bg-sky-700 px-4 py-1 text-white text-xs dark:bg-sky-800"
+-          : "flex flex-wrap items-center gap-x-4 gap-y-1 bg-emerald-700 px-4 py-1 text-white text-xs dark:bg-emerald-800"
+-      }
++          : "flex flex-wrap items-center gap-x-4 gap-y-1 bg-emerald-700 px-4 py-1 text-white text-xs dark:bg-emerald-800",
++        slim && "h-6 flex-nowrap overflow-hidden py-0 *:truncate", // PROTOTYPE
++      )}
+     >
+       {readOnly ? (
+         <span>
+@@ -1241,6 +1313,7 @@ function ModeBar({
+           </Link>
+         </span>
+       )}
++      {navSlot /* PROTOTYPE */}
+       {hiddenVersions > 0 && (
+         <span className="opacity-90">
+           {hiddenVersions} version(s) de cours hors vigueur à ce jour non affichée(s)
+diff --git a/src/features/planning/components/Legend.tsx b/src/features/planning/components/Legend.tsx
+index 98169fc..addc71c 100644
+--- a/src/features/planning/components/Legend.tsx
++++ b/src/features/planning/components/Legend.tsx
+@@ -1,5 +1,6 @@
+ import { useDraggable } from "@dnd-kit/core";
+ import { memo, type PointerEventHandler } from "react";
++import { protoCompact, useProto } from "@/features/grid-prototype/GridPrototype"; // PROTOTYPE
+ import { cn } from "@/lib/utils";
+ import { hoursLabel } from "../grid/geometry";
+ import { type InteractionStore, useInteraction } from "../interaction";
+@@ -32,6 +33,7 @@ export const Legend = memo(function Legend({
+   interaction,
+   readOnly = false,
+ }: LegendProps) {
++  const compact = protoCompact(useProto()); // PROTOTYPE
+   return (
+     <fieldset aria-label="Légende des moniteurs" className="flex flex-wrap items-center gap-1.5">
+       {entries.map((entry) => (
+@@ -40,10 +42,11 @@ export const Legend = memo(function Legend({
+           entry={entry}
+           interaction={interaction}
+           readOnly={readOnly}
++          compact={compact}
+         />
+       ))}
+       <span data-testid="week-total" className="ml-1 text-muted-foreground text-xs">
+-        Total : {hoursLabel(totalMinutes)}
++        {!compact && `Total : ${hoursLabel(totalMinutes)}`}
+       </span>
+     </fieldset>
+   );
+@@ -53,10 +56,12 @@ function InstructorPill({
+   entry,
+   interaction,
+   readOnly,
++  compact,
+ }: {
+   entry: LegendEntry;
+   interaction: InteractionStore;
+   readOnly: boolean;
++  compact: boolean;
+ }) {
+   const { attributes, listeners, setNodeRef } = useDraggable({
+     id: `instructor:${entry.id}`,
+@@ -79,7 +84,7 @@ function InstructorPill({
+       {...pointerListeners}
+       aria-pressed={pinned}
+       aria-label={`${entry.name}, ${hours} cette semaine`}
+-      title={`${entry.name}${entry.noAvailability ? " — aucune disponibilité saisie" : ""}\nCliquer : afficher ses indisponibilités${readOnly ? "" : "\nGlisser sur un cours : le lui confier"}`}
++      title={`${entry.name} · ${hours}${entry.noAvailability ? " — aucune disponibilité saisie" : ""}\nCliquer : afficher ses indisponibilités${readOnly ? "" : "\nGlisser sur un cours : le lui confier"}`}
+       data-testid="instructor-pill"
+       onClick={() => interaction.update({ pinnedInstructorId: pinned ? null : entry.id })}
+       className={cn(
+@@ -87,6 +92,7 @@ function InstructorPill({
+         readOnly ? "cursor-pointer" : "cursor-grab",
+         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+         pinned && "border-primary bg-accent",
++        compact && "py-0.5",
+       )}
+     >
+       <span className="size-3.5 rounded-full" style={{ backgroundColor: entry.color }} />
+@@ -96,7 +102,7 @@ function InstructorPill({
+           ⚠
+         </span>
+       )}
+-      <small className="text-muted-foreground">{hours}</small>
++      {!compact && <small className="text-muted-foreground">{hours}</small>}
+     </button>
+   );
+ }
+diff --git a/src/features/planning/components/LessonBlock.tsx b/src/features/planning/components/LessonBlock.tsx
+index 86cf55c..51c3245 100644
+--- a/src/features/planning/components/LessonBlock.tsx
++++ b/src/features/planning/components/LessonBlock.tsx
+@@ -1,5 +1,6 @@
+ import { useDraggable } from "@dnd-kit/core";
+ import { type KeyboardEvent, memo, useEffect, useRef } from "react";
++import { lessonHoverHandlers, ProtoLessonContent } from "@/features/grid-prototype/GridPrototype"; // PROTOTYPE
+ import { cn } from "@/lib/utils";
+ import { type InteractionStore, useInteraction } from "../interaction";
+ 
+@@ -108,14 +109,15 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
+       // Verrouillé (saison archivée), le cours reste consultable : il n'est pas « désactivé ».
+       aria-disabled={locked && !cancelled ? undefined : attributes["aria-disabled"]}
+       aria-label={props.ariaLabel}
+-      title={props.title}
+       onClick={() => onOpen(id)}
+       onKeyDown={onKeyDown}
+-      onMouseEnter={() => {
++      onMouseEnter={(e) => {
++        lessonHoverHandlers(props.title, props.color).onMouseEnter(e); // PROTOTYPE
+         hovered.current = true;
+         onHover(cancelled ? null : props.instructorId);
+       }}
+       onMouseLeave={() => {
++        lessonHoverHandlers(props.title, props.color).onMouseLeave(); // PROTOTYPE
+         hovered.current = false;
+         onHover(null);
+       }}
+@@ -142,13 +144,16 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
+         backgroundColor: cancelled ? undefined : props.color,
+       }}
+     >
+-      <LessonContent
++      <ProtoLessonContent
+         groupName={props.groupName}
+         timeLabel={props.timeLabel}
+         detail={props.detail}
+         warning={props.warning}
+         marker={cancelled ? "✕" : props.replaced ? "⇄" : props.modified ? "✎" : null}
++        width={props.width}
++        height={props.height}
+       />
++      {/* PROTOTYPE */}
+       {!cancelled && !locked && <ResizeHandle lessonId={id} />}
+     </div>
+   );
+diff --git a/src/features/planning/components/PlanningGrid.tsx b/src/features/planning/components/PlanningGrid.tsx
+index c6c308b..9cc4aa2 100644
+--- a/src/features/planning/components/PlanningGrid.tsx
++++ b/src/features/planning/components/PlanningGrid.tsx
+@@ -2,6 +2,7 @@ import { memo, type PointerEvent, type RefObject, useMemo } from "react";
+ import type { Court } from "@/db/schema";
+ import type { Conflict } from "@/domain/conflicts";
+ import { weekdayLabel } from "@/domain/time";
++import { CourtHeader, DayHeading } from "@/features/grid-prototype/GridPrototype"; // PROTOTYPE
+ import { cn } from "@/lib/utils";
+ import {
+   AXIS_WIDTH,
+@@ -198,29 +199,19 @@ const GridHeader = memo(function GridHeader({
+           className="shrink-0 border-l-2"
+           style={{ width: geometry.courtIds.length * geometry.columnWidth }}
+         >
+-          <div className="truncate pt-1.5 pb-0.5 text-center font-semibold text-sm">
+-            {dayHeading(weekday)}
++          <div className="truncate px-0.5 pt-1.5 pb-0.5 text-center font-semibold text-sm">
++            <DayHeading
++              weekday={weekday}
++              label={dayHeading(weekday)}
++              width={geometry.courtIds.length * geometry.columnWidth}
++            />
++            {/* PROTOTYPE */}
+           </div>
+           <div className="flex">
+-            {geometry.courtIds.map((courtId, i) => {
+-              const court = byId.get(courtId);
+-              const kind = court?.kind === "indoor" ? "couvert" : "extérieur";
+-              return (
+-                <div
+-                  key={courtId}
+-                  title={`${court?.name ?? "Court"} (${kind})`}
+-                  className="truncate pb-1 text-center text-[11px] text-muted-foreground"
+-                  style={{ width: geometry.columnWidth }}
+-                >
+-                  C{i + 1}
+-                  {court?.kind === "outdoor" && " ☀"}
+-                  <span className="sr-only">
+-                    {" "}
+-                    {court?.name} ({kind})
+-                  </span>
+-                </div>
+-              );
+-            })}
++            {geometry.courtIds.map((courtId) => (
++              // PROTOTYPE
++              <CourtHeader key={courtId} court={byId.get(courtId)} width={geometry.columnWidth} />
++            ))}
+           </div>
+         </div>
+       ))}
+diff --git a/src/features/planning/components/WeekNavigator.tsx b/src/features/planning/components/WeekNavigator.tsx
+index 0f450e7..aefbcf2 100644
+--- a/src/features/planning/components/WeekNavigator.tsx
++++ b/src/features/planning/components/WeekNavigator.tsx
+@@ -1,4 +1,5 @@
+-import { ChevronLeft, ChevronRight } from "lucide-react";
++import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
++import { useState } from "react";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+ import { isValidDate } from "@/domain/time";
+@@ -19,6 +20,12 @@ interface WeekNavigatorProps {
+   /** Lundi de la semaine d'aujourd'hui, ramenée dans la saison. */
+   todayMonday: string;
+   onChange: (mode: PlanningMode) => void;
++  /**
++   * PROTOTYPE : « all » (tout), « segment » (choix du mode seul), « nav »
++   * (navigation seule), « band » (navigation fine pour le bandeau),
++   * « inline » (flèches dans le choix du mode, date dans un menu).
++   */
++  part?: "all" | "segment" | "nav" | "band" | "inline";
+ }
+ 
+ /**
+@@ -32,7 +39,9 @@ export function WeekNavigator({
+   datedMonday,
+   todayMonday,
+   onChange,
++  part = "all",
+ }: WeekNavigatorProps) {
++  const [menuOpen, setMenuOpen] = useState(false); // PROTOTYPE
+   const monday = mode.kind === "dated" ? mode.monday : datedMonday;
+   const { previous, next } = weekNeighbours(season, monday);
+   const go = (target: string) => onChange({ kind: "dated", monday: target });
+@@ -45,6 +54,138 @@ export function WeekNavigator({
+           : "bg-emerald-700 text-white"
+         : "text-muted-foreground hover:text-foreground",
+     );
++  const dateInput = (
++    <Input
++      type="date"
++      aria-label="Aller à la date"
++      className={cn(
++        "h-8 w-[9.5rem]",
++        part === "band" && "h-5 w-[8.5rem] border-white/40 bg-transparent px-1 text-xs text-white",
++      )}
++      min={season.startDate}
++      max={season.endDate}
++      value={monday}
++      onChange={(e) => {
++        if (isValidDate(e.target.value)) go(clampWeek(season, e.target.value));
++      }}
++    />
++  );
++  // PROTOTYPE : navigation seule, dans la barre des jours (G) ou le bandeau (H).
++  if (part === "nav" || part === "band") {
++    if (mode.kind !== "dated") return null;
++    const band = part === "band";
++    const btn = band
++      ? "inline-flex h-5 items-center rounded border border-white/40 px-1 text-xs text-white hover:bg-white/15 disabled:opacity-40"
++      : "inline-flex h-7 items-center rounded-md border px-1.5 text-xs hover:bg-muted disabled:opacity-40";
++    return (
++      <span className="inline-flex shrink-0 items-center gap-1">
++        <button
++          type="button"
++          className={btn}
++          aria-label="Semaine précédente"
++          title="Semaine précédente (←)"
++          disabled={!previous}
++          onClick={() => previous && go(previous)}
++        >
++          <ChevronLeft className="size-3.5" aria-hidden />
++        </button>
++        <button
++          type="button"
++          className={btn}
++          aria-label="Semaine suivante"
++          title="Semaine suivante (→)"
++          disabled={!next}
++          onClick={() => next && go(next)}
++        >
++          <ChevronRight className="size-3.5" aria-hidden />
++        </button>
++        <button type="button" className={btn} onClick={() => go(todayMonday)}>
++          Aujourd'hui
++        </button>
++        {band ? dateInput : <span className="[&_input]:h-7">{dateInput}</span>}
++      </span>
++    );
++  }
++  // PROTOTYPE : flèches dans le choix du mode, date et « Aujourd'hui » dans un menu (I).
++  if (part === "inline") {
++    const arrow = "rounded px-1 text-muted-foreground hover:text-foreground disabled:opacity-30";
++    return (
++      <div className="relative flex items-center gap-1">
++        <fieldset
++          aria-label="Mode d'affichage"
++          className="inline-flex items-center rounded-md border p-0.5"
++        >
++          <button
++            type="button"
++            aria-pressed={mode.kind === "type"}
++            className={segment(mode.kind === "type")}
++            onClick={() => onChange({ kind: "type" })}
++          >
++            Semaine type
++          </button>
++          {mode.kind === "dated" && (
++            <button
++              type="button"
++              className={arrow}
++              aria-label="Semaine précédente"
++              title="Semaine précédente (←)"
++              disabled={!previous}
++              onClick={() => previous && go(previous)}
++            >
++              <ChevronLeft className="size-4" aria-hidden />
++            </button>
++          )}
++          <button
++            type="button"
++            aria-pressed={mode.kind === "dated"}
++            className={segment(mode.kind === "dated")}
++            onClick={() => go(monday)}
++          >
++            {weekButtonLabel(monday)}
++          </button>
++          {mode.kind === "dated" && (
++            <>
++              <button
++                type="button"
++                className={arrow}
++                aria-label="Semaine suivante"
++                title="Semaine suivante (→)"
++                disabled={!next}
++                onClick={() => next && go(next)}
++              >
++                <ChevronRight className="size-4" aria-hidden />
++              </button>
++              <button
++                type="button"
++                className={arrow}
++                aria-label="Choisir une semaine"
++                title="Aujourd'hui ou une autre date"
++                aria-expanded={menuOpen}
++                onClick={() => setMenuOpen(!menuOpen)}
++              >
++                <CalendarDays className="size-4" aria-hidden />
++              </button>
++            </>
++          )}
++        </fieldset>
++        {menuOpen && mode.kind === "dated" && (
++          <div className="absolute top-full left-0 z-40 mt-1 flex items-center gap-2 rounded-md border bg-card p-2 shadow-lg">
++            <Button
++              size="sm"
++              variant="outline"
++              onClick={() => {
++                go(todayMonday);
++                setMenuOpen(false);
++              }}
++            >
++              Aujourd'hui
++            </Button>
++            {dateInput}
++          </div>
++        )}
++      </div>
++    );
++  }
+   return (
+     <div className="flex flex-wrap items-center gap-1.5">
+       <fieldset aria-label="Mode d'affichage" className="inline-flex rounded-md border p-0.5">
+@@ -65,7 +206,7 @@ export function WeekNavigator({
+           {weekButtonLabel(monday)}
+         </button>
+       </fieldset>
+-      {mode.kind === "dated" && (
++      {mode.kind === "dated" && part === "all" /* PROTOTYPE */ && (
+         <>
+           <Button
+             size="icon"

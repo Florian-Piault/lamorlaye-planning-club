@@ -1,0 +1,168 @@
+diff --git a/src/features/planning/PlanningPage.tsx b/src/features/planning/PlanningPage.tsx
+index a84f742..f1f79cd 100644
+--- a/src/features/planning/PlanningPage.tsx
++++ b/src/features/planning/PlanningPage.tsx
+@@ -38,7 +38,12 @@ import { Legend, type LegendEntry } from "./components/Legend";
+ import { type LessonFormValues, LessonPanel } from "./components/LessonPanel";
+ import { OccurrenceActions } from "./components/OccurrenceActions";
+ import { type CandidateLook, type LessonView, PlanningGrid } from "./components/PlanningGrid";
+-import { type WarningItem, WarningsPanel } from "./components/WarningsPanel";
++import { type WarningItem } from "./components/WarningsPanel";
++import {
++  HelpSidePanel,
++  HelpToolbarSlot,
++  PrototypeSwitcher,
++} from "@/features/help-prototype/HelpPrototype"; // PROTOTYPE
+ import { WeekNavigator } from "./components/WeekNavigator";
+ import {
+   type ActionContext,
+@@ -117,6 +122,7 @@ export function PlanningPage() {
+     return (
+       <Page title="Planning" description={DESCRIPTION}>
+         <RequireSeason>{null}</RequireSeason>
++        <PrototypeSwitcher /> {/* PROTOTYPE */}
+       </Page>
+     );
+   }
+@@ -937,7 +943,15 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+   };
+ 
+   const renderPanel = () => {
+-    if (!panel || !panelOpen) return <WarningsPanel items={warningItems} onShow={showLesson} />;
++    if (!panel || !panelOpen)
++      return (
++        <HelpSidePanel
++          items={warningItems}
++          onShow={showLesson}
++          lessonCount={items.length}
++          selected={selected !== null}
++        />
++      ); // PROTOTYPE
+     if (panel.mode === "create") {
+       const dated = mode.kind === "dated";
+       return (
+@@ -1096,6 +1110,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+             <FileDown aria-hidden />
+             PDF
+           </Button>
++          <HelpToolbarSlot /> {/* PROTOTYPE */}
+           <div className="ml-auto">
+             <Legend
+               entries={legendEntries}
+@@ -1168,6 +1183,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
+         }}
+         groupName={(id) => (id ? (groupsById.get(id)?.name ?? "cours") : "cours")}
+       />
++      <PrototypeSwitcher /> {/* PROTOTYPE */}
+       {toast && <ToastMessage key={toast.key} toast={toast} onUndo={undo} onClose={hideToast} />}
+       <PdfPreviewDialog
+         job={pdfJob}
+diff --git a/src/features/planning/components/WarningsPanel.tsx b/src/features/planning/components/WarningsPanel.tsx
+index 96b4194..580817d 100644
+--- a/src/features/planning/components/WarningsPanel.tsx
++++ b/src/features/planning/components/WarningsPanel.tsx
+@@ -9,54 +9,61 @@ export interface WarningItem {
+ interface WarningsPanelProps {
+   items: readonly WarningItem[];
+   onShow: (lessonId: string) => void;
++  hideHelp?: boolean; // PROTOTYPE
+ }
+ 
+ /** Mode d'emploi de la grille et panneau « Avertissements » (§7). */
+-export const WarningsPanel = memo(function WarningsPanel({ items, onShow }: WarningsPanelProps) {
++export const WarningsPanel = memo(function WarningsPanel({
++  items,
++  onShow,
++  hideHelp,
++}: WarningsPanelProps) {
+   return (
+     <div className="flex flex-col gap-5">
+-      <section aria-labelledby="planning-help" className="flex flex-col gap-2">
+-        <h2 id="planning-help" className="font-semibold text-sm">
+-          Mode d'emploi
+-        </h2>
+-        <ul className="flex list-disc flex-col gap-1 pl-4 text-muted-foreground text-xs">
+-          <li>
+-            <b className="text-foreground">Créer</b> : cliquer-glisser dans la colonne d'un court,
+-            ou <Kbd>N</Kbd>
+-          </li>
+-          <li>
+-            <b className="text-foreground">Déplacer</b> : glisser un cours (jour, heure, court ; pas
+-            de 15 min)
+-          </li>
+-          <li>
+-            <b className="text-foreground">Durée</b> : tirer le bord bas d'un cours
+-          </li>
+-          <li>
+-            <b className="text-foreground">Dupliquer</b> : glisser en maintenant <Kbd>Alt</Kbd>/
+-            <Kbd>⌥</Kbd>
+-          </li>
+-          <li>
+-            <b className="text-foreground">Changer de moniteur</b> : glisser sa pastille sur un
+-            cours
+-          </li>
+-          <li>
+-            <b className="text-foreground">Disponibilités</b> : survoler un cours ou cliquer une
+-            pastille
+-          </li>
+-          <li>
+-            <b className="text-foreground">Modifier</b> : cliquer un cours · <Kbd>Suppr</Kbd> le
+-            supprime
+-          </li>
+-          <li>
+-            <b className="text-foreground">Semaine datée</b> : <Kbd>←</Kbd> / <Kbd>→</Kbd> semaine
+-            précédente / suivante ; cliquer une séance pour l'annuler, la remplacer ou la rétablir
+-          </li>
+-          <li>
+-            <b className="text-foreground">Annuler / rétablir</b> : <Kbd>Ctrl/⌘ Z</Kbd> ·{" "}
+-            <Kbd>Ctrl/⌘ ⇧ Z</Kbd> · <Kbd>Échap</Kbd> interrompt un glisser
+-          </li>
+-        </ul>
+-      </section>
++      {!hideHelp /* PROTOTYPE */ && (
++        <section aria-labelledby="planning-help" className="flex flex-col gap-2">
++          <h2 id="planning-help" className="font-semibold text-sm">
++            Mode d'emploi
++          </h2>
++          <ul className="flex list-disc flex-col gap-1 pl-4 text-muted-foreground text-xs">
++            <li>
++              <b className="text-foreground">Créer</b> : cliquer-glisser dans la colonne d'un court,
++              ou <Kbd>N</Kbd>
++            </li>
++            <li>
++              <b className="text-foreground">Déplacer</b> : glisser un cours (jour, heure, court ;
++              pas de 15 min)
++            </li>
++            <li>
++              <b className="text-foreground">Durée</b> : tirer le bord bas d'un cours
++            </li>
++            <li>
++              <b className="text-foreground">Dupliquer</b> : glisser en maintenant <Kbd>Alt</Kbd>/
++              <Kbd>⌥</Kbd>
++            </li>
++            <li>
++              <b className="text-foreground">Changer de moniteur</b> : glisser sa pastille sur un
++              cours
++            </li>
++            <li>
++              <b className="text-foreground">Disponibilités</b> : survoler un cours ou cliquer une
++              pastille
++            </li>
++            <li>
++              <b className="text-foreground">Modifier</b> : cliquer un cours · <Kbd>Suppr</Kbd> le
++              supprime
++            </li>
++            <li>
++              <b className="text-foreground">Semaine datée</b> : <Kbd>←</Kbd> / <Kbd>→</Kbd> semaine
++              précédente / suivante ; cliquer une séance pour l'annuler, la remplacer ou la rétablir
++            </li>
++            <li>
++              <b className="text-foreground">Annuler / rétablir</b> : <Kbd>Ctrl/⌘ Z</Kbd> ·{" "}
++              <Kbd>Ctrl/⌘ ⇧ Z</Kbd> · <Kbd>Échap</Kbd> interrompt un glisser
++            </li>
++          </ul>
++        </section>
++      )}
+       <section aria-labelledby="planning-warnings" className="flex flex-col gap-2">
+         <h2 id="planning-warnings" className="font-semibold text-sm">
+           Avertissements ({items.length})

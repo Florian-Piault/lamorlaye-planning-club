@@ -55,6 +55,8 @@ Tous les enregistrements portent un **UUID** comme identifiant ainsi que les cha
 - Couleur (voir §6), initiales (calculées, modifiables).
 - Disponibilités :
   - **Plages hebdomadaires récurrentes** : jour + heure début + heure fin (plusieurs par jour possibles).
+    - Saisie dans une frise : cliquer-glisser trace une plage (ou l'efface en partant d'une case disponible). Un clic simple n'enregistre rien : il pré-remplit le formulaire « Jour / De / À » et y place le focus (case vide : l'heure cliquée plus une heure, bouton « Ajouter » ; case disponible : la plage entière, boutons « Ajouter » et « Retirer »).
+    - Chaque modification enregistrée est annoncée par un toast avec « Annuler », qui rétablit les plages précédentes.
   - **Indisponibilités datées** : date/heure début → date/heure fin + motif libre (congé, maladie, tournoi…).
 - Actif oui/non.
 
@@ -89,6 +91,8 @@ Tous les enregistrements portent un **UUID** comme identifiant ainsi que les cha
 ### 3.8 Période de fermeture
 - Libellé, date début, date fin. Les occurrences tombant dans une fermeture sont automatiquement suspendues (non affichées comme actives, non comptées dans les heures).
 - Assistant de pré-remplissage avec les vacances scolaires **zone B** et jours fériés français, à partir d'un calendrier embarqué dans l'application (pas d'accès internet). Les dates proposées restent modifiables.
+  - Les ponts du calendrier scolaire (ex. « Pont de l'Ascension ») comptent comme des vacances et sont proposés cochés.
+  - Un jour férié n'est décoché par défaut que si une période **cochée** le couvre ; il se recoche quand on décoche cette période. Son badge nomme la période (« compris dans Pont de l'Ascension »).
 
 ## 4. Vue semaine
 
@@ -128,7 +132,13 @@ Deux points d'entrée ouvrant le **même panneau latéral** d'édition :
 1. **Sélection à la souris sur la grille** : cliquer-glisser verticalement dans la sous-colonne d'un court. Jour, heure de début, durée et court sont pré-remplis.
 2. **Bouton « Nouveau cours »** : panneau vide.
 
-Le panneau contient : groupe (liste avec recherche + création rapide d'un groupe), moniteur, jour, heure de début, durée, court, note. La liste des moniteurs présente **en tête les moniteurs disponibles** sur le créneau, puis les autres avec la mention « indisponible ».
+Le panneau contient : groupe (liste avec recherche + création rapide d'un groupe), moniteur, jour, heure de début, durée, court, note. La liste des moniteurs présente trois groupes, dans cet ordre :
+
+1. **Disponibles** sur le créneau ;
+2. **Occupés sur ce créneau** : un autre cours leur est déjà affecté sur tout ou partie du créneau, affiché sur la ligne (« Galaxie vert 17:00–18:00 ») ; le cours en cours d'édition n'est pas compté ;
+3. **Indisponibles** : hors de leurs disponibilités ; s'ils ont aussi un cours sur le créneau, la ligne le mentionne.
+
+Tous restent sélectionnables ; le conflit est signalé (§7). Les hachures (§4.4) ne couvrent que les créneaux hors disponibilités, pas les cours déjà affectés.
 
 ### 5.2 Glisser-déposer
 
