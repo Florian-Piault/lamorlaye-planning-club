@@ -32,6 +32,8 @@ import { unavailableIntervals } from "@/domain/instructorAvailability";
 import { weekOccurrences } from "@/domain/occurrences";
 import { formatDate, timeToMinutes, weekdayLabel, weekdayShort } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
+import { useGuidance } from "@/features/guidance/GuidanceProvider";
+import { GuidanceWelcome } from "@/features/guidance/GuidanceWelcome";
 import { weekPdfJob } from "@/features/pdf/jobs";
 import { PAPER_SIZES, type PaperSize } from "@/features/pdf/model";
 import { PdfPreviewDialog } from "@/features/pdf/PdfPreviewDialog";
@@ -46,6 +48,7 @@ import { Legend, type LegendEntry } from "./components/Legend";
 import { type LessonFormValues, LessonPanel } from "./components/LessonPanel";
 import { OccurrenceActions } from "./components/OccurrenceActions";
 import { type CandidateLook, type LessonView, PlanningGrid } from "./components/PlanningGrid";
+import { type HelpContext, PlanningHelp } from "./components/PlanningHelp";
 import { type WarningItem, WarningsPanel } from "./components/WarningsPanel";
 import { ModeSelector, WeekNavigator } from "./components/WeekNavigator";
 import {
@@ -138,10 +141,27 @@ let rememberedPaper: PaperSize = "A4";
 
 export function PlanningPage() {
   const { season, readOnly } = useSeason();
+  const guidance = useGuidance();
   if (!season) {
     return (
       <Page title="Planning" description={DESCRIPTION}>
         <RequireSeason>{null}</RequireSeason>
+      </Page>
+    );
+  }
+  // Guidage : tant qu'un court, un moniteur ou un groupe manque, l'accueil
+  // « Avant de construire le planning » occupe la page (spec UX v1.1).
+  if (
+    guidance.status === "loading" ||
+    (guidance.status === "on" && !guidance.guidance.planningReady)
+  ) {
+    return (
+      <Page title="Planning" description={DESCRIPTION}>
+        {guidance.status === "on" ? (
+          <GuidanceWelcome guidance={guidance.guidance} />
+        ) : (
+          <p className="text-muted-foreground text-sm">Chargement du planning…</p>
+        )}
       </Page>
     );
   }
@@ -273,6 +293,9 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelState | null>(null);
   const [panelFolded, setPanelFolded] = useState(rememberedFold);
+  // Mode d'emploi complet : replié à chaque ouverture du planning.
+  const [manualOpen, setManualOpen] = useState(false);
+  const toggleManual = useCallback(() => setManualOpen((open) => !open), []);
   const toast = useToast();
   const [pdfOpen, setPdfOpen] = useState(false);
   const [paper, setPaper] = useState<PaperSize>(rememberedPaper);
@@ -1095,8 +1118,26 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     readOnly,
   };
 
+  // Astuce du mode d'emploi : aucun cours placé (planning habituel ni cours
+  // ponctuel, comme l'étape du guidage), cours sélectionné, sinon.
+  const noLesson = lessons.length === 0 && !exceptions.some((e) => e.kind === "one_off");
+  const helpContext: HelpContext = noLesson ? "no-lesson" : selected ? "selected" : "other";
+
   const renderPanel = () => {
-    if (!panel || !panelOpen) return <WarningsPanel items={warningItems} onShow={showLesson} />;
+    if (!panel || !panelOpen) {
+      return (
+        <div className="flex flex-col gap-5">
+          <PlanningHelp
+            context={helpContext}
+            mode={mode.kind}
+            readOnly={readOnly}
+            open={manualOpen}
+            onToggle={toggleManual}
+          />
+          <WarningsPanel items={warningItems} onShow={showLesson} />
+        </div>
+      );
+    }
     if (panel.mode === "create") {
       const dated = mode.kind === "dated";
       return (

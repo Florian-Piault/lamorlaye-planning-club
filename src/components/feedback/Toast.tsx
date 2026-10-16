@@ -12,9 +12,20 @@ import {
 import { createPortal } from "react-dom";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import {
+  decideSuggestion,
+  pendingOnShow,
+  QUEUE_WINDOW,
+  SUGGESTION_WINDOW,
+  showQueued,
+  type ToastClosing,
+} from "./suggestion";
 
 /** Durée d'affichage d'un succès ; une erreur reste jusqu'à sa fermeture. */
 export const SUCCESS_DURATION = 4000;
+
+/** Durée d'affichage d'un toast portant la suite du guidage (« Étape suivante »). */
+export const STEP_DURATION = 8000;
 
 export interface ToastAction {
   label: string;
@@ -32,6 +43,19 @@ interface ToastMessage extends ToastOptions {
   id: number;
   kind: "success" | "error";
   message: string;
+  /** Instant d'affichage (ms). */
+  shownAt: number;
+  /**
+   * Porte la suite du guidage : affiché plus longtemps, retiré à l'ouverture
+   * d'une fenêtre modale (la suite ferait quitter la saisie).
+   */
+  step?: boolean;
+}
+
+interface Suggestion {
+  message: string;
+  action: ToastAction;
+  until: number;
 }
 
 interface ToastApi {
@@ -41,6 +65,12 @@ interface ToastApi {
   error: (message: string, options?: ToastOptions) => number;
   /** Ferme le toast affiché ; avec `id`, seulement s'il est encore celui-là. */
   dismiss: (id?: number) => void;
+  /**
+   * Propose une suite (« Étape suivante » du guidage) sans masquer la
+   * confirmation de l'écran ni son action : règles de `suggestion.ts`. Rien
+   * n'est proposé pendant qu'une fenêtre modale est ouverte.
+   */
+  suggest: (message: string, action: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -84,7 +114,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const counter = useRef(0);
   const current = useRef<ToastMessage | null>(null);
+  /** Suite en attente de la confirmation de l'écran (`defer`). */
+  const pending = useRef<(Suggestion & { timer: ReturnType<typeof setTimeout> }) | null>(null);
+  /** Suite qui s'affichera après le toast affiché (`queue`). */
+  const queued = useRef<Suggestion | null>(null);
   const dialog = useToastContainer();
+  /** Fermeture avec sa raison, pour la vue du toast. */
+  const closeRef = useRef<(id: number, reason: ToastClosing) => void>(() => {});
 
   const replace = useCallback((next: ToastMessage | null) => {
     const previous = current.current;
@@ -94,22 +130,107 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const api = useMemo<ToastApi>(() => {
-    const show = (kind: ToastMessage["kind"], message: string, options?: ToastOptions) => {
+    const clearPending = () => {
+      if (pending.current) clearTimeout(pending.current.timer);
+      pending.current = null;
+    };
+    const queue = (suggestion: Omit<Suggestion, "until">, now: number) => {
+      queued.current = { ...suggestion, until: now + QUEUE_WINDOW };
+    };
+    const show = (
+      kind: ToastMessage["kind"],
+      message: string,
+      options?: ToastOptions,
+      step = false,
+    ) => {
+      const now = Date.now();
       const id = ++counter.current;
-      replace({ ...options, id, kind, message });
+      let action = options?.action;
+      const waiting = pending.current;
+      const fate = pendingOnShow(waiting?.until ?? null, now, kind, action !== undefined);
+      clearPending();
+      if (waiting && fate === "take") {
+        action = waiting.action;
+        step = true;
+      } else if (waiting && fate === "queue") {
+        queue(waiting, now);
+      }
+      replace({ ...options, action, id, kind, message, shownAt: now, step });
       return id;
     };
+    const close = (id: number | undefined, reason: ToastClosing) => {
+      const closing = current.current;
+      if (id !== undefined && closing?.id !== id) return;
+      replace(null);
+      clearPending();
+      const next = queued.current;
+      queued.current = null;
+      // La suite fermée (ou suivie) n'est pas reproposée ; celle en attente
+      // derrière un autre toast s'affiche à sa fermeture, après son action
+      // (qui peut afficher son propre toast : la suite attend alors encore).
+      if (closing?.step || !next) return;
+      setTimeout(() => {
+        if (current.current) {
+          queued.current ??= next;
+          return;
+        }
+        if (showQueued(next.until, Date.now(), topDialog() !== null, reason)) {
+          show("success", next.message, { action: next.action }, true);
+        }
+      });
+    };
+    closeRef.current = close;
+    const dismiss = (id?: number) => close(id, "user");
     return {
       success: (message, options) => show("success", message, options),
       error: (message, options) => show("error", message, options),
-      dismiss: (id) => {
-        if (id === undefined || current.current?.id === id) replace(null);
+      dismiss,
+      suggest: (message, action) => {
+        const now = Date.now();
+        const shown = current.current;
+        const decision = decideSuggestion(
+          shown && { kind: shown.kind, hasAction: Boolean(shown.action), shownAt: shown.shownAt },
+          now,
+          topDialog() !== null,
+        );
+        if (decision === "attach" && shown) {
+          // Même toast, complété par l'action.
+          current.current = { ...shown, action, step: true };
+          setToast(current.current);
+        } else if (decision === "show") {
+          show("success", message, { action }, true);
+        } else if (decision === "queue") {
+          queue({ message, action }, now);
+        } else if (decision === "defer") {
+          clearPending();
+          const suggestion = { message, action, until: now + SUGGESTION_WINDOW };
+          const timer = setTimeout(() => {
+            if (pending.current?.timer !== timer) return;
+            pending.current = null;
+            if (topDialog()) return;
+            if (current.current) queue(suggestion, Date.now());
+            else show("success", message, { action }, true);
+          }, SUGGESTION_WINDOW);
+          pending.current = { ...suggestion, timer };
+        }
       },
     };
   }, [replace]);
 
+  // Une fenêtre modale s'ouvre : la suite du guidage ferait quitter la saisie.
+  useEffect(() => {
+    if (dialog && current.current?.step) {
+      queued.current = null;
+      replace(null);
+    }
+  }, [dialog, replace]);
+
+  const closeToast = useCallback(
+    (id: number, reason: ToastClosing) => closeRef.current(id, reason),
+    [],
+  );
   const view = (kind: ToastMessage["kind"]) =>
-    toast?.kind === kind && <ToastView key={toast.id} toast={toast} onClose={api.dismiss} />;
+    toast?.kind === kind && <ToastView key={toast.id} toast={toast} onClose={closeToast} />;
   const regions = (
     <div className="pointer-events-none fixed right-4 bottom-4 z-[200] flex max-w-sm flex-col items-end">
       <div aria-live="polite" aria-atomic="true" data-testid="toast-region">
@@ -134,19 +255,33 @@ export function useToast(): ToastApi {
   return useContext(ToastContext) ?? silent;
 }
 
-const silent: ToastApi = { success: () => 0, error: () => 0, dismiss: () => {} };
+const silent: ToastApi = {
+  success: () => 0,
+  error: () => 0,
+  dismiss: () => {},
+  suggest: () => {},
+};
 
-function ToastView({ toast, onClose }: { toast: ToastMessage; onClose: (id: number) => void }) {
+function ToastView({
+  toast,
+  onClose,
+}: {
+  toast: ToastMessage;
+  onClose: (id: number, reason: ToastClosing) => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const error = toast.kind === "error";
-  const close = useCallback(() => onClose(toast.id), [onClose, toast.id]);
+  const close = useCallback(
+    (reason: ToastClosing = "user") => onClose(toast.id, reason),
+    [onClose, toast.id],
+  );
 
   useEffect(() => {
     if (error || hovered || focused) return;
-    const timer = setTimeout(close, SUCCESS_DURATION);
+    const timer = setTimeout(() => close("timeout"), toast.step ? STEP_DURATION : SUCCESS_DURATION);
     return () => clearTimeout(timer);
-  }, [error, hovered, focused, close]);
+  }, [error, hovered, focused, close, toast.step]);
 
   const Icon = error ? CircleAlert : CircleCheck;
   return (
@@ -176,7 +311,7 @@ function ToastView({ toast, onClose }: { toast: ToastMessage; onClose: (id: numb
           )}
           onClick={() => {
             // Fermé d'abord : l'action peut afficher son propre toast (« Annulé : … »).
-            close();
+            close("action");
             toast.action?.run();
           }}
         >
@@ -188,7 +323,7 @@ function ToastView({ toast, onClose }: { toast: ToastMessage; onClose: (id: numb
           type="button"
           aria-label="Masquer le message"
           className="shrink-0 rounded opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={close}
+          onClick={() => close("user")}
         >
           <X className="size-4" aria-hidden />
         </button>

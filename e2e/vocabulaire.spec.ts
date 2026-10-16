@@ -6,7 +6,16 @@ import {
   iconButtonsByKeyboard,
   visibleText,
 } from "./support/a11y";
-import { createSeason, demoClub, lesson, openPlanning, seedPlanning } from "./support/planning";
+import {
+  createLessonWithPanel,
+  createSeason,
+  demoClub,
+  guidanceWelcome,
+  lesson,
+  openPlanning,
+  planningTip,
+  seedPlanning,
+} from "./support/planning";
 import { SCREENS, visit } from "./support/screens";
 
 /**
@@ -160,6 +169,37 @@ test.describe("vocabulaire", () => {
     await instructor.getByLabel("Initiales").fill("jm");
     await expect(instructor.getByRole("list", { name: "Messages" })).toContainText("déjà utilisé");
     expect(await forbiddenTerms(page), "initiales prises").toEqual([]);
+  });
+
+  test("guidage et mode d'emploi (L15) : aucun terme retiré", async ({ page }) => {
+    // Base vide : accueil « Avant de construire le planning ».
+    await page.goto("/#/planning");
+    await expect(guidanceWelcome(page)).toBeVisible();
+    expect(await forbiddenTerms(page), "accueil du planning").toEqual([]);
+
+    // Le club avec les pastilles d'étape, et le toast « Étape suivante ».
+    await createSeason(page);
+    await expect(page.getByRole("button", { name: "Étape suivante : Courts" })).toBeVisible();
+    expect(await forbiddenTerms(page), "pastilles et toast d'étape").toEqual([]);
+
+    // Planning sans cours : astuce « aucun cours placé ».
+    await seedPlanning(page, { ...club, lessons: [] });
+    await visit(page, "/#/planning");
+    await expect(planningTip(page)).toHaveAttribute("data-context", "no-lesson");
+    expect(await forbiddenTerms(page), "astuce aucun cours").toEqual([]);
+
+    // Mode d'emploi complet, puis astuce d'un cours sélectionné.
+    await page.getByRole("button", { name: "Tout le mode d'emploi" }).click();
+    await expect(page.getByTestId("planning-manual")).toBeVisible();
+    expect(await forbiddenTerms(page), "mode d'emploi complet").toEqual([]);
+    await createLessonWithPanel(page, { court: "Court 1" });
+    await expect(planningTip(page)).toHaveAttribute("data-context", "selected");
+    expect(await forbiddenTerms(page), "astuce cours sélectionné").toEqual([]);
+
+    // Une semaine précise : astuce « sinon » avec sa phrase de portée.
+    await modes(page).getByRole("button", { name: "Une semaine précise" }).click();
+    await expect(planningTip(page)).toHaveAttribute("data-context", "other");
+    expect(await forbiddenTerms(page), "astuce semaine précise").toEqual([]);
   });
 
   test("la barre de mode dit toujours la portée des changements", async ({ page }) => {

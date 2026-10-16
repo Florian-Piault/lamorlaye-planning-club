@@ -48,6 +48,8 @@ Les termes métier sont ceux du code et du modèle de données ; l'interface aff
 | Version de cours hors vigueur | Pastille « N cours changent plus tard dans la saison » / « N cours ont changé » | Après « Appliquer à partir de cette semaine », version d'un cours qui ne s'applique pas à la date de référence du planning habituel. |
 | Amplitude | Heures affichées ; « Le planning s'affiche à partir de / jusqu'à » | Heures de début et de fin de la grille du planning. |
 | Période de fermeture | Période de fermeture | Plage de dates sans cours réguliers (vacances scolaires, jours fériés). |
+| Étapes du guidage | Pastilles des onglets du club ; « Avant de construire le planning » ; « Étape suivante : … » | Saison, Courts, Moniteurs, Groupes, Élèves, puis premier cours : ordre de saisie d'une première utilisation (§4.5). |
+| Mode d'emploi du planning | Astuce du panneau ; « Tout le mode d'emploi » / « Masquer le mode d'emploi » ; « Les bases », « Pour aller plus vite » | Aide intégrée au planning (§4.5), à la place de l'ancien aide-mémoire. |
 
 Les informations techniques (stockage SQLite, emplacement, migrations, chiffrement AES-256, chiffrement du disque, formats CSV, encodages, séparateur) ne figurent que dans les sections repliées « Détails techniques » de Réglages (données, sauvegardes, données personnelles) et d'Import/Export ; l'export principal est « Exporter vers Excel », le CSV passe dans les détails.
 
@@ -147,6 +149,20 @@ Maquette de référence : `maquettes/vue-semaine.html`, onglet A ; lisibilité �
 - Au **survol ou au déplacement d'un cours**, ou au **clic sur un moniteur de la légende**, les créneaux où ce moniteur est **indisponible** sont hachurés.
 - Un seul moniteur est hachuré à la fois, par ordre de priorité : celui du cours glissé, celui choisi dans le panneau du cours ouvert, celui du cours survolé, celui épinglé dans la légende.
 
+### 4.5 Guidage et mode d'emploi (v1.1)
+
+Prototypes retenus (variantes C) : `.plan/ux-v1-1/prototypes/guidage-premiere-utilisation/` et `.plan/ux-v1-1/prototypes/mode-emploi-planning/`.
+
+- **État des étapes** (domaine, `src/domain/guidance.ts`) : Saison, Courts, Moniteurs, Groupes, Élèves, puis premier cours, calculé à partir des comptes de la **saison affichée** (courts, moniteurs, groupes, élèves, cours du planning habituel et cours ponctuels). Une étape est faite dès qu'elle compte au moins une fiche ; l'étape suivante est la première non faite. Rien n'est mémorisé ni masquable : l'état est relu à chaque changement de saison et après chaque écriture en base. Le guidage est **complet** au premier cours placé : pastilles et accueil disparaissent. Aucun guidage sur une saison terminée.
+- **Pastilles d'étape** sur les onglets Saison, Courts, Moniteurs, Groupes, Élèves de « Le club » : numéro d'ordre, coche une fois l'étape faite, étape suivante en couleur ; aucune sur Niveaux et Fermetures (facultatifs). Le nom de l'onglet ne change pas : l'état (« Étape 2, faite », « Étape 3, la suivante ») est sa description accessible.
+- **Accueil « Avant de construire le planning »**, à la place des états vides « Aucune saison » (Planning, onglets du club, Heures, Import/Export) et « Aucun court » (Planning) : une phrase sur le lien cours / court / moniteur / groupe, les cinq étapes du club dans l'ordre avec leur coche, **un seul bouton** vers l'étape suivante, et « Niveaux et fermetures sont facultatifs et peuvent attendre ». Sur le Planning, il occupe la page tant qu'un court, un moniteur ou un groupe manque (les élèves ne sont pas nécessaires pour placer un cours) ; ensuite, l'astuce « aucun cours placé » prend le relais jusqu'au premier cours.
+- **Toast de première fois** : quand exactement une étape vient d'être faite dans la saison (ou que la première saison vient d'être créée), la suite « Étape suivante : Courts » (écran de l'étape suivante) est proposée au toast commun, selon des règles pures (`src/components/feedback/suggestion.ts`) : la confirmation de l'écran affichée depuis moins de 1,5 s et sans action (« Saison « 2026-2027 » créée », « Léa Martin ajouté(e) »…) la reçoit ; sans toast affiché, elle attend 1,5 s la confirmation de l'écran pour y figurer dès l'affichage, puis s'affiche seule (« Premier court ajouté », « Premier moniteur ajouté »…) ; un toast qui a déjà son action (« Ajouter des élèves » après la création d'un groupe) ou une erreur la garde, et la suite s'affiche après lui, à la fin de son délai ou après son action (dans les 10 s), pas s'il est fermé exprès. Un toast portant la suite reste 8 s (en pause au survol et au focus) ; le fermer ou suivre la suite la retire. Rien n'est proposé pendant qu'une fenêtre modale est ouverte (« Enregistrer et ajouter un autre »), et la suite affichée disparaît à l'ouverture d'une fenêtre, pour ne jamais quitter une saisie. Rien n'est annoncé quand plusieurs étapes sont faites d'un coup (sauvegarde restaurée, duplication de saison), au changement de saison affichée (nouvelle saison vierge comprise), ni pour le premier cours (le guidage disparaît) ; un import d'élèves seul fait l'étape Élèves et est annoncé. Si les comptes ne peuvent être lus, l'état précédent est gardé, et sans état connu le guidage s'éteint.
+- **Mode d'emploi du planning**, en tête du panneau latéral (au-dessus des Avertissements), à la place de l'ancien aide-mémoire :
+  - une **astuce** d'une phrase, de hauteur réservée (les Avertissements ne bougent pas), selon la situation : aucun cours placé (ni cours du planning habituel ni cours ponctuel) (« Commencez par + Nouveau cours en haut : jour, heure, court, groupe et moniteur, puis Créer le cours. ») ; un cours sélectionné (glisser pour déplacer, tirer le bas pour la durée, Suppr/⌫ le supprime, Ctrl/⌘ Z annule) ; sinon (« Cliquez un cours pour le modifier », avec la portée du Planning habituel ou d'Une semaine précise). En saison terminée : consultation seulement ;
+  - un bouton bien visible « Tout le mode d'emploi » / « Masquer le mode d'emploi » (icône livre, chevron, bordure), **replié à chaque ouverture du planning** ;
+  - le texte complet : **Les bases** (numérotées : « + Nouveau cours », cliquer un cours pour le modifier ou le supprimer, Planning habituel contre Une semaine précise, bouton Annuler), puis **Pour aller plus vite** (glisser pour créer, déplacer, tirer le bas, Alt/⌥ + glisser, pastille d'un moniteur, survol et zones rayées, Ctrl/⌘ N, Suppr/⌫, Ctrl/⌘ Z et Ctrl/⌘ ⇧ Z, « Échap annule le déplacement en cours », ← → dans une semaine précise) ;
+  - touches selon le système (§11.5) ; pour créer un cours, **seul Ctrl/⌘ N** est annoncé (B4).
+
 ## 5. Création et édition des cours
 
 ### 5.1 Création
@@ -224,6 +240,8 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 
 Écrans de liste + fiche (création, modification, suppression avec confirmation, recherche) pour : courts, moniteurs (dont disponibilités), groupes (dont composition), élèves, périodes de fermeture, saisons, niveaux.
 
+Les onglets Saison, Courts, Moniteurs, Groupes et Élèves portent la pastille d'étape du guidage de la première utilisation, et l'accueil « Avant de construire le planning » remplace l'état vide « Aucune saison » (§4.5).
+
 - Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif).
 - **Saisie en volume** (v1.1) :
   - fiche élève : « Enregistrer et ajouter un autre » (en création) enregistre, confirme par un toast « Léa Martin ajouté(e) » et rouvre une fiche vide qui **garde les groupes cochés et le niveau** ; Entrée enregistre comme « Créer l'élève » ;
@@ -289,7 +307,7 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 - Volumétrie cible : 10 courts, 20 moniteurs, 60 groupes, 500 élèves, 150 cours dans la semaine type.
 - Affichage d'une semaine et retour visuel du glisser-déposer instantanés (< 100 ms perçus).
 - Résolution minimale : 1366 × 768. Thèmes clair et sombre suivant le réglage du système.
-- Raccourcis clavier : Suppr (supprimer le cours sélectionné), Ctrl/Cmd+Z / Maj+Z, Ctrl/Cmd+N (nouveau cours), ← / → (semaine précédente / suivante), Ctrl/Cmd+P (imprimer). Les touches annoncées à l'écran suivent le système : ⌘, ⌥, ⇧, ⌫ sur macOS ; Ctrl, Alt, Maj, Suppr ailleurs.
+- Raccourcis clavier : Suppr (supprimer le cours sélectionné), Ctrl/Cmd+Z / Maj+Z, Ctrl/Cmd+N (nouveau cours), ← / → (semaine précédente / suivante), Ctrl/Cmd+P (imprimer). Les touches annoncées à l'écran suivent le système : ⌘, ⌥, ⇧, ⌫ sur macOS ; Ctrl, Alt, Maj, Suppr ailleurs. Aucun raccourci d'une seule lettre : pour créer un cours, seul Ctrl/⌘ N existe et est annoncé (bulle de « + Nouveau cours », mode d'emploi du §4.5 ; B4).
 - **Rien ne bouge sous le curseur** (v1.1) :
   - les avertissements et l'erreur générale d'un formulaire s'affichent dans une **zone de message réservée** de deux lignes, toujours présente au-dessus des boutons (vide = blanc) ; l'erreur passe en tête, en rouge ; au-delà de deux messages, la dernière ligne devient « + N autres avertissements », dépliable au clic. Elle accueille aussi « Élève mineur… », les avertissements du créneau du panneau de cours et les alertes de la fiche groupe ;
   - une erreur sous un champ apparaît après validation et s'efface dès que le champ est modifié ;

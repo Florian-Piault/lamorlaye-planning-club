@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/sqlite-proxy";
+import { isWrite, notifyDataChange } from "./changes";
 import type { SqlDriver, SqlParam, SqlRow } from "./driver";
 import { translateDatabaseError } from "./readOnly";
 import * as schema from "./schema";
@@ -12,6 +13,8 @@ import * as schema from "./schema";
  *
  * Une écriture refusée parce qu'elle touche une saison archivée (déclencheurs
  * de la base) lève une `SeasonReadOnlyError` (voir `readOnly.ts`).
+ *
+ * Chaque écriture aboutie est signalée (`changes.ts`).
  */
 export function createDatabase(driver: SqlDriver) {
   return drizzle(
@@ -19,9 +22,11 @@ export function createDatabase(driver: SqlDriver) {
       try {
         if (method === "run") {
           await driver.run(sql, params as SqlParam[]);
+          notifyDataChange();
           return { rows: [] };
         }
         const rows = await driver.query(sql, params as SqlParam[]);
+        if (isWrite(sql)) notifyDataChange();
         return { rows: method === "get" ? firstRow(rows) : rows };
       } catch (error) {
         throw translateDatabaseError(error);
@@ -32,6 +37,7 @@ export function createDatabase(driver: SqlDriver) {
         const results = await driver.batch(
           queries.map((q) => ({ sql: q.sql, params: q.params as SqlParam[] })),
         );
+        notifyDataChange();
         return results.map((result, i) => ({
           rows: queries[i]?.method === "get" ? firstRow(result.rows) : result.rows,
         }));

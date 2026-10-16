@@ -321,7 +321,11 @@ test.describe("toast commun", () => {
     await createSeason(page);
     const region = page.getByTestId("toast-region");
     await expect(region).toHaveAttribute("aria-live", "polite");
-    await expect(region.getByTestId("toast")).toHaveText("Saison « 2026-2027 » créée");
+    // Première saison : le guidage (L15) ajoute « Étape suivante » à la confirmation.
+    await expect(
+      region.getByTestId("toast").getByText("Saison « 2026-2027 » créée", { exact: true }),
+    ).toBeVisible();
+    await expect(region.getByRole("button", { name: "Étape suivante : Courts" })).toBeVisible();
     await expect(page.getByText("Modifications enregistrées.")).toHaveCount(0);
   });
 

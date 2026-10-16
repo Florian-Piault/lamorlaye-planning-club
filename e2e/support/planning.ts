@@ -284,3 +284,37 @@ export async function dragMouse(
   await page.mouse.move(to.x, to.y, { steps: 8 });
   if (options.drop !== false) await page.mouse.up();
 }
+
+/** Accueil « Avant de construire le planning » du guidage (L15). */
+export function guidanceWelcome(page: Page): Locator {
+  return page.getByRole("region", { name: "Avant de construire le planning" });
+}
+
+/** Astuce du mode d'emploi, en tête du panneau ; `data-context` dit la situation. */
+export function planningTip(page: Page): Locator {
+  return page.getByTestId("planning-tip");
+}
+
+/**
+ * Crée un cours par « + Nouveau cours » : court, groupe et moniteur par leur
+ * libellé dans les listes, ou le premier proposé ; jour et début facultatifs.
+ */
+export async function createLessonWithPanel(
+  page: Page,
+  choice: { court: string; group?: string; instructor?: string; day?: string; start?: string },
+) {
+  await page.getByRole("button", { name: "Nouveau cours" }).click();
+  const form = page.getByRole("form", { name: /^Nouveau cours/ });
+  if (choice.day) await form.getByLabel("Jour").selectOption({ label: choice.day });
+  await form.getByLabel("Court").selectOption({ label: choice.court });
+  if (choice.start) await form.getByLabel("Début").selectOption(choice.start);
+  // « Groupe », ou « Groupe (facultatif) » pour un cours ponctuel.
+  await form
+    .getByLabel(/^Groupe( \(facultatif\))?$/)
+    .selectOption(choice.group ? { label: choice.group } : { index: 1 });
+  await form
+    .getByLabel("Moniteur", { exact: true })
+    .selectOption(choice.instructor ? { label: choice.instructor } : { index: 1 });
+  await form.getByRole("button", { name: /^Créer le cours/ }).click();
+  await expect(form).toBeHidden();
+}
