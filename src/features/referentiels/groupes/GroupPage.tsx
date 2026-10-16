@@ -39,6 +39,7 @@ import {
 } from "@/db/repositories/groups";
 import { listLevels } from "@/db/repositories/levels";
 import { listStudents } from "@/db/repositories/students";
+import { homonymKeys, nameKey, studentDetails } from "@/domain/duplicates";
 import { ageOn, groupAlerts, isInAgeRange } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
@@ -141,6 +142,8 @@ export function GroupPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const memberIds = useMemo(() => new Set(data?.members.map((m) => m.id)), [data]);
+  // Homonymes de la saison : désignés avec leur date de naissance et leurs groupes.
+  const homonyms = useMemo(() => homonymKeys(data?.students ?? []), [data]);
   const candidates = useMemo(
     () =>
       query.trim() === ""
@@ -315,6 +318,12 @@ export function GroupPage() {
                       )}
                       {candidates.slice(0, MAX_RESULTS).map((student) => {
                         const name = `${student.lastName} ${student.firstName}`;
+                        const details = homonyms.has(nameKey(student))
+                          ? studentDetails({
+                              birthDate: student.birthDate,
+                              groups: student.groups.map((g) => g.name),
+                            })
+                          : "";
                         return (
                           <li
                             key={student.id}
@@ -335,11 +344,16 @@ export function GroupPage() {
                                   — {student.levelLabel}
                                 </span>
                               )}
+                              {details && (
+                                <span className="block text-muted-foreground text-xs">
+                                  {details}
+                                </span>
+                              )}
                             </span>
                             <Button
                               size="sm"
                               variant="outline"
-                              aria-label={`Ajouter ${name}`}
+                              aria-label={`Ajouter ${name}${details ? ` (${details})` : ""}`}
                               onClick={() => run(() => addGroupMember(db, id, student.id))}
                             >
                               <Plus aria-hidden />

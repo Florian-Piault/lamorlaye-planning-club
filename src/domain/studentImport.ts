@@ -8,11 +8,14 @@
  *   sans bloquer les autres.
  * - Doublon : même nom, prénom et date de naissance (sans tenir compte de la
  *   casse ni des accents), dans la saison ou plus haut dans le fichier.
+ * - Tranche d'âge : une ligne dont un groupe affecté est hors tranche (âge au
+ *   début de la saison) est marquée et comptée, sans être bloquée.
  * - L'import entier est **une seule commande** (`Command<StudentMutation>`) :
  *   écrite en base dans une transaction, annulable puis rétablissable.
  */
 import type { Group, GroupStudent, Level, Student } from "@/db/schema";
 import { type Command, type CommandContext, defaultCommandContext } from "./commands";
+import { ageRangeWarning, nameKey } from "./duplicates";
 import type { TableRow } from "./importFile";
 import { normalizeText } from "./search";
 import { isValidDate } from "./time";
@@ -320,11 +323,7 @@ export function identityKey(student: {
   firstName: string;
   birthDate: string | null;
 }): string {
-  return [
-    normalizeText(student.lastName),
-    normalizeText(student.firstName),
-    student.birthDate ?? "",
-  ].join("|");
+  return `${nameKey(student)}|${student.birthDate ?? ""}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -335,8 +334,10 @@ export type DuplicateMode = "ignore" | "update";
 
 export interface ImportContext {
   seasonId: string;
+  /** Début de la saison : date de calcul de l'âge (alerte de tranche). */
+  seasonStartDate: string;
   students: readonly Student[];
-  groups: readonly Pick<Group, "id" | "name">[];
+  groups: readonly (Pick<Group, "id" | "name"> & Partial<Pick<Group, "minAge" | "maxAge">>)[];
   levels: readonly Pick<Level, "id" | "label">[];
   memberships: readonly Pick<GroupStudent, "groupId" | "studentId">[];
 }
@@ -375,11 +376,15 @@ export interface PlannedRow {
   newGroupIds: string[];
   errors: string[];
   warnings: string[];
+  /** Un groupe affecté est hors de la tranche d'âge de l'élève (non bloquant). */
+  outOfAgeRange: boolean;
 }
 
 export interface ImportPlan {
   rows: PlannedRow[];
   counts: Record<RowStatus, number>;
+  /** Lignes importées dont un groupe affecté est hors tranche d'âge. */
+  outOfAgeRange: number;
   /** Groupes et niveaux du fichier introuvables dans la saison. */
   unknownGroups: string[];
   unknownLevels: string[];
@@ -542,6 +547,7 @@ export function planImport(
       changes: {},
       newGroupIds: [],
       warnings,
+      outOfAgeRange: false,
     };
     if (!result.ok || errors.length > 0) {
       return { ...base, status: "error", values: null, existingId: null, errors };
@@ -599,6 +605,30 @@ export function planImport(
     };
   });
 
+  // Tranche d'âge des groupes affectés par l'import : tous ceux d'un nouvel
+  // élève, les seules nouvelles inscriptions d'une mise à jour. Les lignes
+  // ignorées, inchangées ou en erreur n'affectent aucun groupe.
+  const groupsById = new Map(context.groups.map((g) => [g.id, g]));
+  const seasonStart = context.seasonStartDate;
+  if (seasonStart) {
+    for (const row of planned) {
+      if (!row.values || (row.status !== "create" && row.status !== "update")) continue;
+      for (const groupId of row.status === "create" ? row.groupIds : row.newGroupIds) {
+        const group = groupsById.get(groupId);
+        if (!group) continue;
+        const warning = ageRangeWarning(
+          row.values,
+          { name: group.name, minAge: group.minAge ?? null, maxAge: group.maxAge ?? null },
+          seasonStart,
+        );
+        if (warning) {
+          row.warnings.push(warning);
+          row.outOfAgeRange = true;
+        }
+      }
+    }
+  }
+
   const counts: Record<RowStatus, number> = {
     create: 0,
     update: 0,
@@ -612,6 +642,7 @@ export function planImport(
   return {
     rows: planned,
     counts,
+    outOfAgeRange: planned.filter((r) => r.outOfAgeRange).length,
     unknownGroups: sorted(unknownGroups),
     unknownLevels: sorted(unknownLevels),
   };

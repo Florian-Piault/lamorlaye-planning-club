@@ -55,6 +55,22 @@ describe("zone de message réservée", () => {
     expect(layout.hidden).toBe(0);
   });
 
+  it("garde visible, après les erreurs, un message qui porte une action", () => {
+    const open = {
+      kind: "warning" as const,
+      text: "doublon",
+      action: { label: "Ouvrir", onClick() {} },
+    };
+    const layout = messageLayout([warning("a"), warning("b"), open]);
+    expect(layout.lines).toEqual([open]);
+    expect(layout.folded.map((m) => m.text)).toEqual(["a", "b"]);
+    expect(messageLayout([warning("a"), open, error("Échec")], true).lines).toEqual([
+      error("Échec"),
+      open,
+      warning("a"),
+    ]);
+  });
+
   it("retire les doublons", () => {
     expect(messageLayout([warning("a"), warning("a")]).lines).toEqual([warning("a")]);
   });

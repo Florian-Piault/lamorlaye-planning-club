@@ -37,6 +37,9 @@ export interface SeedInstructor {
 export interface SeedGroup {
   name: string;
   maxSize: number;
+  /** Tranche d'âge (facultative). */
+  minAge?: number;
+  maxAge?: number;
   /** Élèves (prénoms) ; un même prénom dans deux groupes désigne le même élève. */
   students: string[];
 }
@@ -176,9 +179,14 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
   for (const group of spec.groups) {
     const groupId = crypto.randomUUID();
     ids.set(`group:${group.name}`, groupId);
-    await db
-      .insert(groups)
-      .values({ id: groupId, seasonId: season.id, name: group.name, maxSize: group.maxSize });
+    await db.insert(groups).values({
+      id: groupId,
+      seasonId: season.id,
+      name: group.name,
+      maxSize: group.maxSize,
+      minAge: group.minAge ?? null,
+      maxAge: group.maxAge ?? null,
+    });
     for (const firstName of group.students) {
       if (!ids.has(`student:${firstName}`)) {
         const studentId = crypto.randomUUID();

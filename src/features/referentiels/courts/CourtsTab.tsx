@@ -2,7 +2,7 @@ import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { MessageZone } from "@/components/feedback/MessageZone";
-import { errorMessages } from "@/components/feedback/messages";
+import { errorMessages, warnings } from "@/components/feedback/messages";
 import { ErrorAlert, Field } from "@/components/form/Field";
 import { sameValues } from "@/components/form/formState";
 import { useFormErrors } from "@/components/form/useFormErrors";
@@ -21,6 +21,7 @@ import {
   updateCourt,
 } from "@/db/repositories/courts";
 import type { Court } from "@/db/schema";
+import { courtNameMessage, courtWithSameName } from "@/domain/duplicates";
 import { type CourtFormValues, type CourtInput, courtSchema, validate } from "@/domain/validation";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
 import { DeleteAction } from "../components/DeleteAction";
@@ -123,6 +124,8 @@ export function CourtsTab() {
       >
         {editing && (
           <CourtForm
+            courts={courts}
+            courtId={editing.mode === "edit" ? editing.court.id : null}
             initialValues={
               editing.mode === "edit"
                 ? {
@@ -147,12 +150,16 @@ export function CourtsTab() {
 }
 
 interface CourtFormProps {
+  /** Courts de la saison : un nom déjà pris est signalé (B5), sans bloquer. */
+  courts: readonly Court[];
+  /** Court modifié (exclu de la comparaison). */
+  courtId: string | null;
   initialValues: CourtFormValues;
   onSubmit: (input: CourtInput) => Promise<void>;
   onCancel: () => void;
 }
 
-function CourtForm({ initialValues, onSubmit, onCancel }: CourtFormProps) {
+function CourtForm({ courts, courtId, initialValues, onSubmit, onCancel }: CourtFormProps) {
   const [values, setValues] = useState(initialValues);
   const { errors, setErrors, error, setError, changed } = useFormErrors<CourtFormValues>();
   useDirtyGuard(!sameValues(values, initialValues));
@@ -161,6 +168,8 @@ function CourtForm({ initialValues, onSubmit, onCancel }: CourtFormProps) {
     changed(patch);
     setValues((v) => ({ ...v, ...patch }));
   };
+
+  const sameName = courtWithSameName(values.name, courts, courtId);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -197,7 +206,13 @@ function CourtForm({ initialValues, onSubmit, onCancel }: CourtFormProps) {
         checked={values.active}
         onChange={(e) => set({ active: e.target.checked })}
       />
-      <MessageZone label="Messages" messages={errorMessages(error)} />
+      <MessageZone
+        label="Messages"
+        messages={[
+          ...errorMessages(error),
+          ...warnings(sameName ? [courtNameMessage(sameName)] : []),
+        ]}
+      />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={cancel}>
           Annuler

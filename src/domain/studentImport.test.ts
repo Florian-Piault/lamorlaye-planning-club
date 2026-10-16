@@ -72,6 +72,7 @@ function student(id: string, values: Partial<Student> = {}): Student {
 
 const context: ImportContext = {
   seasonId: "s1",
+  seasonStartDate: "2026-09-01",
   students: [student("existing"), student("other", { lastName: "Durand", firstName: "Tom" })],
   groups: [
     { id: "g1", name: "Galaxie vert 1" },
@@ -354,6 +355,70 @@ describe("planImport", () => {
       duplicates: "ignore",
     });
     expect(plan.rows[0]?.values).toMatchObject({ birthDate: null, email: null, levelId: null });
+  });
+
+  it("marque et compte les lignes hors tranche d'âge sans les bloquer", () => {
+    const withRanges: ImportContext = {
+      ...context,
+      groups: context.groups.map((g) => (g.id === "g1" ? { ...g, minAge: 6, maxAge: 8 } : g)),
+    };
+    const plan = planImport(
+      [
+        line(2, { groups: "Galaxie vert 1" }),
+        line(3, { firstName: "Tom", birthDate: "01/01/2019", groups: "Galaxie vert 1" }),
+        line(4, {
+          lastName: "Martin",
+          firstName: "Léa",
+          birthDate: "2015-01-05",
+          groups: "Galaxie vert 1",
+        }),
+        line(5, { firstName: "Max", phone: "", groups: "Galaxie vert 1" }),
+        line(6, { firstName: "Noé", birthDate: "", groups: "Galaxie vert 1" }),
+      ],
+      withRanges,
+      options,
+    );
+    expect(plan.rows.map((r) => r.status)).toEqual([
+      "create",
+      "create",
+      "duplicate",
+      "error",
+      "create",
+    ]);
+    // Zoé a 9 ans au début de saison ; l'élève ignoré, la ligne en erreur et
+    // l'élève sans date ne sont pas comptés.
+    expect(plan.rows.map((r) => r.outOfAgeRange)).toEqual([true, false, false, false, false]);
+    expect(plan.rows[0]?.warnings).toEqual(["Zoé aura 9 ans, Galaxie vert 1 est pour les 6–8 ans"]);
+    expect(plan.outOfAgeRange).toBe(1);
+    expect(
+      planImport([line(2, { groups: "Galaxie vert 1" })], context, options).outOfAgeRange,
+    ).toBe(0);
+
+    // Mise à jour : seules les nouvelles inscriptions comptent ; une ligne
+    // inchangée (Léa, déjà dans le groupe) n'affecte aucun groupe.
+    const updates = planImport(
+      [
+        line(2, {
+          lastName: "Martin",
+          firstName: "Léa",
+          birthDate: "2015-01-05",
+          phone: "0611223344",
+          groups: "Galaxie vert 1",
+        }),
+        line(3, {
+          lastName: "Durand",
+          firstName: "Tom",
+          birthDate: "2015-01-05",
+          phone: "0611223344",
+          groups: "Galaxie vert 1",
+        }),
+      ],
+      withRanges,
+      { ...options, duplicates: "update" },
+    );
+    expect(updates.rows.map((r) => r.status)).toEqual(["unchanged", "update"]);
+    expect(updates.rows.map((r) => r.outOfAgeRange)).toEqual([false, true]);
+    expect(updates.outOfAgeRange).toBe(1);
   });
 });
 

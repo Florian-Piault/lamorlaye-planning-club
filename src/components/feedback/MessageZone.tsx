@@ -24,7 +24,13 @@ interface MessageZoneProps {
  * vides s'il n'y a rien à dire, pour que rien ne bouge sous le curseur quand
  * un avertissement apparaît. L'erreur générale passe en tête, en rouge ; au-delà
  * de deux messages, la dernière ligne devient « + N autres avertissements »,
- * dépliable au clic (seul décalage admis, car demandé).
+ * dépliable au clic (seul décalage admis, car demandé). Un message peut porter
+ * une action (lien-bouton en fin de ligne).
+ *
+ * Lecteurs d'écran : l'erreur est annoncée par son `role="alert"` ; les
+ * avertissements et informations (doublons, âge, initiales…), repliés compris,
+ * le sont par une région `aria-live="polite"` invisible, qui ne reprend pas
+ * l'erreur (pas de double annonce).
  */
 export function MessageZone({ messages, label, className }: MessageZoneProps) {
   const [expanded, setExpanded] = useState(false);
@@ -33,6 +39,9 @@ export function MessageZone({ messages, label, className }: MessageZoneProps) {
   const overflowing = collapsed.hidden > 0;
   const open = expanded && overflowing;
   const { lines, hidden, folded, wrap } = open ? messageLayout(messages, true) : collapsed;
+  const announced = messageLayout(messages, true)
+    .lines.filter((m) => m.kind !== "error")
+    .map((m) => m.text);
 
   return (
     <div data-slot="message-zone" className={cn("min-h-10 text-xs leading-5", className)}>
@@ -54,6 +63,15 @@ export function MessageZone({ messages, label, className }: MessageZoneProps) {
                   {message.text}
                 </span>
               </Tooltip>
+              {message.action && (
+                <button
+                  type="button"
+                  onClick={message.action.onClick}
+                  className="shrink-0 rounded font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {message.action.label}
+                </button>
+              )}
             </li>
           );
         })}
@@ -69,6 +87,11 @@ export function MessageZone({ messages, label, className }: MessageZoneProps) {
           {open ? "Masquer les autres messages" : moreLabel(folded)}
         </button>
       )}
+      <div aria-live="polite" className="sr-only" data-testid="message-zone-live">
+        {announced.map((text) => (
+          <p key={text}>{text}</p>
+        ))}
+      </div>
     </div>
   );
 }

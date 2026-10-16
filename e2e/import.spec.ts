@@ -141,4 +141,27 @@ test.describe("import d'élèves", () => {
     await expect(mapping.getByLabel("Nom", { exact: true })).toHaveValue("0");
     await expect(page.getByLabel("Les mettre à jour avec les valeurs du fichier")).toBeChecked();
   });
+
+  test("marque et compte les lignes hors tranche d'âge sans bloquer l'import", async ({ page }) => {
+    await createSeason(page);
+    await seedPlanning(page, {
+      courts: [],
+      instructors: [],
+      lessons: [],
+      groups: [{ name: "Galaxie vert", maxSize: 8, minAge: 6, maxAge: 8, students: [] }],
+    });
+    await navigate(page, "Import/Export");
+    await page.getByLabel("Fichier à importer").setInputFiles(FIXTURE);
+    await page.getByRole("button", { name: "Afficher l'aperçu" }).click();
+
+    // Zoé (9 ans au début de saison) et Hélène (10 ans) sont hors des 6–8 ans.
+    const summary = page.getByRole("list", { name: "Résumé de l'import" });
+    await expect(summary).toContainText("2 lignes hors tranche d'âge");
+    const preview = page.getByRole("table", { name: "Aperçu de l'import" });
+    await expect(preview.locator("tbody tr[data-out-of-age-range]")).toHaveCount(2);
+    await expect(preview.getByRole("row", { name: /^2 Éluard/ })).toContainText(
+      "Zoé aura 9 ans, Galaxie vert est pour les 6–8 ans",
+    );
+    await expect(page.getByRole("button", { name: "Importer 4 élèves" })).toBeEnabled();
+  });
 });

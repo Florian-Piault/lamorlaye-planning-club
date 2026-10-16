@@ -20,10 +20,12 @@ import { listLevels } from "@/db/repositories/levels";
 import {
   createStudent,
   deleteStudent,
+  listStudentIdentities,
   listStudents,
   type StudentListItem,
   updateStudent,
 } from "@/db/repositories/students";
+import { studentDetails } from "@/domain/duplicates";
 import { ageOn } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
 import { formatDate } from "@/domain/time";
@@ -44,12 +46,13 @@ export function StudentsTab() {
   const [privacy, setPrivacy] = useState<string | null>(null);
   const toast = useToast();
   const load = useCallback(async () => {
-    const [students, groups, levels] = await Promise.all([
+    const [students, groups, levels, identities] = await Promise.all([
       listStudents(db, season.id),
       listGroups(db, season.id),
       listLevels(db),
+      listStudentIdentities(db),
     ]);
-    return { students, groups, levels };
+    return { students, groups, levels, identities };
   }, [db, season.id]);
   const { data, reload } = useLoader(load);
   const { query, setQuery, sort, onSort } = useListState<SortKey>({
@@ -175,7 +178,16 @@ export function StudentsTab() {
       >
         {editing && (
           <StudentForm
+            // Nouvelle saisie à chaque fiche (« Ouvrir sa fiche » remplace le formulaire).
+            key={editing.mode === "edit" ? editing.student.id : "create"}
             readOnly={readOnly}
+            season={season}
+            studentId={editing.mode === "edit" ? editing.student.id : null}
+            identities={data?.identities}
+            onOpenStudent={(id) => {
+              const student = data?.students.find((s) => s.id === id);
+              if (student) setEditing({ mode: "edit", student });
+            }}
             initialValues={
               editing.mode === "edit" ? studentValues(editing.student) : emptyStudentValues
             }
@@ -218,6 +230,12 @@ interface StudentRowProps {
   onPrivacy: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
   onDeleted: () => void;
+}
+
+/** Précisions de la confirmation de suppression : toujours naissance et groupes (homonymes). */
+function details(student: StudentListItem): string {
+  const text = studentDetails({ ...student, groups: student.groups.map((g) => g.name) });
+  return text ? ` (${text})` : "";
 }
 
 /**
@@ -283,7 +301,7 @@ const StudentRow = memo(function StudentRow({
           {!readOnly && (
             <DeleteAction
               name={name}
-              subject={`l'élève « ${name} »`}
+              subject={`l'élève « ${name} »${details(student)}`}
               warning={
                 student.groups.length > 0
                   ? `Il sera retiré de ${student.groups.length > 1 ? `ses ${student.groups.length} groupes` : "son groupe"} de cette saison. Pour effacer ses données de toutes les saisons, utilisez « Données personnelles ».`

@@ -8,7 +8,17 @@ import { Button } from "@/components/ui/button";
 import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
 import { Checkbox, Input, Select } from "@/components/ui/input";
 import type { GroupListItem } from "@/db/repositories/groups";
+import type { StudentIdentity } from "@/db/repositories/students";
 import type { Level, Student } from "@/db/schema";
+import {
+  ageRangeLabel,
+  ageRangeWarning,
+  findStudentDuplicates,
+  inSeasonDuplicateMessage,
+  isOutOfAgeRange,
+  pastSeasonDuplicateMessage,
+  reuseDetails,
+} from "@/domain/duplicates";
 import { isMinor } from "@/domain/groups";
 import { matchesSearch } from "@/domain/search";
 import { isValidDate, todayIso } from "@/domain/time";
@@ -56,6 +66,14 @@ interface StudentFormProps {
   onCancel: () => void;
   /** Consultation seule (saison archivée) : champs désactivés, bouton « Fermer » seul. */
   readOnly?: boolean;
+  /** Saison de la fiche : doublons de la saison et âge au début de saison. */
+  season: { id: string; startDate: string };
+  /** Fiche modifiée (exclue des doublons) ; absente en création. */
+  studentId?: string | null;
+  /** Élèves de toutes les saisons, pour signaler les doublons (jamais bloquant). */
+  identities?: readonly StudentIdentity[];
+  /** Ouvre la fiche d'un élève de la saison à la place de la saisie (« Ouvrir sa fiche »). */
+  onOpenStudent?: (id: string) => void;
 }
 
 /** Fiche élève complète (§3.5), avec ses groupes. */
@@ -68,8 +86,14 @@ export function StudentForm({
   onSubmit,
   onCancel,
   readOnly = false,
+  season,
+  studentId = null,
+  identities = [],
+  onOpenStudent,
 }: StudentFormProps) {
   const [values, setValues] = useState(initialValues);
+  /** Fiche d'une saison passée dont les coordonnées ont été reprises. */
+  const [reusedFrom, setReusedFrom] = useState<StudentIdentity | null>(null);
   const [groupIds, setGroupIds] = useState<string[]>([...initialGroupIds]);
   const [groupQuery, setGroupQuery] = useState("");
   const { errors, setErrors, error, setError, changed } = useFormErrors<StudentFormValues>();
@@ -96,8 +120,82 @@ export function StudentForm({
     [groups, initialGroupIds, groupQuery],
   );
   const minor = isValidDate(values.birthDate) && isMinor(values.birthDate, todayIso());
+  const birthDate = isValidDate(values.birthDate) ? values.birthDate : null;
+  const duplicates = useMemo(
+    () =>
+      findStudentDuplicates(
+        { lastName: values.lastName, firstName: values.firstName, birthDate },
+        readOnly ? [] : identities,
+        { seasonId: season.id, seasonStartDate: season.startDate, excludeId: studentId },
+      ),
+    [
+      readOnly,
+      values.lastName,
+      values.firstName,
+      birthDate,
+      identities,
+      season.id,
+      season.startDate,
+      studentId,
+    ],
+  );
+  const sameInSeason = duplicates.inSeason[0];
+  // « Ouvrir sa fiche » passe par la garde de la fenêtre (confirmation si la saisie a changé).
+  const openExisting = useGuardedCancel(
+    onOpenStudent && sameInSeason ? () => onOpenStudent(sameInSeason.id) : undefined,
+  );
+  // Reprise des coordonnées : en création, seulement si l'élève n'est pas déjà dans la saison.
+  const fromPast = !studentId && !sameInSeason ? duplicates.pastSeasons[0] : undefined;
+  const reuse = (source: StudentIdentity) => {
+    // Un niveau archivé n'est plus proposé : il n'est pas repris.
+    const level = levels.find((l) => l.id === source.levelId);
+    const next = reuseDetails(values, {
+      ...source,
+      levelId: level?.active ? source.levelId : null,
+    });
+    // Seules les erreurs des champs réellement repris s'effacent.
+    changed(
+      Object.fromEntries(
+        (Object.keys(next) as (keyof StudentFormValues)[])
+          .filter((key) => next[key] !== values[key])
+          .map((key) => [key, next[key]]),
+      ),
+    );
+    setValues(next);
+    setReusedFrom(source);
+  };
+  // La confirmation de reprise ne vaut que tant que la saisie désigne la même fiche.
+  const reused = reusedFrom && fromPast?.id === reusedFrom.id ? reusedFrom : null;
+  const ageWarnings = readOnly
+    ? []
+    : groups
+        .filter((g) => groupIds.includes(g.id))
+        .map((g) => ageRangeWarning({ ...values, birthDate }, g, season.startDate))
+        .filter((w): w is string => w !== null);
   const messages: Message[] = [
     ...errorMessages(error),
+    ...(sameInSeason
+      ? [
+          {
+            kind: "warning" as const,
+            text: inSeasonDuplicateMessage(sameInSeason),
+            action: openExisting && { label: "Ouvrir sa fiche", onClick: openExisting },
+          },
+        ]
+      : []),
+    ...(fromPast && !reused
+      ? [
+          {
+            kind: "info" as const,
+            text: pastSeasonDuplicateMessage(fromPast),
+            action: { label: "Reprendre ses coordonnées", onClick: () => reuse(fromPast) },
+          },
+        ]
+      : []),
+    ...(reused
+      ? [{ kind: "info" as const, text: `Coordonnées reprises de ${reused.seasonName}.` }]
+      : []),
+    ...ageWarnings.map((text) => ({ kind: "warning" as const, text })),
     ...(minor && !readOnly
       ? [
           {
@@ -191,12 +289,10 @@ export function StudentForm({
                   <Checkbox
                     key={group.id}
                     label={
-                      <>
-                        <span className="truncate">{group.name}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {group.memberCount}/{group.maxSize}
-                        </span>
-                      </>
+                      <GroupChoiceLabel
+                        group={group}
+                        outOfRange={isOutOfAgeRange(group, birthDate, season.startDate)}
+                      />
                     }
                     checked={groupIds.includes(group.id)}
                     onChange={(e) => {
@@ -220,5 +316,28 @@ export function StudentForm({
         {!readOnly && <Button type="submit">{submitLabel}</Button>}
       </div>
     </form>
+  );
+}
+
+/**
+ * Libellé d'un groupe dans la liste à cocher : nom, tranche d'âge, effectif
+ * et mention discrète « hors tranche » pour l'élève saisi (ordre inchangé,
+ * groupe toujours cochable).
+ */
+function GroupChoiceLabel({ group, outOfRange }: { group: GroupListItem; outOfRange: boolean }) {
+  const range = ageRangeLabel(group);
+  return (
+    <>
+      <span className="truncate">{group.name}</span>
+      {range && <span className="whitespace-nowrap text-muted-foreground text-xs">· {range}</span>}
+      <span className="text-muted-foreground text-xs">
+        {group.memberCount}/{group.maxSize}
+      </span>
+      {outOfRange && (
+        <span className="whitespace-nowrap text-amber-800 text-xs dark:text-amber-300">
+          hors tranche
+        </span>
+      )}
+    </>
   );
 }

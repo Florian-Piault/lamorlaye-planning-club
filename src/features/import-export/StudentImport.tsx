@@ -502,6 +502,13 @@ function PreviewStep({
             </Badge>
           </li>
         )}
+        {plan.outOfAgeRange > 0 && (
+          <li>
+            <Badge variant="warning">
+              {plural(plan.outOfAgeRange, "ligne hors tranche d'âge", "lignes hors tranche d'âge")}
+            </Badge>
+          </li>
+        )}
       </ul>
 
       {plan.unknownGroups.length > 0 && (
@@ -573,7 +580,14 @@ function PreviewRow({ row }: { row: PlannedRow }) {
   const status = STATUS[row.status];
   const birthDate = row.values?.birthDate ? formatDate(row.values.birthDate) : row.raw.birthDate;
   return (
-    <TableRow data-status={row.status} className={cn(row.status === "error" && "bg-destructive/5")}>
+    <TableRow
+      data-status={row.status}
+      data-out-of-age-range={row.outOfAgeRange || undefined}
+      className={cn(
+        row.status === "error" && "bg-destructive/5",
+        row.outOfAgeRange && "bg-amber-50 dark:bg-amber-500/10",
+      )}
+    >
       <TableCell className="tabular-nums">{row.line}</TableCell>
       <TableCell>{row.raw.lastName}</TableCell>
       <TableCell>{row.raw.firstName}</TableCell>
@@ -581,7 +595,10 @@ function PreviewRow({ row }: { row: PlannedRow }) {
       <TableCell className="whitespace-nowrap">{birthDate}</TableCell>
       <TableCell>{row.raw.groups}</TableCell>
       <TableCell>
-        <Badge variant={status.variant}>{status.label}</Badge>
+        <div className="flex flex-wrap gap-1">
+          <Badge variant={status.variant}>{status.label}</Badge>
+          {row.outOfAgeRange && <Badge variant="warning">Hors tranche</Badge>}
+        </div>
       </TableCell>
       <TableCell className="text-xs">
         {row.errors.length + row.warnings.length > 0 && (

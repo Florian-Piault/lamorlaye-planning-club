@@ -32,6 +32,11 @@ interface DialogGuard {
   setDirty: (dirty: boolean) => void;
   /** Ferme la fenêtre, après confirmation si la saisie a été modifiée. */
   requestClose: (then?: () => void) => void;
+  /**
+   * Rappelle le focus initial si le focus a quitté la fenêtre ouverte (contenu
+   * remplacé, ex. « Ouvrir sa fiche ») : sans lui, Échap n'atteint plus la fenêtre.
+   */
+  refocus: () => void;
 }
 
 const DialogGuardContext = createContext<DialogGuard | null>(null);
@@ -158,6 +163,18 @@ export function Dialog({
     () => ({
       setDirty,
       requestClose: (then) => guardAction(then ?? (() => onOpenChangeRef.current(false))),
+      refocus: () => {
+        // Après les effets du rendu : la fermeture d'une confirmation imbriquée
+        // (« Abandonner ») rend d'abord le focus à un élément retiré.
+        setTimeout(() => {
+          const dialog = ref.current;
+          const active = document.activeElement;
+          // WebKit rend le focus à la fenêtre elle-même : le premier champ est préféré.
+          if (dialog?.open && (active === dialog || !dialog.contains(active))) {
+            focusInitial(dialog);
+          }
+        });
+      },
     }),
     [setDirty, guardAction],
   );
@@ -278,10 +295,15 @@ export function DiscardChangesDialog({
 
 /**
  * Déclare à la fenêtre qui contient le formulaire que sa saisie est modifiée.
- * Sans fenêtre (fiche affichée dans la page), l'appel est sans effet.
+ * Sans fenêtre (fiche affichée dans la page), l'appel est sans effet. Un
+ * formulaire monté dans une fenêtre déjà ouverte (contenu remplacé) y
+ * rappelle le focus initial.
  */
 export function useDirtyGuard(dirty: boolean) {
   const guard = useContext(DialogGuardContext);
+  useEffect(() => {
+    guard?.refocus();
+  }, [guard]);
   useEffect(() => {
     guard?.setDirty(dirty);
   }, [guard, dirty]);

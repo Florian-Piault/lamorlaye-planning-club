@@ -6,9 +6,16 @@
 
 export type MessageKind = "error" | "warning" | "info";
 
+/** Action proposée à la suite d'un message (« Ouvrir sa fiche », « Utiliser JMo »). */
+export interface MessageAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Message {
   kind: MessageKind;
   text: string;
+  action?: MessageAction;
 }
 
 /** Nombre de lignes réservées en permanence. */
@@ -26,8 +33,9 @@ export interface MessageLayout {
 }
 
 /**
- * Messages à afficher : erreurs d'abord (ordre d'arrivée conservé), doublons
- * retirés. Replié, au plus deux lignes ; déplié (au clic de l'utilisatrice),
+ * Messages à afficher : erreurs d'abord, puis messages portant une action
+ * (pour qu'elle reste visible avant le repli), puis les autres ; ordre
+ * d'arrivée conservé dans chaque catégorie, doublons retirés. Replié, au plus deux lignes ; déplié (au clic de l'utilisatrice),
  * tous les messages.
  */
 export function messageLayout(messages: readonly Message[], expanded = false): MessageLayout {
@@ -40,7 +48,8 @@ export function messageLayout(messages: readonly Message[], expanded = false): M
   });
   const ordered = [
     ...unique.filter((m) => m.kind === "error"),
-    ...unique.filter((m) => m.kind !== "error"),
+    ...unique.filter((m) => m.kind !== "error" && m.action),
+    ...unique.filter((m) => m.kind !== "error" && !m.action),
   ];
   if (expanded || ordered.length <= RESERVED_LINES) {
     return { lines: ordered, hidden: 0, folded: [], wrap: ordered.length === 1 };

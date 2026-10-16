@@ -187,6 +187,13 @@ Aucun conflit n'est bloquant : tout est autorisé mais **signalé** (bordure rou
 | Élève inscrit dans deux cours simultanés | « 2 élèves ont un autre cours sur ce créneau » |
 | Effectif du groupe supérieur au maximum | « 9 / 8 élèves » |
 | Âge d'un élève hors tranche du groupe | « 1 élève hors tranche d'âge » |
+| Groupe hors tranche coché dans la fiche élève (ou date qui met hors tranche un groupe coché) | « Léa aura 11 ans, Galaxie vert est pour les 6–8 ans » |
+| Élève déjà inscrit dans la saison (même nom + prénom sans casse ni accents ; dates comparées si les deux sont connues) | « Un élève Martin Léa (né(e) le 03/05/2015, Galaxie vert) existe déjà » + « Ouvrir sa fiche » |
+| Élève inscrit seulement dans une saison passée (information) | « Léa Martin était inscrit(e) en 2025-2026. » + « Reprendre ses coordonnées » |
+| Initiales déjà prises par un moniteur de la saison | « JM est déjà utilisé par Jean Martin. Utiliser JMo ? » (proposition appliquée en un clic) |
+| Nom de court déjà pris dans la saison (sans casse ni accents) | « Un court « Court 2 » existe déjà » |
+
+Dans les fiches (élève, moniteur, court), ces messages s'affichent dans la zone de message réservée, sans déplacer les boutons. Ils ne bloquent jamais l'enregistrement : vrais homonymes, initiales ou noms volontairement identiques restent possibles.
 
 Un panneau **« Avertissements »** liste tous les conflits de la semaine affichée, avec navigation vers le cours concerné.
 
@@ -195,6 +202,9 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 Écrans de liste + fiche (création, modification, suppression avec confirmation, recherche) pour : courts, moniteurs (dont disponibilités), groupes (dont composition), élèves, périodes de fermeture, saisons, niveaux.
 
 - Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif).
+- **Alerte d'âge dans la fiche élève** : l'âge est calculé au début de la saison (comme la fiche groupe et les conflits). La liste à cocher des groupes affiche la tranche de chacun (« Galaxie vert · 6–8 ans ») et une mention discrète « hors tranche » pour l'élève saisi ; l'ordre est inchangé et tous restent cochables. Sans date de naissance : tranches affichées, aucune mention. Cocher un groupe hors tranche, ou saisir une date qui met hors tranche un groupe coché, affiche l'avertissement du §7.
+- **Doublons d'élève** : vérifiés dès que nom et prénom sont saisis, en création comme en modification, contre les élèves de toutes les saisons (fiche modifiée exclue). Doublon dans la saison : avertissement et lien « Ouvrir sa fiche », qui remplace la saisie par la fiche existante (après « Abandonner les modifications ? » si la saisie a changé). Doublon seulement dans une saison passée (en création) : « Reprendre ses coordonnées » pré-remplit téléphone, e-mail, naissance, responsable légal, niveau et classement depuis la saison la plus récente où l'élève figure, **jamais ses groupes**.
+- **Homonymes** : un élève désigné seul (résultats de recherche et ajout dans la fiche groupe) porte sa date de naissance et ses groupes dès qu'un homonyme existe dans la saison ; la confirmation de suppression d'un élève les donne toujours.
 - Suppression d'un moniteur, d'un court ou d'un groupe utilisé par des cours : proposer l'archivage (inactif) plutôt que la suppression.
 
 ### 8.1 Saisons
@@ -208,6 +218,7 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 - Formats : CSV (séparateur `;` ou `,`, encodage UTF-8 ou Windows-1252 détecté) et Excel (.xlsx).
 - Assistant : choix du fichier → **correspondance colonnes / champs** → aperçu avec erreurs ligne par ligne → import.
 - Détection des doublons (nom + prénom + date de naissance) : ignorer ou mettre à jour.
+- Tranche d'âge (§8) : l'aperçu marque « Hors tranche » les lignes dont un groupe affecté est hors de la tranche d'âge (âge au début de la saison), avec l'avertissement du §7, et les compte en tête ; l'import n'est pas bloqué.
 
 ### 9.2 Exports et impressions
 - **PDF / impression de la vue semaine** (semaine type ou datée), A4 ou A3 paysage, couleurs + initiales.

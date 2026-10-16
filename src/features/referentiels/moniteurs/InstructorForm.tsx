@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { MessageZone } from "@/components/feedback/MessageZone";
-import { errorMessages } from "@/components/feedback/messages";
+import { errorMessages, type Message } from "@/components/feedback/messages";
 import { Field } from "@/components/form/Field";
 import { sameValues } from "@/components/form/formState";
 import { useFormErrors } from "@/components/form/useFormErrors";
@@ -10,6 +10,7 @@ import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
 import { Checkbox, Input } from "@/components/ui/input";
 import type { Instructor } from "@/db/schema";
 import { INSTRUCTOR_PALETTE, normalizeColor } from "@/domain/colors";
+import { initialsConflict } from "@/domain/duplicates";
 import { suggestInitials } from "@/domain/initials";
 import {
   type InstructorFormValues,
@@ -103,9 +104,28 @@ export function InstructorForm({
     }
   };
 
-  const initialsTaken = takenInitials.some(
-    (t) => t.toUpperCase() === values.initials.trim().toUpperCase(),
-  );
+  // Initiales déjà prises (B2) : avertissement et proposition appliquée en un clic.
+  const conflict = readOnly ? null : initialsConflict(values, others);
+  const messages: Message[] = [
+    ...errorMessages(error),
+    ...(conflict
+      ? [
+          {
+            kind: "warning" as const,
+            text: conflict.message,
+            action: conflict.proposal
+              ? {
+                  label: `Utiliser ${conflict.proposal}`,
+                  onClick: () => {
+                    setInitialsEdited(true);
+                    update({ initials: conflict.proposal ?? "" });
+                  },
+                }
+              : undefined,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-4" aria-label="Fiche moniteur">
@@ -154,11 +174,7 @@ export function InstructorForm({
           label="Initiales"
           required
           error={errors.initials}
-          hint={
-            initialsTaken
-              ? "Ces initiales sont déjà utilisées par un autre moniteur."
-              : "Toujours affichées sur les cours (impression en noir et blanc, daltonisme)."
-          }
+          hint="Toujours affichées sur les cours (impression en noir et blanc, daltonisme)."
           className="max-w-48"
         >
           {(props) => (
@@ -188,7 +204,7 @@ export function InstructorForm({
       </fieldset>
       {!readOnly && (
         <>
-          <MessageZone label="Messages" messages={errorMessages(error)} />
+          <MessageZone label="Messages" messages={messages} />
           <div className="flex items-center gap-2">
             <Button type="submit" disabled={busy}>
               {submitLabel}
