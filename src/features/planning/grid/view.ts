@@ -13,12 +13,14 @@ import {
   slotFromLesson,
 } from "@/domain/conflicts";
 import {
+  type BusySlot,
+  groupByAvailability,
   type InstructorAvailabilityData,
-  sortByAvailability,
+  type InstructorStatus,
   type TimeSlot,
 } from "@/domain/instructorAvailability";
 import { lessonsInEffect } from "@/domain/occurrences";
-import { timeToMinutes } from "@/domain/time";
+import { minutesToTime, timeToMinutes } from "@/domain/time";
 
 /**
  * Date de référence de la semaine type : aujourd'hui, ramené dans la saison.
@@ -244,23 +246,41 @@ export function toggleId(ids: readonly string[], id: string): string[] {
 
 export interface InstructorChoice<T> {
   instructor: T;
+  /** Disponible, occupé par un autre cours sur le créneau, ou hors de ses disponibilités. */
+  status: InstructorStatus;
   available: boolean;
-  /** Mention affichée après le nom des moniteurs indisponibles. */
+  /** Mention affichée après le nom des moniteurs occupés ou indisponibles. */
   note: string | null;
 }
 
-/** Moniteurs disponibles sur le créneau en tête, puis les autres avec leur mention. */
-export function instructorChoices<T extends InstructorAvailabilityData>(
+/** Désignation d'un cours sur la ligne d'un moniteur occupé : « Galaxie vert 17:00–18:00 ». */
+export function busyLabel(groupName: string | null, start: number, end: number): string {
+  return `${groupName ?? "Cours sans groupe"} ${minutesToTime(start)}–${minutesToTime(end)}`;
+}
+
+/**
+ * Choix du moniteur d'un cours (§5.1), en trois groupes : disponibles,
+ * occupés sur ce créneau (avec le cours), indisponibles (avec la raison, et le
+ * cours s'ils en ont aussi un). Les cours du créneau (`lessons`) sont comptés
+ * sauf le cours en cours d'édition (`excludedId`).
+ */
+export function instructorChoices<T extends InstructorAvailabilityData & { id: string }>(
   instructors: readonly T[],
   slot: TimeSlot,
+  lessons: readonly BusySlot[] = [],
+  excludedId: string | null = null,
 ): InstructorChoice<T>[] {
-  return sortByAvailability(instructors, slot).map(({ instructor, available }) => ({
-    instructor,
-    available,
-    note: available
-      ? null
-      : instructor.availabilities.length === 0
-        ? "aucune disponibilité saisie"
-        : "indisponible",
-  }));
+  return groupByAvailability(instructors, slot, lessons, excludedId).map(
+    ({ instructor, status, busyWith }) => {
+      const busy = busyWith.map((lesson) => lesson.label);
+      const reason =
+        status !== "unavailable"
+          ? null
+          : instructor.availabilities.length === 0
+            ? "aucune disponibilité saisie"
+            : "indisponible";
+      const note = [reason, ...busy].filter((part) => part !== null).join(", ");
+      return { instructor, status, available: status === "available", note: note || null };
+    },
+  );
 }

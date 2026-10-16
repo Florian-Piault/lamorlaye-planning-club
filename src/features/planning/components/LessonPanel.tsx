@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
 import type { Court, Level } from "@/db/schema";
+import type { BusySlot } from "@/domain/instructorAvailability";
 import { matchesSearch } from "@/domain/search";
 import { formatDuration, minutesToTime, weekdayLabel } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
@@ -49,6 +50,15 @@ interface LessonPanelProps {
   onDelete?: () => void;
   /** Brouillon du nouveau cours, dessiné sur la grille. */
   onDraftChange?: (values: LessonFormValues) => void;
+  /**
+   * Moniteur choisi dans le panneau (nul à la fermeture) : ses indisponibilités
+   * sont hachurées, avant celles du moniteur survolé (B8).
+   */
+  onInstructorChange?: (instructorId: string | null) => void;
+  /** Cours placés, pour ranger à part les moniteurs déjà occupés sur le créneau (§5.1). */
+  busySlots?: readonly BusySlot[];
+  /** Cours en cours d'édition, exclu de ce calcul. */
+  excludedId?: string | null;
   /**
    * Saisie modifiée (différente des valeurs à l'ouverture) : l'écran demande
    * alors confirmation avant de fermer le panneau ou d'en ouvrir un autre.
@@ -97,6 +107,9 @@ export function LessonPanel({
   onClose,
   onDelete,
   onDraftChange,
+  onInstructorChange,
+  busySlots = noBusySlots,
+  excludedId = null,
   onDirtyChange,
   onCreateGroup,
   title: titleProp,
@@ -130,6 +143,10 @@ export function LessonPanel({
   useEffect(() => {
     onDraftChange?.(values);
   }, [values, onDraftChange]);
+  useEffect(() => {
+    onInstructorChange?.(values.instructorId || null);
+  }, [values.instructorId, onInstructorChange]);
+  useEffect(() => () => onInstructorChange?.(null), [onInstructorChange]);
 
   const dirty = !readOnly && !sameValues(values, initialValues);
   useEffect(() => {
@@ -162,6 +179,8 @@ export function LessonPanel({
           start: values.start,
           end: values.start + values.durationMinutes,
         },
+        busySlots,
+        excludedId,
       ),
     [
       instructors,
@@ -170,10 +189,13 @@ export function LessonPanel({
       values.start,
       values.durationMinutes,
       dateOf,
+      busySlots,
+      excludedId,
     ],
   );
-  const available = choices.filter((c) => c.available);
-  const unavailable = choices.filter((c) => !c.available);
+  const available = choices.filter((c) => c.status === "available");
+  const busy = choices.filter((c) => c.status === "busy");
+  const unavailable = choices.filter((c) => c.status === "unavailable");
 
   const startOptions = steps(dayStart, dayEnd - SNAP_MINUTES, values.start);
   const durationOptions = steps(
@@ -286,6 +308,15 @@ export function LessonPanel({
                   {available.map(({ instructor }) => (
                     <option key={instructor.id} value={instructor.id}>
                       ● {instructor.firstName} {instructor.lastName}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {busy.length > 0 && (
+                <optgroup label="Occupés sur ce créneau">
+                  {busy.map(({ instructor, note }) => (
+                    <option key={instructor.id} value={instructor.id}>
+                      ◐ {instructor.firstName} {instructor.lastName} ({note})
                     </option>
                   ))}
                 </optgroup>
@@ -422,6 +453,8 @@ export function LessonPanel({
     </>
   );
 }
+
+const noBusySlots: readonly BusySlot[] = [];
 
 /** Valeurs de `from` à `to` au pas de 15 min, en incluant `current`. */
 function steps(from: number, to: number, current: number): number[] {

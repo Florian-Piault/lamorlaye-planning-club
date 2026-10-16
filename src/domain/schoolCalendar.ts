@@ -112,8 +112,11 @@ export interface ClosureProposal {
   inSeason: boolean;
   /** Une fermeture existante couvre déjà ces dates. */
   existing: boolean;
-  /** Jour férié tombant pendant des vacances proposées. */
-  duringHolidays: boolean;
+  /**
+   * Jour férié : libellé de la période proposée et cochée qui le couvre
+   * (« Pont de l'Ascension ») ; nul sinon.
+   */
+  coveredBy: string | null;
   /** Cochée par défaut. */
   selected: boolean;
 }
@@ -129,10 +132,11 @@ function covers(range: Range, other: Range): boolean {
 
 /**
  * Propositions de fermetures pour une saison : vacances scolaires de la zone B
- * (bornées à la saison) et jours fériés de la saison. Les vacances des années
- * scolaires concernées qui tombent hors saison (vacances d'été) sont listées à
- * titre indicatif. Sont décochés par défaut : ce qui est déjà couvert par une
- * fermeture existante et les jours fériés tombant pendant des vacances.
+ * (bornées à la saison, ponts compris) et jours fériés de la saison. Les
+ * vacances des années scolaires concernées qui tombent hors saison (vacances
+ * d'été) sont listées à titre indicatif. Sont décochés par défaut : ce qui est
+ * déjà couvert par une fermeture existante et les jours fériés couverts par
+ * une période cochée (voir `followSelection`).
  */
 export function closureProposals(
   season: Range,
@@ -153,7 +157,7 @@ export function closureProposals(
         detail: `${period.official} — année scolaire ${year.schoolYear}`,
         inSeason,
         existing: false,
-        duringHolidays: false,
+        coveredBy: null,
         selected: false,
       };
     });
@@ -169,22 +173,62 @@ export function closureProposals(
       detail: `Jour férié — ${formatDate(holiday.date)}`,
       inSeason: true,
       existing: false,
-      duringHolidays: school.some(
-        (p) => p.inSeason && isDateInRange(holiday.date, p.startDate, p.endDate),
-      ),
+      coveredBy: null,
       selected: false,
     }),
   );
-  return [...school, ...holidays]
+  const proposals = [...school, ...holidays]
     .map((proposal) => {
       const already = existing.some((c) => covers(c, proposal));
-      return {
-        ...proposal,
-        existing: already,
-        selected: proposal.inSeason && !already && !proposal.duringHolidays,
-      };
+      return { ...proposal, existing: already, selected: proposal.inSeason && !already };
     })
     .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.kind.localeCompare(b.kind));
+  return followSelection(proposals.map((p) => ({ ...p, checked: p.selected, auto: true }))).map(
+    ({ checked, auto: _auto, ...proposal }) => ({ ...proposal, selected: checked }),
+  );
+}
+
+/** Ligne de l'assistant : proposition et état de sa case. */
+export interface ProposalRow extends ClosureProposal {
+  checked: boolean;
+  /** Jour férié dont la case suit les périodes cochées (pas encore modifiée à la main). */
+  auto: boolean;
+}
+
+/**
+ * Période cochée de la saison qui couvre le jour férié (dates éventuellement
+ * modifiées dans l'assistant) ; nulle sinon.
+ */
+export function coveringPeriod(
+  holiday: Pick<ClosureProposal, "startDate">,
+  rows: readonly Pick<
+    ProposalRow,
+    "kind" | "inSeason" | "checked" | "startDate" | "endDate" | "label"
+  >[],
+): string | null {
+  const period = rows.find(
+    (row) =>
+      row.kind === "school" &&
+      row.inSeason &&
+      row.checked &&
+      isDateInRange(holiday.startDate, row.startDate, row.endDate || row.startDate),
+  );
+  return period?.label ?? null;
+}
+
+/**
+ * Suit la sélection en direct (B9) : un jour férié est « compris dans » une
+ * période seulement si elle est cochée ; tant que sa case n'a pas été modifiée
+ * à la main, il est décoché quand une période cochée le couvre et recoché
+ * sinon (sauf s'il est déjà saisi).
+ */
+export function followSelection<T extends ProposalRow>(rows: readonly T[]): T[] {
+  return rows.map((row) => {
+    if (row.kind !== "public_holiday") return row;
+    const coveredBy = coveringPeriod(row, rows);
+    const checked = row.auto ? row.inSeason && !row.existing && coveredBy === null : row.checked;
+    return { ...row, coveredBy, checked };
+  });
 }
 
 /** Libellé de la fermeture créée à partir d'une proposition. */

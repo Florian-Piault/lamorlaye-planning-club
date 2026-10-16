@@ -34,8 +34,10 @@ interface ToastMessage extends ToastOptions {
 }
 
 interface ToastApi {
-  success: (message: string, options?: ToastOptions) => void;
-  error: (message: string, options?: ToastOptions) => void;
+  /** Affiche un succès ; renvoie son identifiant (pour `dismiss`). */
+  success: (message: string, options?: ToastOptions) => number;
+  /** Affiche une erreur ; renvoie son identifiant (pour `dismiss`). */
+  error: (message: string, options?: ToastOptions) => number;
   /** Ferme le toast affiché ; avec `id`, seulement s'il est encore celui-là. */
   dismiss: (id?: number) => void;
 }
@@ -90,18 +92,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     previous?.onDismiss?.();
   }, []);
 
-  const api = useMemo<ToastApi>(
-    () => ({
-      success: (message, options) =>
-        replace({ ...options, id: ++counter.current, kind: "success", message }),
-      error: (message, options) =>
-        replace({ ...options, id: ++counter.current, kind: "error", message }),
+  const api = useMemo<ToastApi>(() => {
+    const show = (kind: ToastMessage["kind"], message: string, options?: ToastOptions) => {
+      const id = ++counter.current;
+      replace({ ...options, id, kind, message });
+      return id;
+    };
+    return {
+      success: (message, options) => show("success", message, options),
+      error: (message, options) => show("error", message, options),
       dismiss: (id) => {
         if (id === undefined || current.current?.id === id) replace(null);
       },
-    }),
-    [replace],
-  );
+    };
+  }, [replace]);
 
   const view = (kind: ToastMessage["kind"]) =>
     toast?.kind === kind && <ToastView key={toast.id} toast={toast} onClose={api.dismiss} />;
@@ -129,7 +133,7 @@ export function useToast(): ToastApi {
   return useContext(ToastContext) ?? silent;
 }
 
-const silent: ToastApi = { success: () => {}, error: () => {}, dismiss: () => {} };
+const silent: ToastApi = { success: () => 0, error: () => 0, dismiss: () => {} };
 
 function ToastView({ toast, onClose }: { toast: ToastMessage; onClose: (id: number) => void }) {
   const [hovered, setHovered] = useState(false);

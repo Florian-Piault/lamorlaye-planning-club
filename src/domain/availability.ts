@@ -5,7 +5,7 @@
  * `[début, fin[` en minutes depuis minuit. Après chaque modification, les
  * plages d'un même jour sont fusionnées (chevauchantes ou contiguës).
  */
-import { minutesToTime, timeToMinutes } from "./time";
+import { minutesToTime, timeToMinutes, weekdayLabel } from "./time";
 
 export interface WeeklySlot {
   weekday: number;
@@ -159,4 +159,161 @@ export function uncoveredIntervals(
     (rest, interval) => subtractInterval(rest, interval),
     dayEnd > dayStart ? [{ start: dayStart, end: dayEnd }] : [],
   );
+}
+
+/** Le créneau `[start, end[` recoupe-t-il au moins une plage du jour ? */
+export function overlapsAvailability(
+  slots: readonly WeeklySlot[],
+  weekday: number,
+  start: number,
+  end: number,
+): boolean {
+  return intervalsOfDay(slots, weekday).some((i) => i.start < end && start < i.end);
+}
+
+// ---------------------------------------------------------------------------
+// Frise de saisie (§3.3)
+// ---------------------------------------------------------------------------
+
+/** Pas de la frise : celui des cours (§3.6). */
+export const AVAILABILITY_STEP = 15;
+
+/**
+ * Seuil de glisser (pixels) : en deçà, l'appui-relâche est un clic simple, qui
+ * pré-remplit le formulaire sans rien enregistrer.
+ */
+export const DRAG_THRESHOLD_PX = 4;
+
+/** Le pointeur s'est-il assez déplacé depuis l'appui pour que le geste soit un glisser ? */
+export function isDragGesture(dx: number, dy: number, threshold = DRAG_THRESHOLD_PX): boolean {
+  return Math.hypot(dx, dy) >= threshold;
+}
+
+/**
+ * Minute (non arrondie) sous le pointeur, dans une rangée de la frise de
+ * largeur `width` qui couvre `[dayStart, dayEnd]` ; bornée à la rangée.
+ */
+export function minuteAtOffset(
+  offset: number,
+  width: number,
+  dayStart: number,
+  dayEnd: number,
+): number {
+  if (width <= 0) return dayStart;
+  const ratio = Math.min(1, Math.max(0, offset / width));
+  return dayStart + ratio * (dayEnd - dayStart);
+}
+
+/** Début de la case contenant la minute `minute`. */
+export function cellStart(
+  minute: number,
+  dayStart: number,
+  dayEnd: number,
+  step = AVAILABILITY_STEP,
+): number {
+  const cell = dayStart + Math.floor((minute - dayStart) / step) * step;
+  return Math.min(Math.max(cell, dayStart), Math.max(dayStart, dayEnd - step));
+}
+
+/** Limite de case la plus proche de la minute `minute`. */
+export function nearestBoundary(
+  minute: number,
+  dayStart: number,
+  dayEnd: number,
+  step = AVAILABILITY_STEP,
+): number {
+  const boundary = dayStart + Math.round((minute - dayStart) / step) * step;
+  return Math.min(Math.max(boundary, dayStart), dayEnd);
+}
+
+/**
+ * Bornes d'une plage tracée au cliquer-glisser (B6), dans les deux sens :
+ * chaque extrémité (appui et relâchement) est la limite de case la plus
+ * proche du pointeur (du repère « 14h » au repère « 18h », ou l'inverse,
+ * donne 14:00–18:00). La plage fait au moins une case, du côté du glisser.
+ * La case entière n'est retenue que pour le clic simple (`clickPrefill`).
+ */
+export function draggedRange(
+  anchor: number,
+  pointer: number,
+  dayStart: number,
+  dayEnd: number,
+  step = AVAILABILITY_STEP,
+): Interval {
+  const from = nearestBoundary(anchor, dayStart, dayEnd, step);
+  const to = nearestBoundary(pointer, dayStart, dayEnd, step);
+  if (Math.abs(to - from) >= step) return { start: Math.min(from, to), end: Math.max(from, to) };
+  // Moins d'une case : une case, du côté où va le pointeur, dans l'amplitude.
+  const start =
+    pointer >= anchor
+      ? Math.min(from, Math.max(dayStart, dayEnd - step))
+      : Math.max(dayStart, from - step);
+  return { start, end: Math.min(dayEnd, start + step) };
+}
+
+export interface SlotDraft {
+  weekday: number;
+  start: number;
+  end: number;
+}
+
+/**
+ * Formulaire pré-rempli par un clic simple dans la frise : sur une case
+ * disponible, la plage entière (`existing`) ; sur une case vide, l'heure
+ * cliquée plus une heure, bornée à la fin de journée.
+ */
+export function clickPrefill(
+  slots: readonly WeeklySlot[],
+  weekday: number,
+  minute: number,
+  dayStart: number,
+  dayEnd: number,
+  step = AVAILABILITY_STEP,
+): SlotDraft & { existing: boolean } {
+  const cell = cellStart(minute, dayStart, dayEnd, step);
+  const interval = intervalsOfDay(slots, weekday).find((i) => i.start <= cell && cell < i.end);
+  if (interval) return { weekday, start: interval.start, end: interval.end, existing: true };
+  return { weekday, start: cell, end: Math.min(cell + 60, dayEnd), existing: false };
+}
+
+/** Le créneau `[start, end[` est-il déjà entièrement disponible (« Ajouter » sans effet) ? */
+export function isFullyAvailable(
+  slots: readonly WeeklySlot[],
+  weekday: number,
+  start: number,
+  end: number,
+): boolean {
+  return end > start && isAvailableDuring(slots, weekday, start, end);
+}
+
+export interface AvailabilityChange {
+  slots: WeeklySlot[];
+  /** Annonce de ce qui a réellement changé : « Lundi 14:00–18:00 ajouté ». */
+  message: string;
+}
+
+/**
+ * Rend le moniteur disponible ou indisponible sur `[start, end[` le jour
+ * donné, et décrit ce qui a réellement changé (plages avant / après), pas la
+ * plage demandée : retirer 10:00–20:00 d'une plage 14:00–18:00 annonce
+ * « 14:00–18:00 retiré ». Renvoie `null` si rien ne change.
+ */
+export function availabilityChange(
+  slots: readonly WeeklySlot[],
+  weekday: number,
+  start: number,
+  end: number,
+  available: boolean,
+): AvailabilityChange | null {
+  const next = setAvailability(slots, weekday, start, end, available);
+  const before = intervalsOfDay(slots, weekday);
+  const after = intervalsOfDay(next, weekday);
+  const [larger, smaller] = available ? [after, before] : [before, after];
+  const changed = smaller.reduce((rest, interval) => subtractInterval(rest, interval), larger);
+  if (changed.length === 0) return null;
+  const ranges = changed.map((i) => `${minutesToTime(i.start)}–${minutesToTime(i.end)}`).join(", ");
+  return {
+    slots: next,
+    message: `${weekdayLabel(weekday)} ${ranges} ${available ? "ajouté" : "retiré"}`,
+  };
 }

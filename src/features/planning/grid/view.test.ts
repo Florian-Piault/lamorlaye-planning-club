@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createConflictIndex, slotFromLesson } from "@/domain/conflicts";
 import { lesson } from "@/test/planning";
 import {
+  busyLabel,
   candidateSlot,
   candidateWarnings,
   displayedCourts,
@@ -224,5 +225,93 @@ describe("choix du moniteur", () => {
       ["m1", false, "indisponible"],
       ["m2", false, "aucune disponibilité saisie"],
     ]);
+  });
+
+  describe("en trois groupes : disponibles, occupés, indisponibles", () => {
+    const h = (hours: number, minutes = 0) => hours * 60 + minutes;
+    const team = [
+      {
+        id: "karim",
+        availabilities: [{ weekday: 3, startTime: "13:00", endTime: "19:00" }],
+        unavailabilities: [],
+      },
+      {
+        id: "julie",
+        availabilities: [{ weekday: 3, startTime: "13:00", endTime: "19:00" }],
+        unavailabilities: [],
+      },
+      {
+        id: "marc",
+        availabilities: [{ weekday: 3, startTime: "16:00", endTime: "19:00" }],
+        unavailabilities: [],
+      },
+      { id: "lea", availabilities: [], unavailabilities: [] },
+    ];
+    const galaxie = {
+      id: "l1",
+      date: null,
+      weekday: 3,
+      start: h(17),
+      end: h(18),
+      instructorId: "julie",
+      label: busyLabel("Galaxie vert", h(17), h(18)),
+    };
+    const ados = { ...galaxie, id: "l2", instructorId: "marc", label: "Ados 14:00–15:00" };
+    const slot = { date: null, weekday: 3, start: h(14), end: h(18) };
+    const rows = (choices: ReturnType<typeof instructorChoices>) =>
+      choices.map((c) => [c.instructor.id, c.status, c.note]);
+
+    it("range parmi les occupés un moniteur dont un cours chevauche une partie du créneau", () => {
+      expect(galaxie.label).toBe("Galaxie vert 17:00–18:00");
+      expect(rows(instructorChoices(team, { ...slot, start: h(17, 45) }, [galaxie]))).toEqual([
+        ["karim", "available", null],
+        ["marc", "available", null],
+        ["julie", "busy", "Galaxie vert 17:00–18:00"],
+        ["lea", "unavailable", "aucune disponibilité saisie"],
+      ]);
+      // Créneau contigu (18:00) : pas de chevauchement.
+      expect(
+        instructorChoices(team, { ...slot, start: h(18), end: h(19) }, [galaxie]).find(
+          (c) => c.instructor.id === "julie",
+        )?.status,
+      ).toBe("available");
+      // Autre jour : pas occupé.
+      expect(
+        instructorChoices(team, { ...slot, weekday: 4 }, [galaxie]).every(
+          (c) => c.status === "unavailable",
+        ),
+      ).toBe(true);
+    });
+
+    it("ne compte pas le cours en cours d'édition", () => {
+      const editing = { date: null, weekday: 3, start: h(17), end: h(18) };
+      expect(
+        instructorChoices(team, editing, [galaxie], "l1").find((c) => c.instructor.id === "julie"),
+      ).toMatchObject({ status: "available", available: true, note: null });
+    });
+
+    it("range parmi les indisponibles un moniteur occupé et hors disponibilités, une seule fois", () => {
+      const choices = instructorChoices(team, slot, [galaxie, ados]);
+      expect(rows(choices)).toEqual([
+        ["karim", "available", null],
+        ["julie", "busy", "Galaxie vert 17:00–18:00"],
+        ["marc", "unavailable", "indisponible, Ados 14:00–15:00"],
+        ["lea", "unavailable", "aucune disponibilité saisie"],
+      ]);
+      expect(new Set(choices.map((c) => c.instructor.id)).size).toBe(team.length);
+    });
+
+    it("compare les dates en semaine datée", () => {
+      const dated = { ...galaxie, date: "2026-11-04" };
+      const other = { ...slot, date: "2026-11-11" };
+      expect(
+        instructorChoices(team, other, [dated]).find((c) => c.instructor.id === "julie")?.status,
+      ).toBe("available");
+      expect(
+        instructorChoices(team, { ...slot, date: "2026-11-04" }, [dated]).find(
+          (c) => c.instructor.id === "julie",
+        )?.status,
+      ).toBe("busy");
+    });
   });
 });

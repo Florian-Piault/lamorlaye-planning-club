@@ -56,6 +56,8 @@ export type DragState =
 export interface InteractionState {
   hoverInstructorId: string | null;
   pinnedInstructorId: string | null;
+  /** Moniteur choisi dans le panneau du cours ouvert (B8). */
+  panelInstructorId: string | null;
   drag: DragState | null;
   pointer: PointerPosition | null;
   /** Brouillon du panneau « Nouveau cours », dessiné en pointillés. */
@@ -65,6 +67,7 @@ export interface InteractionState {
 const initialState: InteractionState = {
   hoverInstructorId: null,
   pinnedInstructorId: null,
+  panelInstructorId: null,
   drag: null,
   pointer: null,
   draft: null,
@@ -101,10 +104,15 @@ export function useInteraction<T>(
   return useSyncExternalStore(store.subscribe, getSnapshot);
 }
 
-/** Moniteur dont les indisponibilités sont hachurées (§4.4). */
+/**
+ * Moniteur dont les indisponibilités sont hachurées (§4.4) : celui du glisser
+ * en cours, sinon celui choisi dans le panneau du cours (B8), sinon le
+ * moniteur survolé, sinon celui épinglé dans la légende.
+ */
 export function hatchedInstructorId(state: InteractionState): string | null {
   return (
     (state.drag && state.drag.kind !== "select" ? state.drag.instructorId : null) ??
+    state.panelInstructorId ??
     state.hoverInstructorId ??
     state.pinnedInstructorId
   );

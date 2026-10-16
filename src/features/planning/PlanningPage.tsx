@@ -86,6 +86,7 @@ import {
   weekNeighbours,
 } from "./grid/items";
 import {
+  busyLabel,
   type CandidateLesson,
   candidateWarnings,
   displayedCourts,
@@ -737,6 +738,25 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     [interaction],
   );
 
+  const onPanelInstructorChange = useCallback(
+    (instructorId: string | null) => interaction.update({ panelInstructorId: instructorId }),
+    [interaction],
+  );
+
+  // Cours placés, désignés par leur groupe et leur horaire : moniteurs occupés (§5.1).
+  const busySlots = useMemo(
+    () =>
+      slots.map((slot) => ({
+        ...slot,
+        label: busyLabel(
+          slot.groupId ? (groupsById.get(slot.groupId)?.name ?? null) : null,
+          slot.start,
+          slot.end,
+        ),
+      })),
+    [slots, groupsById],
+  );
+
   const panelWarnings = (itemId: string) => (values: LessonFormValues) =>
     warningMessages(
       candidateWarnings(
@@ -967,6 +987,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     onSubmit: submitPanel,
     onClose: requestClosePanel,
     onDirtyChange: onPanelDirtyChange,
+    onInstructorChange: onPanelInstructorChange,
+    busySlots,
     onCreateGroup: createQuickGroup,
     dayHeading: headingOf,
     dateOf,
@@ -1010,6 +1032,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       mode: "edit" as const,
       initialValues,
       warningsOf: panelWarnings(item.id),
+      excludedId: item.id,
     };
     if (item.kind === "lesson") {
       return <LessonPanel key={stamp} {...common} onDelete={() => removeLesson(item.id)} />;

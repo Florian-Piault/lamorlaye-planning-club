@@ -24,8 +24,9 @@ import {
 } from "@/domain/commands";
 import { daysBetween } from "@/domain/dates";
 import {
-  type ClosureProposal,
   closureProposals,
+  followSelection,
+  type ProposalRow,
   proposalClosureLabel,
   SCHOOL_CALENDAR,
 } from "@/domain/schoolCalendar";
@@ -252,13 +253,10 @@ function ClosureForm({
   );
 }
 
-interface Row extends ClosureProposal {
-  checked: boolean;
-}
-
 /**
  * Assistant de pré-remplissage (§3.8) : propositions cochées par défaut,
- * dates modifiables, ajout en une seule opération.
+ * dates modifiables, ajout en une seule opération. Les cases des jours fériés
+ * suivent en direct les périodes cochées qui les couvrent (B9).
  */
 function ClosureAssistant({
   season,
@@ -272,16 +270,21 @@ function ClosureAssistant({
   onCancel: () => void;
 }) {
   const initial = useMemo(
-    () => closureProposals(season, closures).map((p) => ({ ...p, checked: p.selected })),
+    (): ProposalRow[] =>
+      closureProposals(season, closures).map((p) => ({
+        ...p,
+        checked: p.selected,
+        auto: p.kind === "public_holiday",
+      })),
     [season, closures],
   );
-  const [rows, setRows] = useState<Row[]>(initial);
+  const [rows, setRows] = useState<ProposalRow[]>(initial);
   const [error, setError] = useState<string | null>(null);
   useDirtyGuard(!sameValues(rows, initial));
   const cancel = useGuardedCancel(onCancel);
-  const set = (id: string, patch: Partial<Row>) => {
+  const set = (id: string, patch: Partial<ProposalRow>) => {
     setError(null);
-    setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setRows((list) => followSelection(list.map((r) => (r.id === id ? { ...r, ...patch } : r))));
   };
   const chosen = rows.filter((r) => r.checked && r.inSeason);
 
@@ -319,7 +322,7 @@ function ClosureAssistant({
                 aria-label={`${proposalClosureLabel(row)} ${describePeriod(row.startDate, row.endDate)}`}
                 checked={row.checked && !disabled}
                 disabled={disabled}
-                onChange={(e) => set(row.id, { checked: e.target.checked })}
+                onChange={(e) => set(row.id, { checked: e.target.checked, auto: false })}
               />
               <div className="min-w-0">
                 <div className="font-medium">
@@ -334,9 +337,9 @@ function ClosureAssistant({
                       déjà saisie
                     </Badge>
                   )}
-                  {row.duringHolidays && (
+                  {row.coveredBy && (
                     <Badge variant="outline" className="ml-2">
-                      pendant les vacances
+                      compris dans {row.coveredBy}
                     </Badge>
                   )}
                 </div>

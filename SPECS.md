@@ -55,8 +55,8 @@ Tous les enregistrements portent un **UUID** comme identifiant ainsi que les cha
 - Couleur (voir §6), initiales (calculées, modifiables).
 - Disponibilités :
   - **Plages hebdomadaires récurrentes** : jour + heure début + heure fin (plusieurs par jour possibles).
-    - Saisie dans une frise : cliquer-glisser trace une plage (ou l'efface en partant d'une case disponible). Un clic simple n'enregistre rien : il pré-remplit le formulaire « Jour / De / À » et y place le focus (case vide : l'heure cliquée plus une heure, bouton « Ajouter » ; case disponible : la plage entière, boutons « Ajouter » et « Retirer »).
-    - Chaque modification enregistrée est annoncée par un toast avec « Annuler », qui rétablit les plages précédentes.
+    - Saisie dans une frise : cliquer-glisser trace une plage (ou l'efface en partant d'une case disponible). Les deux extrémités (appui et relâchement) sont la limite de case (15 min) la plus proche du pointeur, dans les deux sens : glisser du repère « 14h » au repère « 18h », ou l'inverse, donne 14:00–18:00 ; la plage fait au moins une case. En deçà d'un seuil de quelques pixels, le geste est un clic simple (seul cas où la case cliquée entière compte). Un clic simple n'enregistre rien : il pré-remplit le formulaire « Jour / De / À » et y place le focus (case vide : l'heure cliquée plus une heure, bouton « Ajouter » ; case disponible : la plage entière, boutons « Ajouter » et « Retirer »).
+    - Chaque modification enregistrée est annoncée par un toast avec « Annuler », qui rétablit les plages précédentes. Le toast décrit ce qui a réellement changé (retirer 10:00–20:00 d'une plage 14:00–18:00 annonce « 14:00–18:00 retiré ») ; un geste qui ne change rien n'enregistre ni n'annonce rien, et « Ajouter » (ou « Retirer ») est grisé quand il serait sans effet. Le toast est fermé quand on quitte la fiche du moniteur.
   - **Indisponibilités datées** : date/heure début → date/heure fin + motif libre (congé, maladie, tournoi…).
 - Actif oui/non.
 
@@ -122,6 +122,7 @@ Maquette de référence : `maquettes/vue-semaine.html`, onglet A.
 
 - La grille reste épurée par défaut.
 - Au **survol ou au déplacement d'un cours**, ou au **clic sur un moniteur de la légende**, les créneaux où ce moniteur est **indisponible** sont hachurés.
+- Un seul moniteur est hachuré à la fois, par ordre de priorité : celui du cours glissé, celui choisi dans le panneau du cours ouvert, celui du cours survolé, celui épinglé dans la légende.
 
 ## 5. Création et édition des cours
 

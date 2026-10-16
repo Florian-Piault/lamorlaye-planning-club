@@ -68,11 +68,14 @@ test.describe("rien ne bouge sous le curseur", () => {
     await form.getByRole("button", { name: "Masquer les autres messages" }).click();
     expect(await position(create)).toEqual(before);
 
-    // Survol d'un cours : la pastille des hachures tient dans la barre de mode (B7).
+    // Survol d'un cours : la pastille des hachures tient dans la barre de mode (B7) ;
+    // elle garde le moniteur choisi dans le panneau plutôt que celui survolé (B8).
     const modeBar = page.getByTestId("mode-bar");
     const barHeight = (await modeBar.boundingBox())?.height;
     await lesson(page, "Ados perfectionnement").hover();
-    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Julie Martin");
+    await expect(page.getByTestId("hatch-info")).toHaveText(
+      "Hachures : Marc Leroy (aucune disponibilité)",
+    );
     expect((await modeBar.boundingBox())?.height).toBe(barHeight);
     expect(await position(create)).toEqual(before);
   });
@@ -184,7 +187,7 @@ test.describe("rien ne bouge sous le curseur", () => {
       .click();
     await tab(page, "Moniteurs").click();
     await page.getByRole("link", { name: /Julie/ }).first().click();
-    const addSlot = page.getByRole("form", { name: "Ajouter une plage" });
+    const addSlot = page.getByRole("form", { name: "Saisir une plage" });
     const add = addSlot.getByRole("button", { name: "Ajouter la plage" });
     await expect(add).toBeEnabled();
     await addSlot.getByLabel("De").selectOption("14:00");

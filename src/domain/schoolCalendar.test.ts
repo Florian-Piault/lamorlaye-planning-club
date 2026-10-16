@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { isoWeekday } from "./dates";
 import {
   closureProposals,
+  coveringPeriod,
   easterSunday,
+  followSelection,
+  type ProposalRow,
   proposalClosureLabel,
   publicHolidays,
   publicHolidaysBetween,
@@ -89,14 +92,23 @@ describe("assistant de pré-remplissage des fermetures", () => {
     expect(school.find((p) => p.label === "Vacances d'été")?.selected).toBe(false);
 
     const toussaint = proposals.find((p) => p.id === "ferie:2026-11-01");
-    expect(toussaint).toMatchObject({ duringHolidays: true, selected: false });
+    expect(toussaint).toMatchObject({
+      coveredBy: "Vacances de la Toussaint",
+      selected: false,
+    });
     const armistice = proposals.find((p) => p.id === "ferie:2026-11-11");
     expect(armistice).toMatchObject({
       label: "Armistice 1918",
       selected: true,
       detail: "Jour férié — 11/11/2026",
     });
-    expect(proposals.find((p) => p.id === "ferie:2027-05-06")?.duringHolidays).toBe(true);
+    expect(armistice?.coveredBy).toBeNull();
+    // Le pont de l'Ascension compte comme des vacances : proposé et coché.
+    expect(proposals.find((p) => p.id === "2026-2027:ascension")?.selected).toBe(true);
+    expect(proposals.find((p) => p.id === "ferie:2027-05-06")).toMatchObject({
+      coveredBy: "Pont de l'Ascension",
+      selected: false,
+    });
     expect(proposals.find((p) => p.id === "ferie:2027-05-17")?.selected).toBe(true);
     // Triées par date.
     const dates = proposals.map((p) => p.startDate);
@@ -130,6 +142,78 @@ describe("assistant de pré-remplissage des fermetures", () => {
     expect(short.find((p) => p.id === "2026-2027:noel")).toMatchObject({
       startDate: "2026-12-19",
       endDate: "2026-12-31",
+    });
+  });
+
+  describe("jours fériés et périodes cochées (B9)", () => {
+    const rows = (): ProposalRow[] =>
+      closureProposals(season, []).map((p) => ({
+        ...p,
+        checked: p.selected,
+        auto: p.kind === "public_holiday",
+      }));
+    const toggle = (list: ProposalRow[], id: string, checked: boolean, auto = false) =>
+      followSelection(list.map((r) => (r.id === id ? { ...r, checked, auto } : r)));
+    const find = (list: ProposalRow[], id: string) => list.find((r) => r.id === id);
+
+    it("pont coché : l'Ascension et le 8 mai sont décochés et nomment le pont", () => {
+      const list = followSelection(rows());
+      for (const id of ["ferie:2027-05-06", "ferie:2027-05-08"]) {
+        expect(find(list, id)).toMatchObject({ checked: false, coveredBy: "Pont de l'Ascension" });
+      }
+    });
+
+    it("pont décoché : les jours fériés se recochent, et se décochent s'il est recoché", () => {
+      const unchecked = toggle(rows(), "2026-2027:ascension", false);
+      for (const id of ["ferie:2027-05-06", "ferie:2027-05-08"]) {
+        expect(find(unchecked, id)).toMatchObject({ checked: true, coveredBy: null });
+      }
+      const again = toggle(unchecked, "2026-2027:ascension", true);
+      expect(find(again, "ferie:2027-05-06")).toMatchObject({
+        checked: false,
+        coveredBy: "Pont de l'Ascension",
+      });
+    });
+
+    it("suit les dates modifiées de la période", () => {
+      const list = followSelection(
+        rows().map((r) => (r.id === "2026-2027:ascension" ? { ...r, endDate: "2027-05-07" } : r)),
+      );
+      expect(find(list, "ferie:2027-05-06")?.checked).toBe(false);
+      expect(find(list, "ferie:2027-05-08")).toMatchObject({ checked: true, coveredBy: null });
+    });
+
+    it("garde le choix fait à la main sur un jour férié", () => {
+      const manual = toggle(rows(), "ferie:2027-05-06", true);
+      expect(find(manual, "ferie:2027-05-06")).toMatchObject({
+        checked: true,
+        coveredBy: "Pont de l'Ascension",
+      });
+      const unchecked = toggle(manual, "2026-2027:ascension", false);
+      expect(find(unchecked, "ferie:2027-05-06")?.checked).toBe(true);
+    });
+
+    it("ne recoche pas un jour férié déjà saisi", () => {
+      const list = closureProposals(season, [
+        { startDate: "2027-05-06", endDate: "2027-05-06" },
+      ]).map((p) => ({ ...p, checked: p.selected, auto: p.kind === "public_holiday" }));
+      const unchecked = toggle(list, "2026-2027:ascension", false);
+      expect(find(unchecked, "ferie:2027-05-06")).toMatchObject({ existing: true, checked: false });
+    });
+
+    it("ignore une période hors saison", () => {
+      expect(
+        coveringPeriod({ startDate: "2027-07-14" }, [
+          {
+            kind: "school",
+            label: "Vacances d'été",
+            inSeason: false,
+            checked: true,
+            startDate: "2027-07-03",
+            endDate: "2027-09-01",
+          },
+        ]),
+      ).toBeNull();
     });
   });
 

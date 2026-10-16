@@ -148,6 +148,56 @@ test.describe("grille semaine type", () => {
       );
   });
 
+  test("range les moniteurs occupés à part et hachure le moniteur du panneau (B8)", async ({
+    page,
+  }) => {
+    await openPlanning(page);
+    await page.getByRole("button", { name: "Nouveau cours" }).click();
+    const form = panel(page, "Nouveau cours");
+    const instructor = form.getByLabel("Moniteur", { exact: true });
+    const group = (label: string) => instructor.locator(`optgroup[label="${label}"] option`);
+    await form.getByLabel("Jour").selectOption({ label: "Lundi" });
+    await form.getByLabel("Début").selectOption({ label: "10:30" });
+    // Karim donne « Galaxie vert » de 10:00 à 11:00 : chevauchement partiel.
+    await expect(group("Disponibles")).toHaveCount(0);
+    await expect(group("Occupés sur ce créneau")).toHaveText([
+      "◐ Karim Benali (Galaxie vert 10:00–11:00)",
+    ]);
+    await expect(group("Indisponibles sur ce créneau")).toHaveText([
+      "○ Marc Leroy (aucune disponibilité saisie)",
+      "○ Julie Martin (indisponible)",
+    ]);
+    // Tous restent sélectionnables ; le conflit est signalé.
+    await instructor.selectOption({ label: "◐ Karim Benali (Galaxie vert 10:00–11:00)" });
+    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toContainText(
+      "Karim",
+    );
+
+    // Le moniteur du panneau passe avant le survol pour les hachures.
+    await instructor.selectOption({ label: "○ Julie Martin (indisponible)" });
+    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Julie Martin");
+    await lesson(page, "Galaxie vert").hover();
+    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Julie Martin");
+    await form.getByRole("button", { name: "Fermer", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Abandonner les modifications ?" })
+      .getByRole("button", { name: /Abandonner/ })
+      .click();
+    await expect(form).toBeHidden();
+
+    // Le cours édité n'est pas compté : Karim reste disponible pour « Galaxie vert ».
+    await lesson(page, "Galaxie vert").click();
+    const edit = panel(page, "Modifier le cours");
+    await expect(
+      edit.getByLabel("Moniteur", { exact: true }).locator('optgroup[label="Disponibles"] option'),
+    ).toHaveText(["● Karim Benali"]);
+    await expect(
+      edit
+        .getByLabel("Moniteur", { exact: true })
+        .locator('optgroup[label="Occupés sur ce créneau"] option'),
+    ).toHaveCount(0);
+  });
+
   test("avertit en temps réel dans le panneau ; un clic dans le vide le ferme", async ({
     page,
   }) => {

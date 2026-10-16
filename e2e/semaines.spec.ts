@@ -377,7 +377,7 @@ test.describe("périodes de fermeture", () => {
     ]) {
       await expect(checkbox(name)).toBeChecked();
     }
-    // Jours fériés pendant les vacances : proposés mais décochés.
+    // Jours fériés compris dans une période cochée : proposés mais décochés.
     for (const name of [
       "Toussaint (férié) le 01/11/2026",
       "Noël (férié) le 25/12/2026",
@@ -385,6 +385,18 @@ test.describe("périodes de fermeture", () => {
     ]) {
       await expect(checkbox(name)).not.toBeChecked();
     }
+    const ascension = dialog
+      .getByTestId("closure-proposal")
+      .filter({ hasText: "Ascension (férié)" });
+    await expect(ascension).toContainText("compris dans Pont de l'Ascension");
+    // Le calcul suit la sélection : décocher le pont recoche l'Ascension (B9).
+    const pont = checkbox("Pont de l'Ascension du 06/05/2027 au 09/05/2027");
+    await pont.uncheck();
+    await expect(checkbox("Ascension (férié) le 06/05/2027")).toBeChecked();
+    await expect(ascension).not.toContainText("compris dans");
+    await pont.check();
+    await expect(checkbox("Ascension (férié) le 06/05/2027")).not.toBeChecked();
+    await expect(ascension).toContainText("compris dans Pont de l'Ascension");
     // Début des vacances d'été : après la fin de la saison.
     await expect(checkbox("Vacances d'été du 03/07/2027 au 01/09/2027")).toBeDisabled();
     await expect(

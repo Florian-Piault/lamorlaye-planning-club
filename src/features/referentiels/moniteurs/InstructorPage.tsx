@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { useToast } from "@/components/feedback/Toast";
@@ -48,24 +48,56 @@ export function InstructorPage() {
     if (instructor) setSlots(instructor.availabilities);
   }, [instructor]);
 
-  const run = useCallback(
-    async (action: () => Promise<unknown>) => {
+  // Plages affichées, lues au moment d'un changement pour pouvoir l'annuler.
+  const currentSlots = useRef(slots);
+  currentSlots.current = slots;
+
+  /** Enregistre les plages ; renvoie faux (après le toast d'erreur) en cas d'échec. */
+  const save = useCallback(
+    async (next: WeeklySlot[]) => {
+      setSlots(next);
       try {
-        await action();
+        await replaceAvailabilities(db, id, next);
+        return true;
       } catch (e) {
         toast.error(errorMessage(e));
+        return false;
+      } finally {
+        reload();
       }
-      reload();
     },
-    [reload, toast],
+    [db, id, reload, toast],
   );
 
+  /**
+   * Chaque changement enregistré est annoncé par un toast avec « Annuler »,
+   * qui rétablit les plages précédentes (§3.3) ; pas d'historique.
+   */
+  const undoToast = useRef<number | null>(null);
   const changeSlots = useCallback(
-    (next: WeeklySlot[]) => {
-      setSlots(next);
-      run(() => replaceAvailabilities(db, id, next));
+    async (next: WeeklySlot[], message: string) => {
+      const previous = currentSlots.current;
+      if (!(await save(next))) return;
+      undoToast.current = toast.success(message, {
+        action: {
+          label: "Annuler",
+          run: async () => {
+            if (await save(previous)) toast.success(`Annulé : ${message}`);
+          },
+        },
+      });
     },
-    [db, id, run],
+    [save, toast],
+  );
+  // « Annuler » ne vaut que sur la fiche de ce moniteur : le toast est fermé
+  // quand on en sort (autre moniteur ou autre écran).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fermé au changement de moniteur.
+  useEffect(
+    () => () => {
+      if (undoToast.current !== null) toast.dismiss(undoToast.current);
+      undoToast.current = null;
+    },
+    [id, toast],
   );
 
   if (!instructor) {
