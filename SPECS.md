@@ -78,9 +78,11 @@ Tous les enregistrements portent un **UUID** comme identifiant ainsi que les cha
 - Liste des élèves (relation N-N avec Élève).
 
 ### 3.5 Élève
-- Nom, prénom, téléphone (obligatoires).
+- Prénom, nom (obligatoires ; saisis dans cet ordre, comme pour le moniteur ; les listes triées affichent « Martin Léa »).
+- **Téléphone** (v1.1) : au moins un des deux, celui de l'élève **ou** celui du responsable légal, dans la fiche comme à l'import ; le téléphone de l'élève est facultatif quand le responsable en a un. Listes (élèves, fiche groupe) : téléphone de l'élève, sinon celui du responsable suivi de « (resp.) » ; les exports et la feuille d'appel gardent deux colonnes (élève, responsable).
 - Date de naissance, niveau (référentiel), classement FFT (champ distinct, ex. « 30/2 »), e-mail.
 - Pour les mineurs : nom et téléphone du responsable légal.
+- **Niveau proposé** (v1.1) : celui du premier groupe coché, tant que l'utilisatrice n'a pas choisi le niveau (même modèle que les initiales suggérées du moniteur).
 - Un élève peut appartenir à **plusieurs groupes**.
 
 ### 3.5 bis Référentiel des niveaux
@@ -215,6 +217,12 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 Écrans de liste + fiche (création, modification, suppression avec confirmation, recherche) pour : courts, moniteurs (dont disponibilités), groupes (dont composition), élèves, périodes de fermeture, saisons, niveaux.
 
 - Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif).
+- **Saisie en volume** (v1.1) :
+  - fiche élève : « Enregistrer et ajouter un autre » (en création) enregistre, confirme par un toast « Léa Martin ajouté(e) » et rouvre une fiche vide qui **garde les groupes cochés et le niveau** ; Entrée enregistre comme « Créer l'élève » ;
+  - fiche groupe, champ « Ajouter un élève » : vidé après chaque ajout, focus conservé ; Entrée ajoute le résultat unique ou celui en surbrillance (↑/↓) ; sans résultat, « Créer « Léa Martin » » (ou Entrée) ouvre la fiche élève pré-remplie (premier mot : prénom, reste : nom), groupe coché et niveau proposé, puis revient à la fiche du groupe ;
+  - liens « Importer ou coller une liste » sur l'onglet Élèves et sur la fiche groupe (§9.1) ;
+  - création d'un groupe : on reste sur la liste ; toast « Groupe « Galaxie vert » créé » avec « Ajouter des élèves », qui ouvre la fiche, curseur dans le champ d'ajout ;
+  - les contrôles de doublon et d'âge ci-dessous s'appliquent à tous ces chemins, champs pré-remplis compris.
 - **Alerte d'âge dans la fiche élève** : l'âge est calculé au début de la saison (comme la fiche groupe et les conflits). La liste à cocher des groupes affiche la tranche de chacun (« Galaxie vert · 6–8 ans ») et une mention discrète « hors tranche » pour l'élève saisi ; l'ordre est inchangé et tous restent cochables. Sans date de naissance : tranches affichées, aucune mention. Cocher un groupe hors tranche, ou saisir une date qui met hors tranche un groupe coché, affiche l'avertissement du §7.
 - **Doublons d'élève** : vérifiés dès que nom et prénom sont saisis, en création comme en modification, contre les élèves de toutes les saisons (fiche modifiée exclue). Doublon dans la saison : avertissement et lien « Ouvrir sa fiche », qui remplace la saisie par la fiche existante (après « Abandonner les modifications ? » si la saisie a changé). Doublon seulement dans une saison passée (en création) : « Reprendre ses coordonnées » pré-remplit téléphone, e-mail, naissance, responsable légal, niveau et classement depuis la saison la plus récente où l'élève figure, **jamais ses groupes**.
 - **Homonymes** : un élève désigné seul (résultats de recherche et ajout dans la fiche groupe) porte sa date de naissance et ses groupes dès qu'un homonyme existe dans la saison ; la confirmation de suppression d'un élève les donne toujours.
@@ -229,7 +237,10 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 
 ### 9.1 Import d'élèves
 - Formats : CSV (séparateur `;` ou `,`, encodage UTF-8 ou Windows-1252 détecté) et Excel (.xlsx).
-- Assistant : choix du fichier → **correspondance colonnes / champs** → aperçu avec erreurs ligne par ligne → import.
+- **Collage depuis un tableur** (v1.1) : l'étape 1 propose « Coller depuis Excel » à côté du choix du fichier. Le texte collé suit la lecture des fichiers texte (tabulations d'Excel, fins de ligne Windows / macOS / Linux, cellules multilignes entre guillemets, dont les lignes deviennent « , ») ; correspondance, aperçu et import annulable sont inchangés (libellé « Import de 3 élèves (tableau collé) »). **Sans ligne d'en-têtes** — aucune cellule de la première ligne ne ressemble à un en-tête connu —, la case « La première ligne contient des élèves » est cochée (modifiable) et les colonnes sont nommées « Colonne A », « Colonne B »…, avec une valeur d'exemple, à associer à l'étape suivante.
+- Lancé depuis la fiche d'un groupe, l'import y inscrit les élèves si la liste n'a pas de colonne Groupe(s).
+- Validation de la fiche élève (§3.5) : nom, prénom, et téléphone de l'élève **ou** du responsable légal (au moins une des deux colonnes associée) ; colonne Niveau vide : niveau du premier groupe affecté qui en a un.
+- Assistant : choix du fichier (ou collage) → **correspondance colonnes / champs** → aperçu avec erreurs ligne par ligne → import.
 - Détection des doublons (nom + prénom + date de naissance) : ignorer ou mettre à jour.
 - Tranche d'âge (§8) : l'aperçu marque « Hors tranche » les lignes dont un groupe affecté est hors de la tranche d'âge (âge au début de la saison), avec l'avertissement du §7, et les compte en tête ; l'import n'est pas bloqué.
 
@@ -259,6 +270,7 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 ### 11.3 Stockage et sauvegarde
 - Données stockées dans une base locale unique (SQLite, voir §12) dans le dossier de données utilisateur de l'OS.
 - **Sauvegarde automatique horodatée à chaque fermeture** ; conservation des 30 dernières.
+- **Sauvegarde automatique avant migration** (v1.1) : au démarrage d'une nouvelle version, une base existante dont le schéma doit évoluer est d'abord copiée (motif « Avant mise à jour ») ; une base neuve ou déjà à jour ne l'est pas. Si la copie échoue, **rien n'est migré** : la base reste intacte, l'écran d'ouverture affiche « Impossible de sauvegarder avant la mise à jour : » suivi de la cause, avec « Réessayer » (nouvel essai complet, aussi au prochain démarrage).
 - Bouton **« Exporter une sauvegarde »** (fichier unique, ex. vers une clé USB) et **« Restaurer une sauvegarde »** (avec confirmation et sauvegarde préalable de l'état courant).
 - Enregistrement immédiat de chaque modification (pas de bouton « Enregistrer »).
 
@@ -319,7 +331,7 @@ Développement : un développeur assisté par Claude Code, principalement en Typ
   - aucune permission HTTP ;
   - pas de `tauri-plugin-updater` ;
   - polices et ressources embarquées dans l'application.
-- **Sauvegardes** : copie cohérente de la base par `VACUUM INTO` vers un fichier horodaté à la fermeture (§11.3). La restauration remplace le fichier après avoir sauvegardé l'état courant.
+- **Sauvegardes** : copie cohérente de la base par `VACUUM INTO` vers un fichier horodaté à la fermeture et avant toute migration d'une base existante (§11.3, commande `backup_before_migration`, appelée par le front avant `migrate`). La restauration remplace le fichier après avoir sauvegardé l'état courant.
 - **Abstraction de la base** : l'accès SQLite passe par une interface unique, avec une implémentation Tauri (`tauri-plugin-sql`) et une implémentation sql.js pour les tests. Cela prépare aussi une future version web.
 - **Moteurs web** : WebKit (macOS), WebView2 (Windows) et WebKitGTK (Linux). Le glisser-déposer, les polices et l'impression sont à valider sur les trois en CI ou à la main avant chaque version.
 - **Signature** : pas de signature en V1. La notice d'installation documente le contournement des alertes (macOS : clic droit puis « Ouvrir » ; Windows : « Informations complémentaires » puis « Exécuter quand même »). La signature (Apple Developer + Azure Trusted Signing) sera ajoutée en cas de diffusion plus large.

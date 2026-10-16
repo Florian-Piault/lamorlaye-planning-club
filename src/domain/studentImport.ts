@@ -4,8 +4,13 @@
  * commande inversible qui réalise l'import.
  *
  * - Les valeurs sont validées par le schéma de la fiche élève
- *   (`domain/validation.ts`) ; une ligne invalide est signalée et écartée
- *   sans bloquer les autres.
+ *   (`domain/validation.ts`), règle du téléphone comprise (élève ou
+ *   responsable légal) ; une ligne invalide est signalée et écartée sans
+ *   bloquer les autres.
+ * - Niveau : à défaut de valeur dans la colonne Niveau, celui du premier
+ *   groupe affecté qui en a un (comme la fiche élève).
+ * - Groupe pré-affecté (import lancé depuis la fiche d'un groupe) : utilisé
+ *   seulement si la colonne Groupe(s) n'est pas importée.
  * - Doublon : même nom, prénom et date de naissance (sans tenir compte de la
  *   casse ni des accents), dans la saison ou plus haut dans le fichier.
  * - Tranche d'âge : une ligne dont un groupe affecté est hors tranche (âge au
@@ -18,6 +23,7 @@ import { type Command, type CommandContext, defaultCommandContext } from "./comm
 import { ageRangeWarning, nameKey } from "./duplicates";
 import type { TableRow } from "./importFile";
 import { normalizeText } from "./search";
+import { suggestLevel } from "./students";
 import { isValidDate } from "./time";
 import { type StudentInput, studentSchema, validate } from "./validation";
 
@@ -68,7 +74,8 @@ export const IMPORT_FIELDS: readonly ImportField[] = [
   {
     key: "phone",
     label: "Téléphone",
-    required: true,
+    // Celui de l'élève ou celui du responsable légal (voir `mappingProblems`).
+    required: false,
     synonyms: [
       "telephone",
       "tel",
@@ -269,11 +276,45 @@ export function restoreMapping(
   return mapping;
 }
 
-/** Problèmes bloquants de la correspondance (champs obligatoires non associés). */
+/**
+ * Problèmes bloquants de la correspondance : champs obligatoires non
+ * associés, et au moins une colonne de téléphone (élève ou responsable).
+ */
 export function mappingProblems(mapping: ColumnMapping): string[] {
-  return IMPORT_FIELDS.filter((f) => f.required && mapping[f.key] === null).map(
+  const problems = IMPORT_FIELDS.filter((f) => f.required && mapping[f.key] === null).map(
     (f) => `Choisissez la colonne du champ « ${f.label} ».`,
   );
+  if (mapping.phone === null && mapping.guardianPhone === null) {
+    problems.push(
+      "Choisissez la colonne « Téléphone » ou « Téléphone du responsable » (au moins l'une des deux).",
+    );
+  }
+  return problems;
+}
+
+/**
+ * Ressemblance d'une cellule avec un en-tête connu : `exact` (un synonyme
+ * d'un champ, « Tél. portable »), `prefix` (un synonyme suivi d'autres mots,
+ * « Nom de l'enfant », mais aussi une donnée comme « Groupe 1 » ou « Cours
+ * ados »), sinon `null`.
+ */
+export function headerMatch(cell: string): "exact" | "prefix" | null {
+  const header = normalizeHeader(cell);
+  if (header === "") return null;
+  const synonyms = IMPORT_FIELDS.flatMap((field) => field.synonyms);
+  if (synonyms.includes(header)) return "exact";
+  return synonyms.some((synonym) => `${header} `.startsWith(`${synonym} `)) ? "prefix" : null;
+}
+
+/**
+ * Ligne d'en-têtes d'un tableau collé : une cellule égale à un en-tête connu,
+ * ou au moins deux cellules qui en commencent par un (une seule donnée comme
+ * « Groupe 1 » ne suffit pas). Sinon la première ligne contient déjà des
+ * élèves (case « La première ligne contient des élèves », modifiable).
+ */
+export function looksLikeHeaderRow(cells: readonly string[]): boolean {
+  const matches = cells.map(headerMatch);
+  return matches.includes("exact") || matches.filter((m) => m === "prefix").length >= 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -337,14 +378,21 @@ export interface ImportContext {
   /** Début de la saison : date de calcul de l'âge (alerte de tranche). */
   seasonStartDate: string;
   students: readonly Student[];
-  groups: readonly (Pick<Group, "id" | "name"> & Partial<Pick<Group, "minAge" | "maxAge">>)[];
-  levels: readonly Pick<Level, "id" | "label">[];
+  groups: readonly (Pick<Group, "id" | "name"> &
+    Partial<Pick<Group, "minAge" | "maxAge" | "levelId">>)[];
+  /** Niveaux du club ; seul un niveau actif (`active` absent : actif) est proposé depuis un groupe. */
+  levels: readonly (Pick<Level, "id" | "label"> & Partial<Pick<Level, "active">>)[];
   memberships: readonly Pick<GroupStudent, "groupId" | "studentId">[];
 }
 
 export interface ImportOptions {
   mapping: ColumnMapping;
   duplicates: DuplicateMode;
+  /**
+   * Groupes affectés à chaque ligne quand la colonne Groupe(s) n'est pas
+   * importée (import lancé depuis la fiche d'un groupe).
+   */
+  defaultGroupIds?: readonly string[];
   /** Date de référence (années sur deux chiffres). */
   today?: Date;
 }
@@ -468,6 +516,11 @@ export function planImport(
 ): ImportPlan {
   const { mapping, duplicates } = options;
   const groupsByName = new Map(context.groups.map((g) => [normalizeText(g.name), g.id]));
+  const knownGroupIds = new Set(context.groups.map((g) => g.id));
+  const defaultGroupIds =
+    mapping.groups === null
+      ? [...new Set(options.defaultGroupIds ?? [])].filter((id) => knownGroupIds.has(id))
+      : [];
   const levelsByLabel = new Map(context.levels.map((l) => [normalizeText(l.label), l.id]));
   const existingByKey = new Map<string, Student>();
   for (const student of context.students) {
@@ -480,6 +533,12 @@ export function planImport(
     set.add(groupId);
     membershipsOf.set(studentId, set);
   }
+  // Niveau proposé depuis les groupes : seulement un niveau encore actif (comme la fiche élève).
+  const activeLevels = new Set(context.levels.filter((l) => l.active !== false).map((l) => l.id));
+  const groupLevels = context.groups.map((g) => ({
+    id: g.id,
+    levelId: g.levelId && activeLevels.has(g.levelId) ? g.levelId : null,
+  }));
   const seenInFile = new Map<string, number>();
   const unknownGroups = new Map<string, string>();
   const unknownLevels = new Map<string, string>();
@@ -516,11 +575,18 @@ export function planImport(
       }
     }
 
-    const groups = resolveGroups(raw.groups, groupsByName);
+    const groups =
+      mapping.groups === null
+        ? { ids: defaultGroupIds, unknown: [] }
+        : resolveGroups(raw.groups, groupsByName);
     for (const name of groups.unknown) {
       warnings.push(`Groupe inconnu « ${name} » : l'élève n'y est pas inscrit.`);
       remember(unknownGroups, name);
     }
+    // Niveau absent du fichier : celui du premier groupe affecté (comme la fiche élève).
+    // Ce niveau proposé ne vaut que pour une création (jamais pour mettre à jour une fiche).
+    const levelProposed = raw.level === "";
+    if (levelProposed) levelId = suggestLevel(groups.ids, groupLevels) ?? "";
 
     const result = validate(studentSchema, {
       lastName: raw.lastName,
@@ -589,6 +655,8 @@ export function planImport(
     ][]) {
       const value = values[field];
       if (mapping[importKey] === null || value === null || value === existing[field]) continue;
+      // Colonne Niveau vide : le niveau du groupe ne remplace pas celui de la fiche existante.
+      if (field === "levelId" && levelProposed) continue;
       changes[field] = value;
     }
     const current = membershipsOf.get(existing.id);

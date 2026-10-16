@@ -161,7 +161,7 @@ describe("validation des fiches", () => {
     ).toEqual({ ok: false, errors: { maxSize: "Nombre d'élèves invalide." } });
   });
 
-  it("valide un élève (téléphone obligatoire)", () => {
+  it("valide un élève (téléphone de l'élève ou du responsable)", () => {
     const result = validate(studentSchema, {
       ...student,
       birthDate: "2015-03-12",
@@ -181,13 +181,49 @@ describe("validation des fiches", () => {
         guardianPhone: null,
       },
     });
-    expect(validate(studentSchema, { ...student, phone: "" })).toEqual({
-      ok: false,
-      errors: { phone: "Le téléphone est obligatoire." },
-    });
     expect(validate(studentSchema, { ...student, birthDate: "2015-02-30" })).toEqual({
       ok: false,
       errors: { birthDate: "Date invalide." },
+    });
+  });
+
+  it("exige le téléphone de l'élève ou celui du responsable légal", () => {
+    const missing = {
+      ok: false,
+      errors: { phone: "Renseignez le téléphone de l'élève ou celui du responsable légal." },
+    };
+    expect(validate(studentSchema, { ...student, phone: "" })).toEqual(missing);
+    expect(validate(studentSchema, { ...student, phone: "  ", guardianPhone: " " })).toEqual(
+      missing,
+    );
+    // Le responsable seul suffit : le téléphone de l'élève devient nul.
+    const guardianOnly = validate(studentSchema, {
+      ...student,
+      phone: "",
+      guardianName: "Paul Martin",
+      guardianPhone: "06 99 88 77 66",
+    });
+    expect(guardianOnly).toMatchObject({
+      ok: true,
+      data: { phone: null, guardianPhone: "06 99 88 77 66" },
+    });
+    // Les deux restent possibles.
+    expect(validate(studentSchema, { ...student, guardianPhone: "06 99 88 77 66" })).toMatchObject({
+      ok: true,
+      data: { phone: "06 12 34 56 78" },
+    });
+    // Signalée avec les autres erreurs, dès le premier enregistrement.
+    expect(validate(studentSchema, { ...student, lastName: "", phone: "" })).toEqual({
+      ok: false,
+      errors: {
+        lastName: "Le nom est obligatoire.",
+        phone: "Renseignez le téléphone de l'élève ou celui du responsable légal.",
+      },
+    });
+    // Un numéro invalide reste signalé comme tel.
+    expect(validate(studentSchema, { ...student, phone: "abc", guardianPhone: "" })).toEqual({
+      ok: false,
+      errors: { phone: "Numéro de téléphone invalide." },
     });
   });
 });

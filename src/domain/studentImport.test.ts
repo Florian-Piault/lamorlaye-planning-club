@@ -8,10 +8,12 @@ import {
   emptyMapping,
   fieldLabel,
   guessMapping,
+  headerMatch,
   type ImportContext,
   identityKey,
   importedStudents,
   importLabel,
+  looksLikeHeaderRow,
   mappingProblems,
   modifiedSinceImport,
   normalizeHeader,
@@ -160,9 +162,36 @@ describe("correspondance des colonnes", () => {
     expect(mappingProblems(MAPPING)).toEqual([]);
     expect(mappingProblems({ ...MAPPING, phone: null, lastName: null })).toEqual([
       "Choisissez la colonne du champ « Nom ».",
-      "Choisissez la colonne du champ « Téléphone ».",
+    ]);
+    // Téléphone de l'élève ou du responsable : au moins une des deux colonnes.
+    expect(mappingProblems({ ...MAPPING, guardianPhone: null })).toEqual([]);
+    expect(mappingProblems({ ...MAPPING, phone: null, guardianPhone: null })).toEqual([
+      "Choisissez la colonne « Téléphone » ou « Téléphone du responsable » (au moins l'une des deux).",
     ]);
     expect(fieldLabel("guardianPhone")).toBe("Téléphone du responsable");
+  });
+});
+
+describe("en-têtes d'un tableau collé", () => {
+  it("reconnaît une ligne d'en-têtes connus", () => {
+    expect(looksLikeHeaderRow(HEADERS)).toBe(true);
+    expect(looksLikeHeaderRow(["N°", "Nom de l'enfant", "Prénom de l'enfant"])).toBe(true);
+    expect(looksLikeHeaderRow(["", "PRÉNOM", ""])).toBe(true);
+    expect(headerMatch("Tél. portable")).toBe("exact");
+    expect(headerMatch("Date de naissance")).toBe("exact");
+    expect(headerMatch("Nom de l'enfant")).toBe("prefix");
+  });
+
+  it("reconnaît une première ligne d'élèves (sans en-têtes)", () => {
+    expect(looksLikeHeaderRow(["Martin", "Léa", "06 11 22 33 44", "12/03/2017"])).toBe(false);
+    expect(looksLikeHeaderRow(["Noémie", "Telier", "Galaxie vert", "zoe@exemple.fr"])).toBe(false);
+    expect(looksLikeHeaderRow(["", "  "])).toBe(false);
+    expect(headerMatch("")).toBeNull();
+    // Une seule cellule qui commence par un en-tête court reste une donnée.
+    expect(looksLikeHeaderRow(["Martin", "Léa", "Cours ados"])).toBe(false);
+    expect(looksLikeHeaderRow(["Durand", "Tom", "0611223344", "Groupe 1"])).toBe(false);
+    expect(headerMatch("Groupe 1")).toBe("prefix");
+    expect(looksLikeHeaderRow(["N°", "Nom de l'enfant", "Remarques"])).toBe(false);
   });
 });
 
@@ -247,7 +276,9 @@ describe("planImport", () => {
       options,
     );
     expect(plan.rows.map((r) => r.status)).toEqual(["error", "error", "error", "create"]);
-    expect(plan.rows[0]?.errors).toEqual(["Téléphone : le téléphone est obligatoire."]);
+    expect(plan.rows[0]?.errors).toEqual([
+      "Téléphone : renseignez le téléphone de l'élève ou celui du responsable légal.",
+    ]);
     expect(plan.rows[1]?.errors).toEqual([
       "Date de naissance : « 31/02/2015 » n'est pas une date valide.",
       "E-mail : adresse e-mail invalide.",
@@ -346,6 +377,134 @@ describe("planImport", () => {
     );
     expect(unchanged.rows[0]?.status).toBe("unchanged");
     expect(unchanged.counts.unchanged).toBe(1);
+  });
+
+  it("accepte le téléphone de l'élève ou celui du responsable légal", () => {
+    const plan = planImport(
+      [
+        line(2, { phone: "", guardianName: "Paul Éluard", guardianPhone: "622334455" }),
+        line(3, { firstName: "Tom", phone: "", guardianPhone: "" }),
+        line(4, { firstName: "Léo", phone: "0611223344", guardianPhone: "0622334455" }),
+      ],
+      context,
+      options,
+    );
+    expect(plan.rows.map((r) => r.status)).toEqual(["create", "error", "create"]);
+    expect(plan.rows[0]?.values).toMatchObject({ phone: null, guardianPhone: "0622334455" });
+    expect(plan.rows[1]?.errors).toEqual([
+      "Téléphone : renseignez le téléphone de l'élève ou celui du responsable légal.",
+    ]);
+
+    // Sans colonne Téléphone de l'élève : celle du responsable suffit.
+    const guardianOnly = planImport(
+      [row(2, ["Martin", "Tom", "0622334455"]), row(3, ["Petit", "Zoé", ""])],
+      context,
+      {
+        mapping: { ...emptyMapping(), lastName: 0, firstName: 1, guardianPhone: 2 },
+        duplicates: "ignore",
+      },
+    );
+    expect(guardianOnly.rows.map((r) => r.status)).toEqual(["create", "error"]);
+  });
+
+  it("propose le niveau du premier groupe affecté si la colonne Niveau est vide", () => {
+    const withLevels: ImportContext = {
+      ...context,
+      groups: [
+        { id: "g1", name: "Galaxie vert 1", levelId: "l-vert" },
+        { id: "g2", name: "Adultes, mardi", levelId: "l-deb" },
+        { id: "g3", name: "Compétition", levelId: null },
+      ],
+    };
+    const plan = planImport(
+      [
+        line(2, { groups: "Compétition; Galaxie vert 1; Adultes, mardi" }),
+        line(3, { firstName: "Tom", groups: "Galaxie vert 1", level: "Débutant" }),
+        line(4, { firstName: "Léo", groups: "Compétition" }),
+        line(5, { firstName: "Max", groups: "Galaxie vert 1", level: "Inconnu" }),
+      ],
+      withLevels,
+      options,
+    );
+    // Premier groupe qui a un niveau, dans l'ordre de la cellule.
+    expect(plan.rows[0]?.values?.levelId).toBe("l-vert");
+    // La colonne Niveau renseignée l'emporte, même inconnue (laissée vide, signalée).
+    expect(plan.rows[1]?.values?.levelId).toBe("l-deb");
+    expect(plan.rows[2]?.values?.levelId).toBeNull();
+    expect(plan.rows[3]?.values?.levelId).toBeNull();
+  });
+
+  it("ne propose le niveau du groupe qu'en création, et seulement s'il est actif", () => {
+    const withLevels: ImportContext = {
+      ...context,
+      students: [student("existing", { levelId: "l-deb" })],
+      memberships: [],
+      groups: [
+        { id: "g1", name: "Galaxie vert 1", levelId: "l-vert" },
+        { id: "g2", name: "Adultes, mardi", levelId: "l-ancien" },
+      ],
+      levels: [...context.levels, { id: "l-ancien", label: "Ancien", active: false }],
+    };
+    const update = { ...options, duplicates: "update" as const };
+    const plan = planImport(
+      [
+        // Fiche existante (Martin Léa) : colonne Niveau vide, groupe avec un niveau.
+        line(2, {
+          lastName: "Martin",
+          firstName: "Léa",
+          birthDate: "05/01/2015",
+          phone: "0611223344",
+          groups: "Galaxie vert 1",
+        }),
+        line(3, { firstName: "Tom", groups: "Adultes, mardi" }),
+      ],
+      withLevels,
+      update,
+    );
+    // Mise à jour : le niveau de la fiche est gardé, seule l'inscription est ajoutée.
+    expect(plan.rows[0]).toMatchObject({ status: "update", changes: {}, newGroupIds: ["g1"] });
+    // Niveau du groupe archivé : rien n'est proposé.
+    expect(plan.rows[1]?.values?.levelId).toBeNull();
+    // Une colonne Niveau renseignée met toujours la fiche à jour.
+    const explicit = planImport(
+      [
+        line(2, {
+          lastName: "Martin",
+          firstName: "Léa",
+          birthDate: "05/01/2015",
+          phone: "0611223344",
+          level: "Galaxie vert",
+        }),
+      ],
+      withLevels,
+      update,
+    );
+    expect(explicit.rows[0]?.changes).toEqual({ levelId: "l-vert" });
+  });
+
+  it("inscrit dans le groupe pré-affecté si la colonne Groupe(s) n'est pas importée", () => {
+    const withLevels: ImportContext = {
+      ...context,
+      groups: [{ id: "g1", name: "Galaxie vert 1", levelId: "l-vert" }, ...context.groups.slice(1)],
+    };
+    const noGroups = { ...MAPPING, groups: null };
+    const plan = planImport([line(2, { groups: "Compétition" })], withLevels, {
+      ...options,
+      mapping: noGroups,
+      defaultGroupIds: ["g1", "inconnu"],
+    });
+    expect(plan.rows[0]).toMatchObject({
+      status: "create",
+      groupIds: ["g1"],
+      newGroupIds: ["g1"],
+      values: { levelId: "l-vert" },
+    });
+    // Une colonne Groupe(s) importée l'emporte sur le groupe pré-affecté.
+    const withColumn = planImport([line(2, { groups: "Compétition" })], withLevels, {
+      ...options,
+      defaultGroupIds: ["g1"],
+    });
+    expect(withColumn.rows[0]?.groupIds).toEqual(["g3"]);
   });
 
   it("n'importe que les colonnes associées", () => {

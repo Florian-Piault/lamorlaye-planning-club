@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { TableHead } from "@/components/ui/table";
 import type { SortState } from "@/domain/search";
@@ -10,10 +10,12 @@ interface SearchInputProps {
   onChange: (value: string) => void;
   label: string;
   className?: string;
+  /** Attributs supplémentaires du champ (référence, clavier, rôle de liste déroulante…). */
+  inputProps?: Omit<ComponentProps<"input">, "value" | "onChange" | "type">;
 }
 
 /** Champ de recherche d'une liste. */
-export function SearchInput({ value, onChange, label, className }: SearchInputProps) {
+export function SearchInput({ value, onChange, label, className, inputProps }: SearchInputProps) {
   return (
     <div className={cn("relative w-full max-w-xs", className)}>
       <Search
@@ -21,6 +23,7 @@ export function SearchInput({ value, onChange, label, className }: SearchInputPr
         aria-hidden
       />
       <Input
+        {...inputProps}
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}

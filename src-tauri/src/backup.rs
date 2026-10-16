@@ -66,6 +66,8 @@ pub enum BackupReason {
     Closing,
     Manual,
     BeforeRestore,
+    /// Avant d'appliquer une migration du schéma à une base existante (mise à jour).
+    BeforeMigration,
 }
 
 impl BackupReason {
@@ -74,6 +76,7 @@ impl BackupReason {
             BackupReason::Closing => "fermeture",
             BackupReason::Manual => "manuelle",
             BackupReason::BeforeRestore => "avant-restauration",
+            BackupReason::BeforeMigration => "avant-migration",
         }
     }
 }
@@ -429,6 +432,24 @@ pub async fn backup_create(
         &location.0,
         &directory.0,
         BackupReason::Manual,
+        now_unix_seconds(),
+    )
+    .await?;
+    backup_info(&path).ok_or(BackupError::InvalidPath)
+}
+
+/// Copie de sécurité d'une base existante juste avant d'y appliquer une
+/// migration du schéma (mise à jour de l'application), appelée par le front
+/// au démarrage s'il reste des migrations à appliquer.
+#[tauri::command]
+pub async fn backup_before_migration(
+    location: State<'_, DatabaseLocation>,
+    directory: State<'_, BackupDirectory>,
+) -> BackupResult<BackupInfo> {
+    let path = create_backup(
+        &location.0,
+        &directory.0,
+        BackupReason::BeforeMigration,
         now_unix_seconds(),
     )
     .await?;

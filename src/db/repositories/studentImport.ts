@@ -30,11 +30,20 @@ export async function loadImportContext(db: Db, seasonId: string): Promise<Impor
   const [studentRows, groupRows, levelRows, memberships, season] = await Promise.all([
     db.select().from(students).where(eq(students.seasonId, seasonId)),
     db
-      .select({ id: groups.id, name: groups.name, minAge: groups.minAge, maxAge: groups.maxAge })
+      .select({
+        id: groups.id,
+        name: groups.name,
+        minAge: groups.minAge,
+        maxAge: groups.maxAge,
+        levelId: groups.levelId,
+      })
       .from(groups)
       .where(eq(groups.seasonId, seasonId))
       .orderBy(asc(groups.name)),
-    db.select({ id: levels.id, label: levels.label }).from(levels).orderBy(asc(levels.sortOrder)),
+    db
+      .select({ id: levels.id, label: levels.label, active: levels.active })
+      .from(levels)
+      .orderBy(asc(levels.sortOrder)),
     db
       .select({ groupId: groupStudents.groupId, studentId: groupStudents.studentId })
       .from(groupStudents)

@@ -1,11 +1,11 @@
-import { Pencil, Plus, ShieldCheck } from "lucide-react";
+import { ClipboardPaste, Pencil, Plus, ShieldCheck } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
 import { useToast } from "@/components/feedback/Toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -18,26 +18,23 @@ import { useDatabase } from "@/db/DatabaseProvider";
 import { listGroups } from "@/db/repositories/groups";
 import { listLevels } from "@/db/repositories/levels";
 import {
-  createStudent,
   deleteStudent,
   listStudentIdentities,
   listStudents,
   type StudentListItem,
-  updateStudent,
 } from "@/db/repositories/students";
 import { studentDetails } from "@/domain/duplicates";
 import { ageOn } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
+import { formatContactPhone } from "@/domain/students";
 import { formatDate } from "@/domain/time";
 import { StudentPrivacyDialog } from "@/features/rgpd/StudentPrivacyDialog";
 import { useListState } from "@/hooks/useListState";
 import { useLoader } from "@/hooks/useLoader";
 import { DeleteAction } from "../components/DeleteAction";
-import { emptyStudentValues, StudentForm, studentValues } from "./StudentForm";
+import { newStudentEditing, StudentDialog, type StudentEditing } from "./StudentDialog";
 
 type SortKey = "name" | "age" | "level" | "ranking" | "groups";
-
-type Editing = { mode: "create" } | { mode: "edit"; student: StudentListItem } | null;
 
 export function StudentsTab() {
   const { db } = useDatabase();
@@ -59,7 +56,7 @@ export function StudentsTab() {
     key: "name",
     direction: "asc",
   });
-  const [editing, setEditing] = useState<Editing>(null);
+  const [editing, setEditing] = useState<StudentEditing>(null);
   const levelOrder = useMemo(
     () => new Map((data?.levels ?? []).map((l) => [l.id, l.sortOrder])),
     [data],
@@ -79,6 +76,7 @@ export function StudentsTab() {
           s.lastName,
           s.firstName,
           s.phone,
+          s.guardianPhone,
           s.email,
           s.levelLabel,
           s.fftRanking,
@@ -116,10 +114,22 @@ export function StudentsTab() {
               : `${rows.length} sur ${students.length}`}
           </span>
           {!readOnly && (
-            <Button onClick={() => setEditing({ mode: "create" })}>
-              <Plus aria-hidden />
-              Nouvel élève
-            </Button>
+            <>
+              <Button asChild variant="outline">
+                <Link to="/import-export?import">
+                  <ClipboardPaste aria-hidden />
+                  Importer ou coller une liste
+                </Link>
+              </Button>
+              <Button
+                onClick={() =>
+                  setEditing(newStudentEditing([], data?.groups ?? [], data?.levels ?? []))
+                }
+              >
+                <Plus aria-hidden />
+                Nouvel élève
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -168,44 +178,18 @@ export function StudentsTab() {
         </TableBody>
       </Table>
 
-      <Dialog
-        open={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
-        title={
-          readOnly ? "Fiche élève" : editing?.mode === "edit" ? "Modifier l'élève" : "Nouvel élève"
-        }
-        className="max-w-2xl"
-      >
-        {editing && (
-          <StudentForm
-            // Nouvelle saisie à chaque fiche (« Ouvrir sa fiche » remplace le formulaire).
-            key={editing.mode === "edit" ? editing.student.id : "create"}
-            readOnly={readOnly}
-            season={season}
-            studentId={editing.mode === "edit" ? editing.student.id : null}
-            identities={data?.identities}
-            onOpenStudent={(id) => {
-              const student = data?.students.find((s) => s.id === id);
-              if (student) setEditing({ mode: "edit", student });
-            }}
-            initialValues={
-              editing.mode === "edit" ? studentValues(editing.student) : emptyStudentValues
-            }
-            initialGroupIds={editing.mode === "edit" ? editing.student.groups.map((g) => g.id) : []}
-            levels={data?.levels ?? []}
-            groups={data?.groups ?? []}
-            submitLabel={editing.mode === "edit" ? "Enregistrer" : "Créer l'élève"}
-            onCancel={() => setEditing(null)}
-            onSubmit={async (input, groupIds) => {
-              if (editing.mode === "edit")
-                await updateStudent(db, editing.student.id, input, groupIds);
-              else await createStudent(db, season.id, input, groupIds);
-              setEditing(null);
-              reload();
-            }}
-          />
-        )}
-      </Dialog>
+      <StudentDialog
+        editing={editing}
+        onEditingChange={setEditing}
+        season={season}
+        readOnly={readOnly}
+        students={data?.students ?? []}
+        identities={data?.identities ?? []}
+        groups={data?.groups ?? []}
+        levels={data?.levels ?? []}
+        series
+        onSaved={reload}
+      />
       <StudentPrivacyDialog
         studentId={privacy}
         allowErase={!readOnly}
@@ -266,7 +250,7 @@ const StudentRow = memo(function StudentRow({
       </TableCell>
       <TableCell>{student.levelLabel ?? "—"}</TableCell>
       <TableCell>{student.fftRanking ?? "—"}</TableCell>
-      <TableCell className="whitespace-nowrap">{student.phone}</TableCell>
+      <TableCell className="whitespace-nowrap">{formatContactPhone(student)}</TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-1">
           {student.groups.map((g) => (

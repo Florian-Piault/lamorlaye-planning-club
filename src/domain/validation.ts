@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { HEX_COLOR, normalizeColor } from "./colors";
+import { hasContactPhone, MISSING_PHONE_MESSAGE } from "./students";
 import { isValidDate, isValidTime } from "./time";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,12 +34,6 @@ const optionalPhone = z
   .trim()
   .refine((v) => v === "" || isPhone(v), "Numéro de téléphone invalide.")
   .transform((v) => (v === "" ? null : v));
-
-const requiredPhone = z
-  .string()
-  .trim()
-  .min(1, "Le téléphone est obligatoire.")
-  .refine(isPhone, "Numéro de téléphone invalide.");
 
 const date = (message: string) => z.string().refine(isValidDate, message);
 
@@ -143,17 +138,31 @@ export const groupSchema = z
     }
   });
 
-export const studentSchema = z.object({
-  lastName: requiredText("Le nom est obligatoire."),
-  firstName: requiredText("Le prénom est obligatoire."),
-  phone: requiredPhone,
-  birthDate: optionalDate,
-  levelId: optionalId,
-  fftRanking: optionalText,
-  email: optionalEmail,
-  guardianName: optionalText,
-  guardianPhone: optionalPhone,
-});
+/**
+ * Fiche élève (§3.5) : nom et prénom obligatoires ; au moins un téléphone,
+ * celui de l'élève ou celui du responsable légal (même règle à l'import).
+ */
+export const studentSchema = z
+  .object({
+    lastName: requiredText("Le nom est obligatoire."),
+    firstName: requiredText("Le prénom est obligatoire."),
+    phone: optionalPhone,
+    birthDate: optionalDate,
+    levelId: optionalId,
+    fftRanking: optionalText,
+    email: optionalEmail,
+    guardianName: optionalText,
+    guardianPhone: optionalPhone,
+  })
+  .superRefine(
+    (value, ctx) => {
+      if (!hasContactPhone(value)) {
+        ctx.addIssue({ code: "custom", path: ["phone"], message: MISSING_PHONE_MESSAGE });
+      }
+    },
+    // Signalée avec les autres erreurs, dès le premier enregistrement.
+    { when: () => true },
+  );
 
 export type SeasonFormValues = z.input<typeof seasonSchema>;
 export type SeasonInput = z.output<typeof seasonSchema>;

@@ -154,7 +154,7 @@ export function pastSeasonDuplicateMessage(existing: StudentCandidate): string {
 
 /** Coordonnées reprises d'une fiche d'une saison passée (jamais les groupes). */
 export interface ReusableDetails {
-  phone: string;
+  phone: string | null;
   email: string | null;
   birthDate: string | null;
   guardianName: string | null;

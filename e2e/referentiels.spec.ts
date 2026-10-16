@@ -289,7 +289,9 @@ test.describe("référentiels", () => {
     await dialog.getByLabel("Âge maximum").fill("10");
     await dialog.getByLabel("Élèves au maximum").fill("2");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
-    await expect(page.getByRole("heading", { name: "Galaxie vert 1" })).toBeVisible();
+    // On reste sur la liste ; le toast mène à la fiche du groupe.
+    await expect(page.getByTestId("toast")).toContainText("Groupe « Galaxie vert 1 » créé");
+    await expect(page.getByRole("table", { name: "Groupes" })).toContainText("Galaxie vert 1");
 
     await tab(page, "Élèves").click();
     await createStudent(
@@ -325,9 +327,9 @@ test.describe("référentiels", () => {
 
     const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)");
     await search.fill("tom");
-    await page.getByRole("button", { name: "Ajouter Durand Tom" }).click();
+    await page.getByRole("option", { name: "Durand Tom" }).click();
     await search.fill("zoe");
-    await page.getByRole("button", { name: "Ajouter Éluard Zoé" }).click();
+    await page.getByRole("option", { name: "Éluard Zoé" }).click();
 
     const members = page.getByRole("table", { name: "Élèves du groupe" });
     await expect(members.getByRole("row")).toHaveCount(4);
@@ -342,7 +344,7 @@ test.describe("référentiels", () => {
 
     // Glisser-déposer d'un élève trouvé sur la composition (§8).
     await search.fill("zoe");
-    const handle = page.getByRole("button", { name: "Glisser Éluard Zoé dans le groupe" });
+    const handle = page.getByRole("option", { name: "Éluard Zoé" });
     const from = await handle.boundingBox();
     const to = await members.boundingBox();
     if (!from || !to) throw new Error("éléments introuvables");

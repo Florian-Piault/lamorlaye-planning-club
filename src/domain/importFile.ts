@@ -6,7 +6,11 @@
  *   sinon Windows-1252) et du séparateur (`;`, `,` ou tabulation), puis
  *   découpage par PapaParse ;
  * - Excel : lecture du premier onglet par SheetJS ; les dates sont converties
- *   en `AAAA-MM-JJ` sans passer par un objet `Date` (pas d'effet de fuseau).
+ *   en `AAAA-MM-JJ` sans passer par un objet `Date` (pas d'effet de fuseau) ;
+ * - tableau collé depuis un tableur (« Coller depuis Excel ») : même lecture
+ *   que les fichiers texte (tabulations d'Excel, fins de ligne de chaque
+ *   système, cellules multilignes entre guillemets), avec ou sans ligne
+ *   d'en-têtes.
  *
  * Fonctions pures, sans accès au système de fichiers.
  */
@@ -20,7 +24,8 @@ export type Delimiter = (typeof DELIMITERS)[number];
 
 export type FileFormat =
   | { kind: "csv"; encoding: TextEncoding; bom: boolean; delimiter: Delimiter }
-  | { kind: "xlsx" | "xls"; sheetName: string };
+  | { kind: "xlsx" | "xls"; sheetName: string }
+  | { kind: "pasted"; delimiter: Delimiter };
 
 /** Ligne de données du fichier, avec son numéro de ligne d'origine (1 = première ligne). */
 export interface TableRow {
@@ -30,9 +35,14 @@ export interface TableRow {
 
 export interface ParsedTable {
   format: FileFormat;
-  /** En-têtes des colonnes (première ligne non vide), uniques et non vides. */
+  /**
+   * En-têtes des colonnes (première ligne non vide), uniques et non vides ;
+   * « Colonne A », « Colonne B »… si le tableau n'a pas de ligne d'en-têtes.
+   */
   headers: string[];
   rows: TableRow[];
+  /** La première ligne non vide est-elle celle des en-têtes (sinon, une ligne de données) ? */
+  headerRow: boolean;
 }
 
 /** Nombre maximal de lignes de données acceptées. */
@@ -283,34 +293,40 @@ function uniqueHeaders(cells: readonly string[], width: number): string[] {
 }
 
 /**
- * Construit le tableau : la première ligne non vide donne les en-têtes, les
- * lignes vides suivantes sont ignorées.
+ * Construit le tableau : la première ligne non vide donne les en-têtes (sauf
+ * `headerRow: false` : elle est alors une ligne de données et les colonnes
+ * sont nommées « Colonne A », « Colonne B »…), les lignes vides sont ignorées.
  */
-export function toTable(format: FileFormat, raw: readonly (readonly string[])[]): ParsedTable {
-  const headerIndex = raw.findIndex((cells) => !isBlank(cells));
-  if (headerIndex === -1) throw new ImportFileError("Le fichier est vide.");
+export function toTable(
+  format: FileFormat,
+  raw: readonly (readonly string[])[],
+  options: { headerRow?: boolean } = {},
+): ParsedTable {
+  const headerRow = options.headerRow ?? true;
+  const source = format.kind === "pasted" ? "Le tableau collé" : "Le fichier";
+  const firstIndex = raw.findIndex((cells) => !isBlank(cells));
+  if (firstIndex === -1) throw new ImportFileError(`${source} est vide.`);
   const dataRows: TableRow[] = [];
-  for (let i = headerIndex + 1; i < raw.length; i++) {
+  for (let i = headerRow ? firstIndex + 1 : firstIndex; i < raw.length; i++) {
     const cells = raw[i] as readonly string[];
     if (!isBlank(cells)) dataRows.push({ line: i + 1, cells: cells.map((c) => c.trim()) });
   }
   if (dataRows.length === 0) {
-    throw new ImportFileError("Le fichier ne contient aucune ligne après la ligne d'en-tête.");
+    throw new ImportFileError(`${source} ne contient aucune ligne après la ligne d'en-tête.`);
   }
   if (dataRows.length > MAX_IMPORT_ROWS) {
     throw new ImportFileError(
-      `Le fichier contient ${dataRows.length} lignes : ${MAX_IMPORT_ROWS} au maximum.`,
+      `${source} contient ${dataRows.length} lignes : ${MAX_IMPORT_ROWS} au maximum.`,
     );
   }
-  const width = Math.max(
-    ...[raw[headerIndex], ...dataRows.map((r) => r.cells)].map((c) => c?.length ?? 0),
-  );
-  const headers = uniqueHeaders(raw[headerIndex] ?? [], width);
+  const headerCells = headerRow ? (raw[firstIndex] ?? []) : [];
+  const width = Math.max(headerCells.length, ...dataRows.map((r) => r.cells.length));
+  const headers = uniqueHeaders(headerCells, width);
   const rows = dataRows.map((row) => ({
     line: row.line,
     cells: Array.from({ length: width }, (_, i) => row.cells[i] ?? ""),
   }));
-  return { format, headers, rows };
+  return { format, headers, rows, headerRow };
 }
 
 /** Lit un fichier d'import (CSV ou Excel) à partir de ses octets. */
@@ -326,8 +342,49 @@ export function readImportFile(bytes: Uint8Array, fileName = ""): ParsedTable {
   return toTable({ kind: "csv", encoding, bom, delimiter }, parseCsv(text, delimiter));
 }
 
+// ---------------------------------------------------------------------------
+// Tableau collé
+// ---------------------------------------------------------------------------
+
+/**
+ * Lignes d'un tableau collé depuis un tableur. Excel, LibreOffice et Numbers
+ * séparent les cellules par des tabulations et les lignes par CRLF (Windows),
+ * LF (Linux, macOS) ou CR (anciens Excel pour Mac) ; une cellule qui contient
+ * un retour à la ligne, une tabulation ou des guillemets est entourée de
+ * guillemets. Un texte sans tabulation (CSV copié) suit la détection du
+ * séparateur des fichiers. Les retours à la ligne d'une cellule deviennent
+ * « , » (plusieurs groupes saisis sur plusieurs lignes d'une même cellule).
+ */
+export function parsePastedText(text: string): { delimiter: Delimiter; rows: string[][] } {
+  const clean = text.replace(/^\uFEFF/, "");
+  const delimiter: Delimiter = countOutsideQuotes(clean, "\t") > 0 ? "\t" : detectDelimiter(clean);
+  const rows = parseCsv(clean, delimiter).map((cells) =>
+    cells.map((cell) => cell.replace(/[ \t]*(?:\r\n|\r|\n)+[ \t]*/g, ", ")),
+  );
+  return { delimiter, rows };
+}
+
+/**
+ * Lit un tableau collé. `headerRow` dit si la première ligne non vide est
+ * celle des en-têtes ; une fonction reçoit cette ligne et décide (détection
+ * des en-têtes connus, voir `looksLikeHeaderRow` dans `studentImport.ts`).
+ */
+export function readPastedText(
+  text: string,
+  headerRow: boolean | ((firstRow: readonly string[]) => boolean) = true,
+): ParsedTable {
+  if (text.trim() === "") throw new ImportFileError("Le tableau collé est vide.");
+  const { delimiter, rows } = parsePastedText(text);
+  const first = rows.find((cells) => !isBlank(cells)) ?? [];
+  const withHeaders = typeof headerRow === "function" ? headerRow(first) : headerRow;
+  return toTable({ kind: "pasted", delimiter }, rows, { headerRow: withHeaders });
+}
+
 /** Description du format détecté, pour l'interface. */
 export function describeFormat(format: FileFormat): string {
+  if (format.kind === "pasted") {
+    return `Tableau collé, séparateur ${delimiterLabel(format.delimiter)}`;
+  }
   if (format.kind === "csv") {
     return `CSV, séparateur ${delimiterLabel(format.delimiter)}, encodage ${encodingLabel(format.encoding, format.bom)}`;
   }

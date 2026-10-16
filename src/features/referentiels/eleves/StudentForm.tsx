@@ -21,6 +21,7 @@ import {
 } from "@/domain/duplicates";
 import { isMinor } from "@/domain/groups";
 import { matchesSearch } from "@/domain/search";
+import { suggestLevel } from "@/domain/students";
 import { isValidDate, todayIso } from "@/domain/time";
 import {
   type StudentFormValues,
@@ -46,7 +47,7 @@ export function studentValues(student: Student): StudentFormValues {
   return {
     lastName: student.lastName,
     firstName: student.firstName,
-    phone: student.phone,
+    phone: student.phone ?? "",
     birthDate: student.birthDate ?? "",
     levelId: student.levelId ?? "",
     fftRanking: student.fftRanking ?? "",
@@ -54,6 +55,34 @@ export function studentValues(student: Student): StudentFormValues {
     guardianName: student.guardianName ?? "",
     guardianPhone: student.guardianPhone ?? "",
   };
+}
+
+/**
+ * Niveau proposé pour ces groupes : celui du premier groupe coché, s'il est
+ * encore proposé (actif) ; "" sinon.
+ */
+export function proposedLevel(
+  groupIds: readonly string[],
+  groups: readonly GroupListItem[],
+  levels: readonly Level[],
+): string {
+  const id = suggestLevel(groupIds, groups);
+  return id && levels.some((l) => l.id === id && l.active) ? id : "";
+}
+
+/**
+ * Valeurs d'une nouvelle fiche : vide, ou pré-remplie (`values`) ; sans
+ * niveau saisi, celui des groupes cochés est proposé.
+ */
+export function newStudentValues(
+  groupIds: readonly string[],
+  groups: readonly GroupListItem[],
+  levels: readonly Level[],
+  values: Partial<StudentFormValues> = {},
+): StudentFormValues {
+  const next = { ...emptyStudentValues, ...values };
+  if (next.levelId === "") next.levelId = proposedLevel(groupIds, groups, levels);
+  return next;
 }
 
 interface StudentFormProps {
@@ -74,6 +103,21 @@ interface StudentFormProps {
   identities?: readonly StudentIdentity[];
   /** Ouvre la fiche d'un élève de la saison à la place de la saisie (« Ouvrir sa fiche »). */
   onOpenStudent?: (id: string) => void;
+  /**
+   * Création en série : bouton « Enregistrer et ajouter un autre ». L'appelant
+   * enregistre puis rouvre une fiche vide qui garde les groupes et le niveau.
+   */
+  onSubmitAndAddAnother?: (
+    input: StudentInput,
+    groupIds: string[],
+    levelChosen: boolean,
+  ) => Promise<void>;
+  /**
+   * Le niveau initial a-t-il été choisi par l'utilisatrice ? Sinon il suit le
+   * premier groupe coché. Par défaut : choisi en modification, ou dès qu'un
+   * niveau est saisi ; une fiche pré-remplie avec le niveau proposé passe `false`.
+   */
+  initialLevelChosen?: boolean;
 }
 
 /** Fiche élève complète (§3.5), avec ses groupes. */
@@ -90,16 +134,30 @@ export function StudentForm({
   studentId = null,
   identities = [],
   onOpenStudent,
+  onSubmitAndAddAnother,
+  initialLevelChosen,
 }: StudentFormProps) {
   const [values, setValues] = useState(initialValues);
+  const [busy, setBusy] = useState(false);
+  // Niveau proposé depuis les groupes tant qu'il n'a pas été choisi (comme les initiales suggérées).
+  const [levelChosen, setLevelChosen] = useState(
+    initialLevelChosen ?? (studentId !== null || initialValues.levelId !== ""),
+  );
   /** Fiche d'une saison passée dont les coordonnées ont été reprises. */
   const [reusedFrom, setReusedFrom] = useState<StudentIdentity | null>(null);
   const [groupIds, setGroupIds] = useState<string[]>([...initialGroupIds]);
   const [groupQuery, setGroupQuery] = useState("");
   const { errors, setErrors, error, setError, changed } = useFormErrors<StudentFormValues>();
   const set = (patch: Partial<StudentFormValues>) => {
-    changed(patch);
+    // Le téléphone du responsable suffit : il efface aussi l'erreur du téléphone de l'élève.
+    changed("guardianPhone" in patch ? { ...patch, phone: values.phone } : patch);
     setValues((v) => ({ ...v, ...patch }));
+  };
+  const toggleGroup = (id: string, checked: boolean) => {
+    setError(null);
+    const next = checked ? [...groupIds, id] : groupIds.filter((i) => i !== id);
+    setGroupIds(next);
+    if (!levelChosen) set({ levelId: proposedLevel(next, groups, levels) });
   };
   useDirtyGuard(
     !sameValues(
@@ -162,6 +220,7 @@ export function StudentForm({
       ),
     );
     setValues(next);
+    if (next.levelId !== values.levelId) setLevelChosen(true);
     setReusedFrom(source);
   };
   // La confirmation de reprise ne vaut que tant que la saisie désigne la même fiche.
@@ -206,21 +265,36 @@ export function StudentForm({
       : []),
   ];
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const save = async (
+    then: (input: StudentInput, groupIds: string[], levelChosen: boolean) => Promise<void>,
+  ) => {
     const result = validate(studentSchema, values);
     if (!result.ok) return setErrors(result.errors);
     setErrors({});
     setError(null);
+    setBusy(true);
     try {
-      await onSubmit(result.data, groupIds);
+      await then(result.data, groupIds, levelChosen);
     } catch (e) {
       setError(errorMessage(e));
+    } finally {
+      setBusy(false);
     }
   };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    // Entrée enregistre comme le bouton principal ; « ajouter un autre » est un bouton à part.
+    if (!busy) void save(onSubmit);
+  };
 
-  const text = (key: keyof StudentFormValues, label: string, required = false, type = "text") => (
-    <Field label={label} required={required} error={errors[key]}>
+  const text = (
+    key: keyof StudentFormValues,
+    label: string,
+    required = false,
+    type = "text",
+    hint?: string,
+  ) => (
+    <Field label={label} required={required} error={errors[key]} hint={hint}>
       {(props) => (
         <Input
           {...props}
@@ -236,9 +310,9 @@ export function StudentForm({
     <form onSubmit={submit} noValidate className="grid gap-4" aria-label="Fiche élève">
       <fieldset disabled={readOnly} className="contents">
         <div className="grid grid-cols-2 gap-4">
-          {text("lastName", "Nom", true)}
           {text("firstName", "Prénom", true)}
-          {text("phone", "Téléphone", true, "tel")}
+          {text("lastName", "Nom", true)}
+          {text("phone", "Téléphone", false, "tel", "Ou celui du responsable légal, ci-dessous.")}
           {text("email", "E-mail", false, "email")}
           {text("birthDate", "Date de naissance", false, "date")}
           <Field label="Niveau" error={errors.levelId}>
@@ -246,7 +320,10 @@ export function StudentForm({
               <Select
                 {...props}
                 value={values.levelId}
-                onChange={(e) => set({ levelId: e.target.value })}
+                onChange={(e) => {
+                  setLevelChosen(true);
+                  set({ levelId: e.target.value });
+                }}
               >
                 <option value="">— Aucun —</option>
                 {levelOptions.map((level) => (
@@ -295,12 +372,7 @@ export function StudentForm({
                       />
                     }
                     checked={groupIds.includes(group.id)}
-                    onChange={(e) => {
-                      setError(null);
-                      setGroupIds((ids) =>
-                        e.target.checked ? [...ids, group.id] : ids.filter((i) => i !== group.id),
-                      );
-                    }}
+                    onChange={(e) => toggleGroup(group.id, e.target.checked)}
                   />
                 ))}
               </div>
@@ -313,7 +385,21 @@ export function StudentForm({
         <Button type="button" variant="outline" onClick={cancel}>
           {readOnly ? "Fermer" : "Annuler"}
         </Button>
-        {!readOnly && <Button type="submit">{submitLabel}</Button>}
+        {!readOnly && onSubmitAndAddAnother && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void save(onSubmitAndAddAnother)}
+          >
+            Enregistrer et ajouter un autre
+          </Button>
+        )}
+        {!readOnly && (
+          <Button type="submit" disabled={busy}>
+            {submitLabel}
+          </Button>
+        )}
       </div>
     </form>
   );

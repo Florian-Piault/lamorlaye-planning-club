@@ -18,6 +18,7 @@ import {
   instructorUnavailabilities,
   lessonExceptions,
   lessons,
+  levels,
   seasons,
   students,
 } from "@/db/schema";
@@ -40,6 +41,8 @@ export interface SeedGroup {
   /** Tranche d'âge (facultative). */
   minAge?: number;
   maxAge?: number;
+  /** Niveau (libellé du référentiel, facultatif). */
+  level?: string;
   /** Élèves (prénoms) ; un même prénom dans deux groupes désigne le même élève. */
   students: string[];
 }
@@ -176,6 +179,12 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
         .values({ instructorId, weekday, startTime, endTime });
     }
   }
+  const levelIds = new Map(
+    (await db.select({ id: levels.id, label: levels.label }).from(levels)).map((l) => [
+      l.label,
+      l.id,
+    ]),
+  );
   for (const group of spec.groups) {
     const groupId = crypto.randomUUID();
     ids.set(`group:${group.name}`, groupId);
@@ -186,6 +195,7 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
       maxSize: group.maxSize,
       minAge: group.minAge ?? null,
       maxAge: group.maxAge ?? null,
+      levelId: group.level ? (levelIds.get(group.level) ?? null) : null,
     });
     for (const firstName of group.students) {
       if (!ids.has(`student:${firstName}`)) {

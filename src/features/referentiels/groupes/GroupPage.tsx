@@ -7,9 +7,26 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { ArrowLeft, GripVertical, Plus, TriangleAlert, UserMinus } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import {
+  ArrowLeft,
+  ClipboardPaste,
+  GripVertical,
+  Plus,
+  TriangleAlert,
+  UserMinus,
+  UserPlus,
+} from "lucide-react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { SearchInput } from "@/components/data/ListControls";
 import { MessageZone } from "@/components/feedback/MessageZone";
@@ -26,7 +43,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tooltip } from "@/components/ui/tooltip";
 import { useDatabase } from "@/db/DatabaseProvider";
 import {
   addGroupMember,
@@ -34,19 +50,26 @@ import {
   getGroup,
   getGroupUsage,
   listGroupMembers,
+  listGroups,
   removeGroupMember,
   setGroupActive,
   updateGroup,
 } from "@/db/repositories/groups";
 import { listLevels } from "@/db/repositories/levels";
-import { listStudents } from "@/db/repositories/students";
+import {
+  listStudentIdentities,
+  listStudents,
+  type StudentListItem,
+} from "@/db/repositories/students";
 import { homonymKeys, nameKey, studentDetails } from "@/domain/duplicates";
 import { ageOn, groupAlerts, isInAgeRange } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
+import { formatContactPhone, splitFullName } from "@/domain/students";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
 import { cn } from "@/lib/utils";
 import { DeleteAction } from "../components/DeleteAction";
 import { StatusBadge } from "../components/StatusBadge";
+import { newStudentEditing, StudentDialog, type StudentEditing } from "../eleves/StudentDialog";
 import { GroupForm, groupValues } from "./GroupForm";
 
 const MAX_RESULTS = 8;
@@ -64,29 +87,52 @@ function dragName(data: unknown): string | null {
 }
 
 /**
- * Poignée d'un élève trouvé, à glisser sur la composition (§8). Le bouton
- * « Ajouter » reste l'équivalent au clavier : la poignée est hors de l'ordre
- * de tabulation.
+ * Élève trouvé, option de la liste déroulante du champ « Ajouter un élève » :
+ * un clic (ou Entrée sur l'option en surbrillance) l'ajoute ; il se glisse
+ * aussi sur la liste des élèves du groupe (§8). Le focus reste dans le champ.
  */
-function DragHandle({ studentId, name }: CandidateData) {
-  const { attributes, listeners, setNodeRef } = useDraggable({
+function CandidateOption({
+  optionId,
+  studentId,
+  name,
+  label,
+  selected,
+  onPick,
+  children,
+}: CandidateData & {
+  optionId: string;
+  label: string;
+  selected: boolean;
+  onPick: () => void;
+  children: ReactNode;
+}) {
+  // Seuls les écouteurs du glisser sont repris : l'option garde son rôle et reste hors tabulation.
+  const { listeners, setNodeRef } = useDraggable({
     id: `eleve:${studentId}`,
     data: { studentId, name } satisfies CandidateData,
   });
   return (
-    <Tooltip content="Faire glisser dans la liste des élèves du groupe">
-      <button
-        type="button"
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-        tabIndex={-1}
-        aria-label={`Glisser ${name} dans le groupe`}
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-      >
-        <GripVertical className="size-4" aria-hidden />
-      </button>
-    </Tooltip>
+    // biome-ignore lint/a11y/useKeyWithClickEvents: le clavier passe par le champ (↑/↓, Entrée, aria-activedescendant).
+    <div
+      id={optionId}
+      ref={setNodeRef}
+      role="option"
+      tabIndex={-1}
+      aria-selected={selected}
+      aria-label={label}
+      {...listeners}
+      // Le focus reste dans le champ de recherche.
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onPick}
+      className={cn(
+        "flex cursor-pointer touch-none items-center gap-3 px-3 py-1.5 text-sm hover:bg-accent/60",
+        selected && "bg-accent text-accent-foreground",
+      )}
+    >
+      <GripVertical className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      {children}
+      <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+    </div>
   );
 }
 
@@ -115,20 +161,43 @@ export function GroupPage() {
   const season = useViewedSeason();
   const readOnly = useReadOnly();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const load = useCallback(async () => {
-    const [group, members, students, levels] = await Promise.all([
+    const [group, members, students, levels, groups, identities] = await Promise.all([
       getGroup(db, id),
       listGroupMembers(db, id),
       listStudents(db, season.id),
       listLevels(db),
+      listGroups(db, season.id),
+      listStudentIdentities(db),
     ]);
-    return { group, members, students, levels };
+    return { group, members, students, levels, groups, identities };
   }, [db, id, season.id]);
   const { data, loading, reload } = useLoader(load);
   const [query, setQuery] = useState("");
   const [resultsOpen, setResultsOpen] = useState(false);
+  /** Option en surbrillance (↑/↓), choisie par Entrée ; -1 : aucune. */
+  const [highlight, setHighlight] = useState(-1);
+  /** Fiche élève ouverte depuis la recherche (« Créer « Léa Martin » », « Ouvrir sa fiche »). */
+  const [editing, setEditing] = useState<StudentEditing>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
+  const hintId = useId();
+  const focusTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const focusSearch = useCallback(() => {
+    // Après le rendu : l'élément cliqué (option, fenêtre) a pu disparaître.
+    clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(() => inputRef.current?.focus());
+  }, []);
+  useEffect(() => () => clearTimeout(focusTimer.current), []);
+  // Arrivée depuis le toast « Ajouter des élèves » : champ d'ajout prêt.
+  const addStudents = (location.state as { addStudents?: boolean } | null)?.addStudents === true;
+  const ready = data?.group !== undefined;
+  useEffect(() => {
+    if (addStudents && ready) inputRef.current?.focus();
+  }, [addStudents, ready]);
   const [error, setError] = useState<string | null>(null);
   const [dragged, setDragged] = useState<string | null>(null);
 
@@ -146,20 +215,29 @@ export function GroupPage() {
   const memberIds = useMemo(() => new Set(data?.members.map((m) => m.id)), [data]);
   // Homonymes de la saison : désignés avec leur date de naissance et leurs groupes.
   const homonyms = useMemo(() => homonymKeys(data?.students ?? []), [data]);
-  const candidates = useMemo(
-    () =>
+  const search = useCallback(
+    (list: readonly StudentListItem[]) =>
       query.trim() === ""
         ? []
-        : filterAndSort(
-            (data?.students ?? []).filter((s) => !memberIds.has(s.id)),
-            {
-              query,
-              searchFields: (s) => [s.lastName, s.firstName, s.phone, s.levelLabel],
-              sort: { key: "name", direction: "asc" },
-              sortValue: (s) => `${s.lastName} ${s.firstName}`,
-            },
-          ),
-    [data, memberIds, query],
+        : filterAndSort(list, {
+            query,
+            searchFields: (s) => [s.lastName, s.firstName, s.phone, s.guardianPhone, s.levelLabel],
+            sort: { key: "name", direction: "asc" },
+            sortValue: (s) => `${s.lastName} ${s.firstName}`,
+          }),
+    [query],
+  );
+  const candidates = useMemo(
+    () => search((data?.students ?? []).filter((s) => !memberIds.has(s.id))),
+    [data, memberIds, search],
+  );
+  // Sans résultat : l'élève est peut-être déjà dans le groupe (pas de création proposée).
+  const alreadyMember = useMemo(
+    () =>
+      candidates.length === 0
+        ? search((data?.students ?? []).filter((s) => memberIds.has(s.id)))[0]
+        : undefined,
+    [candidates, data, memberIds, search],
   );
 
   const run = async (action: () => Promise<void>) => {
@@ -170,6 +248,73 @@ export function GroupPage() {
       setError(errorMessage(e));
     }
     reload();
+  };
+
+  const typed = splitFullName(query);
+  const typedName = `${typed.firstName} ${typed.lastName}`.trim();
+  const createStudentFromQuery = () => {
+    if (!data?.group) return;
+    setEditing(newStudentEditing([data.group.id], data.groups, data.levels, typed));
+  };
+  /** Ajout depuis la recherche : champ vidé, focus conservé pour l'élève suivant. */
+  const add = (studentId: string) => {
+    setQuery("");
+    setHighlight(-1);
+    focusSearch();
+    return run(() => addGroupMember(db, id, studentId));
+  };
+  type SearchOption = { id: string; label: string; pick: () => void };
+  const options: SearchOption[] =
+    candidates.length > 0
+      ? candidates.slice(0, MAX_RESULTS).map((student) => ({
+          id: `${listId}-${student.id}`,
+          label: `${student.lastName} ${student.firstName}`,
+          pick: () => add(student.id),
+        }))
+      : query.trim() !== "" && !alreadyMember
+        ? [
+            {
+              id: `${listId}-create`,
+              label: `Créer « ${typedName} »`,
+              pick: createStudentFromQuery,
+            },
+          ]
+        : [];
+  /** Option choisie par Entrée : celle en surbrillance, sinon l'option unique. */
+  const enterTarget = options[highlight] ?? (options.length === 1 ? options[0] : undefined);
+  const listOpen = resultsOpen && query.trim() !== "";
+
+  // Annonce de la liste, après une courte pause de frappe (pas à chaque touche).
+  const [announcement, setAnnouncement] = useState("");
+  const summary =
+    query.trim() === ""
+      ? ""
+      : alreadyMember
+        ? `${alreadyMember.lastName} ${alreadyMember.firstName} est déjà dans le groupe.`
+        : candidates.length === 0
+          ? `Aucun élève trouvé : Entrée pour créer ${typedName}.`
+          : candidates.length === 1
+            ? "1 élève trouvé : Entrée pour l'ajouter."
+            : `${candidates.length} élèves trouvés : flèches pour choisir, Entrée pour ajouter.`;
+  useEffect(() => {
+    const timer = setTimeout(() => setAnnouncement(summary), 600);
+    return () => clearTimeout(timer);
+  }, [summary]);
+
+  const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (options.length === 0) return;
+      event.preventDefault();
+      setResultsOpen(true);
+      // En boucle : ↓ après la dernière revient à la première, ↑ avant la première va à la dernière.
+      const down = event.key === "ArrowDown";
+      const count = options.length;
+      setHighlight((h) => (down ? (h + 1) % count : h <= 0 ? count - 1 : h - 1));
+    } else if (event.key === "Enter") {
+      if (query.trim() === "") return;
+      event.preventDefault();
+      enterTarget?.pick();
+    }
   };
 
   const group = data?.group;
@@ -265,7 +410,7 @@ export function GroupPage() {
               accessibility={{
                 screenReaderInstructions: {
                   draggable:
-                    "Glissez l'élève dans la liste des élèves du groupe pour l'y ajouter, ou utilisez le bouton « Ajouter ».",
+                    "Glissez l'élève dans la liste des élèves du groupe pour l'y ajouter, ou choisissez-le dans la liste avec les flèches et Entrée.",
                 },
                 announcements: {
                   onDragStart: () => "Élève saisi.",
@@ -287,91 +432,147 @@ export function GroupPage() {
               }}
             >
               {!readOnly && (
-                // biome-ignore lint/a11y/noStaticElementInteractions: ouverture et Échap de la liste superposée des résultats.
-                <div
-                  ref={searchRef}
-                  className="relative max-w-md"
-                  onFocus={() => setResultsOpen(true)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" && resultsOpen) {
-                      event.preventDefault();
-                      setResultsOpen(false);
-                    }
-                  }}
-                >
-                  <SearchInput
-                    value={query}
-                    onChange={(value) => {
-                      setQuery(value);
-                      setResultsOpen(true);
+                <div className="flex flex-wrap items-start gap-3">
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: ouverture et Échap de la liste superposée des résultats. */}
+                  <div
+                    ref={searchRef}
+                    className="relative w-full max-w-md"
+                    onFocus={() => setResultsOpen(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape" && resultsOpen) {
+                        event.preventDefault();
+                        setResultsOpen(false);
+                      }
                     }}
-                    label="Ajouter un élève (nom, prénom, téléphone)"
-                    className="max-w-md"
-                  />
-                  {resultsOpen && query.trim() !== "" && (
-                    <ul
-                      aria-label="Élèves trouvés"
-                      className="absolute inset-x-0 top-full z-30 mt-1 max-h-80 divide-y overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg"
-                    >
-                      {candidates.length === 0 && (
-                        <li className="px-3 py-2 text-muted-foreground text-sm">
-                          Aucun élève trouvé.
-                        </li>
-                      )}
-                      {candidates.slice(0, MAX_RESULTS).map((student) => {
-                        const name = `${student.lastName} ${student.firstName}`;
-                        const details = homonyms.has(nameKey(student))
-                          ? studentDetails({
-                              birthDate: student.birthDate,
-                              groups: student.groups.map((g) => g.name),
-                            })
-                          : "";
-                        return (
-                          <li
-                            key={student.id}
-                            className="flex items-center gap-3 px-3 py-1.5 text-sm"
-                          >
-                            <DragHandle studentId={student.id} name={name} />
-                            <span className="flex-1">
-                              <span className="font-medium">{name}</span>
-                              {student.birthDate && (
-                                <span className="text-muted-foreground">
-                                  {" "}
-                                  — {ageOn(student.birthDate, season.startDate)} ans
+                  >
+                    <SearchInput
+                      value={query}
+                      onChange={(value) => {
+                        setQuery(value);
+                        setHighlight(-1);
+                        setResultsOpen(true);
+                      }}
+                      label="Ajouter un élève (nom, prénom, téléphone)"
+                      className="max-w-md"
+                      inputProps={{
+                        ref: inputRef,
+                        role: "combobox",
+                        "aria-expanded": listOpen,
+                        "aria-controls": listId,
+                        "aria-autocomplete": "list",
+                        "aria-activedescendant": listOpen ? enterTarget?.id : undefined,
+                        onKeyDown: onSearchKeyDown,
+                        "aria-describedby": hintId,
+                      }}
+                    />
+                    <span id={hintId} className="sr-only">
+                      Flèches pour choisir un élève, Entrée pour l'ajouter.
+                    </span>
+                    <span className="sr-only" aria-live="polite">
+                      {announcement}
+                    </span>
+                    {listOpen && (
+                      <div className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg">
+                        {alreadyMember && (
+                          <p className="px-3 py-2 text-muted-foreground text-sm">
+                            {alreadyMember.lastName} {alreadyMember.firstName} : déjà dans le
+                            groupe.
+                          </p>
+                        )}
+                        {!alreadyMember && candidates.length === 0 && (
+                          <p className="px-3 pt-2 text-muted-foreground text-sm">
+                            Aucun élève trouvé.
+                          </p>
+                        )}
+                        <div
+                          id={listId}
+                          role="listbox"
+                          aria-label="Élèves trouvés"
+                          className="max-h-80 divide-y overflow-y-auto"
+                        >
+                          {candidates.length === 0 &&
+                            options.map((option) => (
+                              // biome-ignore lint/a11y/useKeyWithClickEvents: le clavier passe par le champ (Entrée).
+                              <div
+                                key={option.id}
+                                id={option.id}
+                                role="option"
+                                tabIndex={-1}
+                                aria-selected={option === enterTarget}
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={option.pick}
+                                className={cn(
+                                  "flex cursor-pointer items-center gap-2 px-3 py-1.5 font-medium text-sm hover:bg-accent/60",
+                                  option === enterTarget && "bg-accent text-accent-foreground",
+                                )}
+                              >
+                                <UserPlus className="size-4" aria-hidden />
+                                {option.label}
+                              </div>
+                            ))}
+                          {candidates.slice(0, MAX_RESULTS).map((student, index) => {
+                            const name = `${student.lastName} ${student.firstName}`;
+                            const details = homonyms.has(nameKey(student))
+                              ? studentDetails({
+                                  birthDate: student.birthDate,
+                                  groups: student.groups.map((g) => g.name),
+                                })
+                              : "";
+                            const option = options[index];
+                            return (
+                              <CandidateOption
+                                key={student.id}
+                                optionId={option?.id ?? student.id}
+                                studentId={student.id}
+                                name={name}
+                                label={details ? `${name} (${details})` : name}
+                                selected={option !== undefined && option === enterTarget}
+                                onPick={() => add(student.id)}
+                              >
+                                <span className="flex-1">
+                                  <span className="font-medium">{name}</span>
+                                  {student.birthDate && (
+                                    <span className="text-muted-foreground">
+                                      {" "}
+                                      — {ageOn(student.birthDate, season.startDate)} ans
+                                    </span>
+                                  )}
+                                  {student.levelLabel && (
+                                    <span className="text-muted-foreground">
+                                      {" "}
+                                      — {student.levelLabel}
+                                    </span>
+                                  )}
+                                  {details && (
+                                    <span className="block text-muted-foreground text-xs">
+                                      {details}
+                                    </span>
+                                  )}
                                 </span>
-                              )}
-                              {student.levelLabel && (
-                                <span className="text-muted-foreground">
-                                  {" "}
-                                  — {student.levelLabel}
-                                </span>
-                              )}
-                              {details && (
-                                <span className="block text-muted-foreground text-xs">
-                                  {details}
-                                </span>
-                              )}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              aria-label={`Ajouter ${name}${details ? ` (${details})` : ""}`}
-                              onClick={() => run(() => addGroupMember(db, id, student.id))}
-                            >
-                              <Plus aria-hidden />
-                              Ajouter
-                            </Button>
-                          </li>
-                        );
-                      })}
-                      {candidates.length > MAX_RESULTS && (
-                        <li className="px-3 py-2 text-muted-foreground text-xs">
-                          {candidates.length - MAX_RESULTS} autres résultats : précisez la
-                          recherche.
-                        </li>
-                      )}
-                    </ul>
-                  )}
+                              </CandidateOption>
+                            );
+                          })}
+                        </div>
+                        {candidates.length > MAX_RESULTS && (
+                          <p className="border-t px-3 py-2 text-muted-foreground text-xs">
+                            {candidates.length - MAX_RESULTS} autres résultats : précisez la
+                            recherche.
+                          </p>
+                        )}
+                        {candidates.length > 0 && (
+                          <p className="border-t px-3 py-1.5 text-muted-foreground text-xs">
+                            Cliquez sur un élève, ou faites-le glisser dans la liste du groupe.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Button asChild variant="outline">
+                    <Link to={`/import-export?import&groupe=${id}`}>
+                      <ClipboardPaste aria-hidden />
+                      Importer ou coller une liste
+                    </Link>
+                  </Button>
                 </div>
               )}
 
@@ -416,7 +617,9 @@ export function GroupPage() {
                               "—"
                             )}
                           </TableCell>
-                          <TableCell>{student.phone}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {formatContactPhone(student)}
+                          </TableCell>
                           <TableCell>
                             {!readOnly && (
                               <Button
@@ -448,6 +651,23 @@ export function GroupPage() {
           </CardContent>
         </Card>
       </div>
+
+      <StudentDialog
+        editing={editing}
+        onEditingChange={setEditing}
+        season={season}
+        students={data.students}
+        identities={data.identities}
+        groups={data.groups}
+        levels={data.levels}
+        onSaved={async () => {
+          setQuery("");
+          setHighlight(-1);
+          await reload();
+        }}
+        // Retour à la fiche du groupe, prête pour l'élève suivant.
+        onClosed={focusSearch}
+      />
     </div>
   );
 }

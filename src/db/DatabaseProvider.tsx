@@ -17,9 +17,13 @@ interface DatabaseProviderProps {
 /** Ouvre la base (et applique les migrations) avant d'afficher l'application. */
 export function DatabaseProvider({ children, open = openAppDatabase }: DatabaseProviderProps) {
   const [state, setState] = useState<State>({ status: "loading" });
+  /** Nouvel essai après un échec (sauvegarde avant mise à jour impossible…). */
+  const [attempt, setAttempt] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` relance l'ouverture.
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     open().then(
       (database) => !cancelled && setState({ status: "ready", database }),
       (error: unknown) => !cancelled && setState({ status: "error", error }),
@@ -27,7 +31,7 @@ export function DatabaseProvider({ children, open = openAppDatabase }: DatabaseP
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, attempt]);
 
   if (state.status === "loading") {
     return (
@@ -42,8 +46,15 @@ export function DatabaseProvider({ children, open = openAppDatabase }: DatabaseP
       <div role="alert" className="flex h-screen flex-col items-center justify-center gap-2 p-8">
         <p className="font-semibold">Impossible d'ouvrir la base de données.</p>
         <pre className="max-w-2xl whitespace-pre-wrap text-muted-foreground text-xs">
-          {String(state.error)}
+          {state.error instanceof Error ? state.error.message : String(state.error)}
         </pre>
+        <button
+          type="button"
+          className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
+          onClick={() => setAttempt((n) => n + 1)}
+        >
+          Réessayer
+        </button>
       </div>
     );
   }

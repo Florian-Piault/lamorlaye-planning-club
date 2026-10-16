@@ -131,6 +131,27 @@ test.describe("vocabulaire", () => {
     expect(await forbiddenTerms(page), "doublon d'élève").toEqual([]);
     await student.getByRole("button", { name: "Annuler" }).click();
     await page.getByRole("button", { name: "Abandonner" }).click();
+
+    // Saisie en série (L13) : fiche suivante après « Enregistrer et ajouter un autre ».
+    await page.getByRole("button", { name: "Nouvel élève" }).click();
+    await student.getByLabel("Prénom").fill("Jules");
+    await student.getByLabel("Nom", { exact: true }).fill("Petit");
+    await student.getByLabel("Téléphone du responsable").fill("0611223344");
+    await student.getByLabel("Galaxie vert").check();
+    await student.getByRole("button", { name: "Enregistrer et ajouter un autre" }).click();
+    await expect(page.getByTestId("toast")).toContainText("Jules Petit ajouté(e)");
+    expect(await forbiddenTerms(page), "ajouter un autre élève").toEqual([]);
+    await student.getByRole("button", { name: "Annuler" }).click();
+
+    // Collage depuis Excel (L13), sans en-têtes : zone de collage puis choix des colonnes.
+    await visit(page, "/#/import-export?import");
+    await page.getByRole("button", { name: "Coller depuis Excel" }).click();
+    await expect(page.getByLabel("Tableau à coller")).toBeVisible();
+    expect(await forbiddenTerms(page), "zone de collage").toEqual([]);
+    await page.getByLabel("Tableau à coller").fill("Martin\tLéo\t0611223344\n");
+    await page.getByRole("button", { name: "Lire le tableau" }).click();
+    await expect(page.getByLabel("La première ligne contient des élèves")).toBeChecked();
+    expect(await forbiddenTerms(page), "collage sans en-têtes").toEqual([]);
     await visit(page, "/#/referentiels/moniteurs");
     await page.getByRole("button", { name: "Nouveau moniteur" }).click();
     const instructor = page.getByRole("dialog", { name: "Nouveau moniteur" });

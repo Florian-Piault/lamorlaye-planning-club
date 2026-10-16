@@ -1,6 +1,6 @@
-import { FileUp, Redo2, Undo2, Upload } from "lucide-react";
-import { type ChangeEvent, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { ClipboardPaste, FileUp, Redo2, Undo2, Upload } from "lucide-react";
+import { type ChangeEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { ErrorAlert } from "@/components/form/Field";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { TechnicalDetails } from "@/components/ui/technical-details";
 import { useDatabase } from "@/db/DatabaseProvider";
+import { getGroup } from "@/db/repositories/groups";
 import { loadImportContext } from "@/db/repositories/studentImport";
 import type { Season } from "@/db/schema";
 import type { ParsedTable } from "@/domain/importFile";
@@ -24,11 +25,13 @@ import {
   buildImportCommand,
   type ColumnMapping,
   type DuplicateMode,
+  emptyMapping,
   IMPORT_FIELDS,
   type ImportContext,
   type ImportFieldKey,
   type ImportPlan,
   type ImportSummary,
+  looksLikeHeaderRow,
   mappingProblems,
   type PlannedRow,
   planImport,
@@ -36,8 +39,10 @@ import {
   restoreMapping,
   toSavedMapping,
 } from "@/domain/studentImport";
+import { formatContactPhone } from "@/domain/students";
 import { formatDate } from "@/domain/time";
-import { errorMessage } from "@/hooks/useLoader";
+import { errorMessage, useLoader } from "@/hooks/useLoader";
+import { shortcutLabel } from "@/lib/keys";
 import { cn } from "@/lib/utils";
 import { chooseImportFile, IMPORT_ACCEPT, readBrowserFile, type SelectedFile } from "./files";
 import { importHistory, useImportHistory } from "./importHistory";
@@ -56,12 +61,17 @@ interface LoadedFile {
   name: string;
   table: ParsedTable;
   formatLabel: string;
+  /** Texte d'un tableau collé (relu si l'on change la ligne d'en-têtes). */
+  pastedText?: string;
 }
+
+/** Nom du « fichier » d'un tableau collé (libellé de l'import, historique). */
+const PASTED_NAME = "tableau collé";
 
 const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
   `${count} ${count > 1 ? pluralForm : singular}`;
 
-/** Assistant d'import d'élèves (§9.1) : fichier → correspondance → aperçu → import. */
+/** Assistant d'import d'élèves (§9.1) : fichier ou collage → colonnes → aperçu → import. */
 export function StudentImport() {
   const season = useViewedSeason();
   if (useReadOnly()) {
@@ -82,6 +92,21 @@ export function StudentImport() {
 
 function StudentImportWizard({ season }: { season: Season }) {
   const { db } = useDatabase();
+  // Lien « Importer ou coller une liste » (onglet Élèves, fiche groupe) : carte
+  // mise en vue ; depuis la fiche, groupe pré-affecté (sans colonne Groupe).
+  const [params] = useSearchParams();
+  const fromLink = params.has("import");
+  const groupId = params.get("groupe");
+  const loadGroup = useCallback(async () => {
+    const group = groupId ? await getGroup(db, groupId) : undefined;
+    // Seulement un groupe de la saison affichée (lien ancien ou saison changée entre-temps).
+    return group && group.seasonId === season.id ? group : null;
+  }, [db, groupId, season.id]);
+  const presetGroup = useLoader(loadGroup).data ?? null;
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (fromLink) cardRef.current?.scrollIntoView({ block: "start" });
+  }, [fromLink]);
   const [step, setStep] = useState<Step>("file");
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
@@ -109,21 +134,53 @@ function StudentImportWizard({ season }: { season: Season }) {
       // SheetJS et PapaParse ne sont chargés qu'à l'ouverture d'un fichier.
       const { describeFormat, readImportFile } = await import("@/domain/importFile");
       const table = readImportFile(selected.bytes, selected.name);
-      const preferences = loadImportPreferences();
-      setFile({ name: selected.name, table, formatLabel: describeFormat(table.format) });
-      setMapping(restoreMapping(table.headers, preferences?.mapping));
-      setDuplicates(preferences?.duplicates ?? "ignore");
-      setPreview(null);
-      setResult(null);
-      setStep("mapping");
+      load({ name: selected.name, table, formatLabel: describeFormat(table.format) });
     });
+
+  /** Tableau collé : même suite que les fichiers (en-têtes détectés, case modifiable). */
+  const openPasted = (text: string, headerRow?: boolean) =>
+    run(async () => {
+      const { describeFormat, readPastedText } = await import("@/domain/importFile");
+      const table = readPastedText(text, headerRow ?? looksLikeHeaderRow);
+      load({
+        name: PASTED_NAME,
+        table,
+        formatLabel: describeFormat(table.format),
+        pastedText: text,
+      });
+    });
+
+  const load = (loaded: LoadedFile) => {
+    const preferences = loadImportPreferences();
+    setFile(loaded);
+    // Sans en-têtes, les colonnes « Colonne A… » ne désignent rien d'un collage à l'autre :
+    // aucune correspondance mémorisée n'est reprise (ni enregistrée, voir `showPreview`).
+    setMapping(
+      loaded.table.headerRow
+        ? restoreMapping(loaded.table.headers, preferences?.mapping)
+        : emptyMapping(),
+    );
+    setDuplicates(preferences?.duplicates ?? "ignore");
+    setPreview(null);
+    setResult(null);
+    setStep("mapping");
+  };
 
   const showPreview = () =>
     run(async () => {
       if (!file || !mapping) return;
-      saveImportPreferences({ mapping: toSavedMapping(file.table.headers, mapping), duplicates });
+      saveImportPreferences({
+        mapping: file.table.headerRow
+          ? toSavedMapping(file.table.headers, mapping)
+          : (loadImportPreferences()?.mapping ?? {}),
+        duplicates,
+      });
       const context = await loadImportContext(db, season.id);
-      setPreview({ plan: planImport(file.table.rows, context, { mapping, duplicates }), context });
+      const defaultGroupIds = presetGroup ? [presetGroup.id] : [];
+      setPreview({
+        plan: planImport(file.table.rows, context, { mapping, duplicates, defaultGroupIds }),
+        context,
+      });
       setStep("preview");
     });
 
@@ -150,23 +207,41 @@ function StudentImportWizard({ season }: { season: Season }) {
   };
 
   return (
-    <div className="flex max-w-6xl flex-col gap-6">
+    <div ref={cardRef} className="flex max-w-6xl scroll-mt-4 flex-col gap-6">
       <ImportHistoryBar />
       <Card>
         <CardHeader>
           <CardTitle>Importer des élèves</CardTitle>
           <CardDescription>
-            À partir d'un fichier Excel ou d'un export de votre logiciel d'adhérents. Les élèves
-            sont ajoutés à la saison {season.name}.
+            À partir d'un fichier Excel ou d'un export de votre logiciel d'adhérents, ou en collant
+            un tableau copié dans Excel. Les élèves sont ajoutés à la saison {season.name}.
           </CardDescription>
+          {presetGroup && (
+            <p className="text-sm" data-testid="import-group">
+              Depuis le groupe <span className="font-medium">{presetGroup.name}</span> : les élèves
+              y sont inscrits si la liste n'a pas de colonne « Groupe(s) ».
+            </p>
+          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <Stepper current={step} />
           <ErrorAlert>{error}</ErrorAlert>
-          {step === "file" && <FileStep busy={busy} onFile={openFile} onError={setError} />}
+          {step === "file" && (
+            <FileStep
+              busy={busy}
+              onFile={openFile}
+              onPaste={(text) => openPasted(text)}
+              onError={setError}
+            />
+          )}
           {step === "mapping" && file && mapping && (
             <MappingStep
               file={file}
+              onHeaderRowChange={
+                file.pastedText === undefined
+                  ? undefined
+                  : (headerRow) => openPasted(file.pastedText ?? "", headerRow)
+              }
               mapping={mapping}
               duplicates={duplicates}
               busy={busy}
@@ -179,12 +254,15 @@ function StudentImportWizard({ season }: { season: Season }) {
           {step === "preview" && preview && (
             <PreviewStep
               plan={preview.plan}
+              groups={preview.context.groups}
               busy={busy}
               onBack={() => setStep("mapping")}
               onImport={runImport}
             />
           )}
-          {step === "done" && result && <DoneStep {...result} onRestart={restart} />}
+          {step === "done" && result && (
+            <DoneStep {...result} group={presetGroup} onRestart={restart} />
+          )}
         </CardContent>
       </Card>
     </div>
@@ -221,13 +299,18 @@ function Stepper({ current }: { current: Step }) {
 function FileStep({
   busy,
   onFile,
+  onPaste,
   onError,
 }: {
   busy: boolean;
   onFile: (file: SelectedFile | null) => void;
+  onPaste: (text: string) => void;
   onError: (message: string) => void;
 }) {
   const { driver } = useDatabase();
+  const [pasting, setPasting] = useState(false);
+  const [text, setText] = useState("");
+  const pasteId = useId();
   const onChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0];
     event.target.value = "";
@@ -238,8 +321,9 @@ function FileStep({
       <div className="text-muted-foreground text-sm">
         <p>Fichier Excel ou export de votre logiciel d'adhérents.</p>
         <p>
-          La première ligne doit contenir les en-têtes des colonnes. Nom, prénom et téléphone sont
-          obligatoires.
+          La première ligne contient de préférence les en-têtes des colonnes (sans en-têtes, les
+          colonnes sont nommées « Colonne A », « Colonne B »…). Nom et prénom sont obligatoires,
+          ainsi que le téléphone de l'élève ou celui du responsable légal.
         </p>
       </div>
       <TechnicalDetails>
@@ -247,33 +331,77 @@ function FileStep({
           Formats acceptés : Excel (.xlsx, .xls, premier onglet) et CSV (séparateur « ; », « , » ou
           tabulation, encodage UTF-8 ou Windows-1252, détectés automatiquement).
         </p>
+        <p>
+          Tableau collé : cellules séparées par des tabulations, fins de ligne Windows, macOS ou
+          Linux ; les retours à la ligne d'une cellule deviennent « , ».
+        </p>
       </TechnicalDetails>
-      {driver.kind === "tauri" ? (
-        <div>
-          <Button
-            disabled={busy}
-            onClick={async () => {
-              try {
-                onFile(await chooseImportFile());
-              } catch (e) {
-                onError(errorMessage(e));
-              }
-            }}
-          >
-            <FileUp aria-hidden />
-            Choisir un fichier…
-          </Button>
-        </div>
-      ) : (
-        <div className="flex max-w-md flex-col gap-1.5">
-          <Label htmlFor="import-file">Fichier à importer</Label>
-          <Input
-            id="import-file"
-            type="file"
-            accept={IMPORT_ACCEPT}
-            disabled={busy}
-            onChange={onChange}
+      <div className="flex flex-wrap items-end gap-3">
+        {driver.kind === "tauri" ? (
+          <div>
+            <Button
+              disabled={busy}
+              onClick={async () => {
+                try {
+                  onFile(await chooseImportFile());
+                } catch (e) {
+                  onError(errorMessage(e));
+                }
+              }}
+            >
+              <FileUp aria-hidden />
+              Choisir un fichier…
+            </Button>
+          </div>
+        ) : (
+          <div className="flex max-w-md flex-col gap-1.5">
+            <Label htmlFor="import-file">Fichier à importer</Label>
+            <Input
+              id="import-file"
+              type="file"
+              accept={IMPORT_ACCEPT}
+              disabled={busy}
+              onChange={onChange}
+            />
+          </div>
+        )}
+        <Button
+          variant="outline"
+          disabled={busy}
+          aria-expanded={pasting}
+          aria-controls={pasteId}
+          onClick={() => setPasting((p) => !p)}
+        >
+          <ClipboardPaste aria-hidden />
+          Coller depuis Excel
+        </Button>
+      </div>
+      {pasting && (
+        <div id={pasteId} className="flex max-w-3xl flex-col gap-2">
+          <Label htmlFor={`${pasteId}-text`}>Tableau à coller</Label>
+          <p className="text-muted-foreground text-xs">
+            Sélectionnez les lignes dans Excel (ou un autre tableur), copiez-les, puis collez-les
+            ici ({shortcutLabel("mod+v")}).
+          </p>
+          <textarea
+            id={`${pasteId}-text`}
+            // biome-ignore lint/a11y/noAutofocus: zone ouverte à la demande, prête à recevoir le collage.
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={8}
+            spellCheck={false}
+            className="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           />
+          <div>
+            <Button
+              disabled={busy || text.trim() === ""}
+              disabledReason={text.trim() === "" ? "Collez d'abord un tableau." : undefined}
+              onClick={() => onPaste(text)}
+            >
+              Lire le tableau
+            </Button>
+          </div>
         </div>
       )}
       {busy && <p className="text-muted-foreground text-sm">Lecture du fichier…</p>}
@@ -297,6 +425,7 @@ function sampleValue(table: ParsedTable, column: number | null): string {
 
 function MappingStep({
   file,
+  onHeaderRowChange,
   mapping,
   duplicates,
   busy,
@@ -306,6 +435,8 @@ function MappingStep({
   onNext,
 }: {
   file: LoadedFile;
+  /** Tableau collé : la première ligne est-elle celle des en-têtes ? */
+  onHeaderRowChange?: (headerRow: boolean) => void;
   mapping: ColumnMapping;
   duplicates: DuplicateMode;
   busy: boolean;
@@ -315,7 +446,12 @@ function MappingStep({
   onNext: () => void;
 }) {
   const problems = mappingProblems(mapping);
-  const { headers } = file.table;
+  const { headers, headerRow } = file.table;
+  // Sans en-têtes, « Colonne A » seule ne dit rien : l'option montre une valeur de la colonne.
+  const columnLabel = (header: string, index: number) => {
+    const sample = headerRow ? "" : sampleValue(file.table, index);
+    return sample ? `${header} — ${sample}` : header;
+  };
   const setColumn = (key: ImportFieldKey, value: string) => {
     const column = value === "" ? null : Number(value);
     const next = { ...mapping, [key]: column };
@@ -337,6 +473,14 @@ function MappingStep({
           — {file.formatLabel}, {plural(file.table.rows.length, "ligne")} de données.
         </span>
       </p>
+      {onHeaderRowChange && (
+        <Checkbox
+          label="La première ligne contient des élèves"
+          checked={!headerRow}
+          disabled={busy}
+          onChange={(e) => onHeaderRowChange(!e.target.checked)}
+        />
+      )}
 
       <h3 className="font-medium text-sm">Associer les colonnes de votre fichier</h3>
       <Table aria-label="Associer les colonnes de votre fichier" className="max-w-3xl">
@@ -374,7 +518,7 @@ function MappingStep({
                     {headers.map((header, i) => (
                       // biome-ignore lint/suspicious/noArrayIndexKey: les colonnes sont fixes.
                       <option key={i} value={i}>
-                        {header}
+                        {columnLabel(header, i)}
                       </option>
                     ))}
                   </Select>
@@ -453,11 +597,13 @@ const STATUS: Record<
 
 function PreviewStep({
   plan,
+  groups,
   busy,
   onBack,
   onImport,
 }: {
   plan: ImportPlan;
+  groups: ImportContext["groups"];
   busy: boolean;
   onBack: () => void;
   onImport: () => void;
@@ -471,6 +617,7 @@ function PreviewStep({
     [plan, onlyIssues],
   );
   const { counts } = plan;
+  const groupNames = useMemo(() => new Map(groups.map((g) => [g.id, g.name])), [groups]);
   const toImport = counts.create + counts.update;
 
   return (
@@ -562,7 +709,7 @@ function PreviewStep({
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <PreviewRow key={row.line} row={row} />
+              <PreviewRow key={row.line} row={row} groupNames={groupNames} />
             ))}
           </TableBody>
         </Table>
@@ -581,7 +728,14 @@ function PreviewStep({
   );
 }
 
-function PreviewRow({ row }: { row: PlannedRow }) {
+function PreviewRow({
+  row,
+  groupNames,
+}: {
+  row: PlannedRow;
+  /** Noms des groupes de la saison, par identifiant (groupes reconnus ou pré-affectés). */
+  groupNames: ReadonlyMap<string, string>;
+}) {
   const status = STATUS[row.status];
   const birthDate = row.values?.birthDate ? formatDate(row.values.birthDate) : row.raw.birthDate;
   return (
@@ -596,9 +750,15 @@ function PreviewRow({ row }: { row: PlannedRow }) {
       <TableCell className="tabular-nums">{row.line}</TableCell>
       <TableCell>{row.raw.lastName}</TableCell>
       <TableCell>{row.raw.firstName}</TableCell>
-      <TableCell className="whitespace-nowrap">{row.values?.phone ?? row.raw.phone}</TableCell>
+      <TableCell className="whitespace-nowrap">
+        {row.values ? formatContactPhone(row.values) : row.raw.phone || row.raw.guardianPhone}
+      </TableCell>
       <TableCell className="whitespace-nowrap">{birthDate}</TableCell>
-      <TableCell>{row.raw.groups}</TableCell>
+      <TableCell>
+        {row.groupIds.length > 0
+          ? row.groupIds.map((id) => groupNames.get(id) ?? id).join(", ")
+          : row.raw.groups}
+      </TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-1">
           <Badge variant={status.variant}>{status.label}</Badge>
@@ -632,10 +792,13 @@ function PreviewRow({ row }: { row: PlannedRow }) {
 function DoneStep({
   summary,
   errors,
+  group,
   onRestart,
 }: {
   summary: ImportSummary;
   errors: number;
+  /** Groupe d'où l'import a été lancé (retour à sa fiche). */
+  group: { id: string; name: string } | null;
   onRestart: () => void;
 }) {
   const parts = [plural(summary.created, "élève créé", "élèves créés")];
@@ -653,11 +816,16 @@ function DoneStep({
           ` ${plural(errors, "ligne en erreur n'a", "lignes en erreur n'ont")} pas été importée${errors > 1 ? "s" : ""}.`}
       </output>
       <div className="flex gap-2">
+        {group && (
+          <Button asChild variant="outline">
+            <Link to={`/referentiels/groupes/${group.id}`}>Retour au groupe {group.name}</Link>
+          </Button>
+        )}
         <Button asChild variant="outline">
           <Link to="/referentiels/eleves">Voir les élèves</Link>
         </Button>
         <Button variant="outline" onClick={onRestart}>
-          Importer un autre fichier
+          Importer une autre liste
         </Button>
       </div>
     </div>

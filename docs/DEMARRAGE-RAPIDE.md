@@ -24,7 +24,7 @@ Suivez les onglets de **Référentiels** dans l'ordre :
    - Ajoutez ses **indisponibilités ponctuelles** (congé, tournoi…) au fil de la saison.
 3. **Niveaux** : la liste est pré-remplie (niveaux Galaxie et adultes) ; ajoutez, renommez ou réordonnez si besoin.
 4. **Groupes** : nom, niveau, tranche d'âge (facultative) et effectif maximum. Ouvrez un groupe pour composer sa liste d'élèves : recherchez un élève puis **Ajouter**, ou faites glisser sa poignée sur la composition. Les alertes (effectif dépassé, âge hors tranche) s'affichent aussitôt.
-5. **Élèves** : nom, prénom, téléphone, date de naissance, niveau, classement FFT, responsable légal pour les mineurs, groupes.
+5. **Élèves** : prénom, nom, téléphone de l'élève ou du responsable légal, date de naissance, niveau (proposé depuis le groupe), classement FFT, responsable légal pour les mineurs, groupes. « Enregistrer et ajouter un autre » enchaîne les fiches d'un même groupe ; « Importer ou coller une liste » reprend un tableau copié dans Excel.
    - Pour éviter la saisie à la main : **Import/Export › Importer des élèves** accepte un fichier CSV ou Excel (export de l'outil d'adhésion). L'assistant fait correspondre les colonnes, signale les lignes en erreur et détecte les doublons ; l'import entier peut être annulé.
 6. **Fermetures** : vacances scolaires et jours fériés. Le bouton d'**assistant** propose les vacances de la **zone B** et les jours fériés de la saison ; cochez celles à retenir (les dates restent modifiables).
 

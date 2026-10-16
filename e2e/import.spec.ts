@@ -65,7 +65,7 @@ test.describe("import d'élèves", () => {
       "« 31/02/2016 » n'est pas une date valide.",
     );
     await expect(preview.getByRole("row", { name: /^5 Durand/ })).toContainText(
-      "Téléphone : le téléphone est obligatoire.",
+      "Téléphone : renseignez le téléphone de l'élève ou celui du responsable légal.",
     );
     await expect(preview.getByRole("row", { name: /^6 Brûlé/ })).toContainText(
       "E-mail : adresse e-mail invalide.",

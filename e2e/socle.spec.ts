@@ -126,14 +126,14 @@ test.describe("rien ne bouge sous le curseur", () => {
 
     // Résultats de recherche en liste superposée.
     await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("hugo");
-    await expect(page.getByRole("list", { name: "Élèves trouvés" })).toBeVisible();
+    await expect(page.getByRole("listbox", { name: "Élèves trouvés" })).toBeVisible();
     expect(await position(members)).toEqual(before);
 
     // Retrait d'un membre : l'alerte disparaît, la place reste réservée.
     await page.getByRole("button", { name: "Retirer Test Rémi du groupe" }).click();
     await expect(page.getByTestId("group-size")).toHaveText("2 / 2");
     await expect(alerts).toBeEmpty();
-    await expect(page.getByRole("list", { name: "Élèves trouvés" })).toBeHidden();
+    await expect(page.getByRole("listbox", { name: "Élèves trouvés" })).toBeHidden();
     expect(await position(members)).toEqual(before);
   });
 
@@ -219,8 +219,9 @@ test.describe("garde des modales", () => {
 
     await tab(page, "Élèves").click();
     await page.getByRole("button", { name: "Nouvel élève" }).click();
+    // Prénom avant Nom (v1.1) : premier champ de la fiche élève.
     await expect(
-      page.getByRole("dialog", { name: "Nouvel élève" }).getByLabel("Nom", { exact: true }),
+      page.getByRole("dialog", { name: "Nouvel élève" }).getByLabel("Prénom"),
     ).toBeFocused();
   });
 

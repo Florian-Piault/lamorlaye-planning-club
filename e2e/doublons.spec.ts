@@ -82,20 +82,16 @@ test.describe("doublons et alerte d'âge", () => {
     await tab(page, "Groupes").click();
     await page.getByRole("link", { name: "Ados perfectionnement" }).click();
     await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("léa");
-    const found = page.getByRole("list", { name: "Élèves trouvés" });
+    const found = page.getByRole("listbox", { name: "Élèves trouvés" });
     await expect(found).toContainText("Galaxie vert");
     await expect(found).toContainText("né(e) le 01/02/2018");
+    await expect(found.getByRole("option", { name: "Test Léa (Galaxie vert)" })).toBeVisible();
     await expect(
-      found.getByRole("button", { name: "Ajouter Test Léa (Galaxie vert)" }),
-    ).toBeVisible();
-    await expect(
-      found.getByRole("button", { name: "Ajouter TEST lea (né(e) le 01/02/2018)" }),
+      found.getByRole("option", { name: "TEST lea (né(e) le 01/02/2018)" }),
     ).toBeVisible();
     // Sans homonyme, le nom suffit.
     await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("zoé");
-    await expect(
-      found.getByRole("button", { name: "Ajouter Test Zoé", exact: true }),
-    ).toBeVisible();
+    await expect(found.getByRole("option", { name: "Test Zoé", exact: true })).toBeVisible();
     await tab(page, "Élèves").click();
 
     // La confirmation de suppression désigne l'élève avec ses groupes.
@@ -121,8 +117,8 @@ test.describe("doublons et alerte d'âge", () => {
     await expect(edit.getByLabel("Ados perfectionnement")).toBeChecked();
     // La fiche ouverte n'est pas son propre doublon.
     await expect(edit.getByRole("list", { name: "Messages" })).toBeEmpty();
-    // Le focus revient dans la fenêtre : Échap la ferme (rien n'a changé).
-    await expect(edit.getByLabel("Nom", { exact: true })).toBeFocused();
+    // Le focus revient dans la fenêtre (premier champ, Prénom) : Échap la ferme (rien n'a changé).
+    await expect(edit.getByLabel("Prénom")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(edit).toBeHidden();
   });
@@ -206,6 +202,21 @@ test.describe("doublons et alerte d'âge", () => {
     await messages.getByRole("button", { name: "Reprendre ses coordonnées" }).click();
     await expect(dialog.getByLabel("Téléphone", { exact: true })).toHaveValue("0633445566");
     await expect(dialog.getByLabel("Niveau")).toHaveValue("");
+    await dialog.getByRole("button", { name: "Annuler" }).click();
+    await page.getByRole("button", { name: "Abandonner" }).click();
+    await expect(dialog).toBeHidden();
+
+    // Même contrôle sur « Créer « Prénom Nom » » de la fiche groupe (champs pré-remplis).
+    await tab(page, "Groupes").click();
+    await page.getByRole("link", { name: "Galaxie vert" }).click();
+    await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("Tom Durand");
+    await page.getByRole("option", { name: "Créer « Tom Durand »" }).click();
+    await expect(dialog.getByLabel("Prénom")).toHaveValue("Tom");
+    await expect(messages).toContainText("Tom Durand était inscrit(e) en 2026-2027.");
+    await messages.getByRole("button", { name: "Reprendre ses coordonnées" }).click();
+    await expect(dialog.getByLabel("Téléphone", { exact: true })).toHaveValue("0633445566");
+    // Le groupe d'où vient la création reste coché ; ceux de la saison passée ne sont pas repris.
+    await expect(dialog.getByLabel("Galaxie vert")).toBeChecked();
   });
 
   test("affiche les tranches et avertit d'un groupe hors tranche", async ({ page }) => {

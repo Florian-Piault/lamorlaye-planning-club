@@ -35,6 +35,7 @@ pub fn run() {
             backup::backups_location,
             backup::backup_list,
             backup::backup_create,
+            backup::backup_before_migration,
             backup::backup_export,
             backup::backup_inspect,
             backup::backup_restore,

@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
+import { useToast } from "@/components/feedback/Toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -39,6 +40,7 @@ export function GroupsTab() {
   const season = useViewedSeason();
   const readOnly = useReadOnly();
   const navigate = useNavigate();
+  const toast = useToast();
   const load = useCallback(
     async () => ({ groups: await listGroups(db, season.id), levels: await listLevels(db) }),
     [db, season.id],
@@ -177,8 +179,16 @@ export function GroupsTab() {
           onCancel={() => setCreating(false)}
           onSubmit={async (input) => {
             const id = await createGroup(db, season.id, input);
+            // On reste sur la liste (création de plusieurs groupes à la suite) ;
+            // le toast mène à la fiche, champ « Ajouter un élève » prêt.
             setCreating(false);
-            navigate(id);
+            reload();
+            toast.success(`Groupe « ${input.name} » créé`, {
+              action: {
+                label: "Ajouter des élèves",
+                run: () => navigate(id, { state: { addStudents: true } }),
+              },
+            });
           }}
         />
       </Dialog>

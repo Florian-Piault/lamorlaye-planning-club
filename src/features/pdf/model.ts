@@ -75,7 +75,8 @@ export interface OutputStudent {
   id: string;
   lastName: string;
   firstName: string;
-  phone: string;
+  /** Facultatif si le responsable légal a un téléphone (§3.5). */
+  phone: string | null;
   birthDate: string | null;
   guardianName: string | null;
   guardianPhone: string | null;
@@ -610,7 +611,8 @@ export function buildAttendanceSheets(input: {
       rows: members.map((s, i) => ({
         index: i + 1,
         name: `${s.lastName.toUpperCase()} ${s.firstName}`,
-        phone: s.phone,
+        // Deux colonnes : téléphone de l'élève, contact du responsable légal.
+        phone: s.phone ?? "",
         birthDate: formatDate(s.birthDate),
         guardian: [s.guardianName, s.guardianPhone].filter(Boolean).join(" — "),
       })),

@@ -236,7 +236,8 @@ export const students = sqliteTable(
       .references(() => seasons.id, { onDelete: "cascade" }),
     lastName: text().notNull(),
     firstName: text().notNull(),
-    phone: text().notNull(),
+    /** Facultatif si le responsable légal a un téléphone (règle « élève ou responsable », §3.5). */
+    phone: text(),
     birthDate: text(),
     levelId: text().references(() => levels.id, { onDelete: "set null" }),
     /** Classement FFT, ex. « 30/2 ». */
