@@ -1,4 +1,5 @@
 import type * as React from "react";
+import { type ReactNode, useId } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,14 +15,37 @@ function Select({ className, ...props }: React.ComponentProps<"select">) {
   return <select data-slot="select" className={cn(fieldClasses, "pr-8", className)} {...props} />;
 }
 
-function Checkbox({ className, ...props }: Omit<React.ComponentProps<"input">, "type">) {
-  return (
+type CheckboxProps = Omit<React.ComponentProps<"input">, "type"> & {
+  /**
+   * Libellé de la case, relié explicitement par un identifiant généré
+   * (`id` / `htmlFor`) : la case est annoncée par son libellé, et non « on »,
+   * sur tous les moteurs (B12). Sans libellé, prévoir un `aria-label`.
+   */
+  label?: ReactNode;
+  /** Classes du libellé (disposition, graisse). */
+  labelClassName?: string;
+};
+
+function Checkbox({ className, label, labelClassName, id, ...props }: CheckboxProps) {
+  const generatedId = useId();
+  const checkboxId = id ?? generatedId;
+  const input = (
     <input
       type="checkbox"
       data-slot="checkbox"
+      id={checkboxId}
       className={cn("size-4 shrink-0 rounded border-input accent-primary", className)}
       {...props}
     />
+  );
+  if (label === undefined) return input;
+  return (
+    <span className={cn("flex items-center gap-2 text-sm leading-none", labelClassName)}>
+      {input}
+      <label htmlFor={checkboxId} className="flex min-w-0 select-none items-center gap-2">
+        {label}
+      </label>
+    </span>
   );
 }
 

@@ -1,14 +1,18 @@
 import { type FormEvent, useMemo, useState } from "react";
-import { ErrorAlert, Field } from "@/components/form/Field";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages, type Message } from "@/components/feedback/messages";
+import { Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
-import { Checkbox, Input, Label, Select } from "@/components/ui/input";
+import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
+import { Checkbox, Input, Select } from "@/components/ui/input";
 import type { GroupListItem } from "@/db/repositories/groups";
 import type { Level, Student } from "@/db/schema";
 import { isMinor } from "@/domain/groups";
 import { matchesSearch } from "@/domain/search";
 import { isValidDate, todayIso } from "@/domain/time";
 import {
-  type FieldErrors,
   type StudentFormValues,
   type StudentInput,
   studentSchema,
@@ -68,9 +72,18 @@ export function StudentForm({
   const [values, setValues] = useState(initialValues);
   const [groupIds, setGroupIds] = useState<string[]>([...initialGroupIds]);
   const [groupQuery, setGroupQuery] = useState("");
-  const [errors, setErrors] = useState<FieldErrors<StudentFormValues>>({});
-  const [error, setError] = useState<string | null>(null);
-  const set = (patch: Partial<StudentFormValues>) => setValues((v) => ({ ...v, ...patch }));
+  const { errors, setErrors, error, setError, changed } = useFormErrors<StudentFormValues>();
+  const set = (patch: Partial<StudentFormValues>) => {
+    changed(patch);
+    setValues((v) => ({ ...v, ...patch }));
+  };
+  useDirtyGuard(
+    !sameValues(
+      { values, groupIds: [...groupIds].sort() },
+      { values: initialValues, groupIds: [...initialGroupIds].sort() },
+    ),
+  );
+  const cancel = useGuardedCancel(onCancel);
 
   const levelOptions = levels.filter((l) => l.active || l.id === initialValues.levelId);
   const groupOptions = useMemo(
@@ -83,6 +96,17 @@ export function StudentForm({
     [groups, initialGroupIds, groupQuery],
   );
   const minor = isValidDate(values.birthDate) && isMinor(values.birthDate, todayIso());
+  const messages: Message[] = [
+    ...errorMessages(error),
+    ...(minor && !readOnly
+      ? [
+          {
+            kind: "info" as const,
+            text: "Élève mineur : renseignez le nom et le téléphone du responsable légal.",
+          },
+        ]
+      : []),
+  ];
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -139,11 +163,6 @@ export function StudentForm({
         </div>
         <fieldset className="grid gap-3 rounded-lg border p-3">
           <legend className="px-1 font-medium text-sm">Responsable légal</legend>
-          {minor && (
-            <p className="text-muted-foreground text-xs">
-              Élève mineur : renseignez le nom et le téléphone du responsable légal.
-            </p>
-          )}
           <div className="grid grid-cols-2 gap-4">
             {text("guardianName", "Nom du responsable")}
             {text("guardianPhone", "Téléphone du responsable", false, "tel")}
@@ -169,29 +188,33 @@ export function StudentForm({
               )}
               <div className="grid max-h-40 grid-cols-2 gap-x-4 gap-y-1.5 overflow-y-auto">
                 {groupOptions.map((group) => (
-                  <Label key={group.id} className="font-normal">
-                    <Checkbox
-                      checked={groupIds.includes(group.id)}
-                      onChange={(e) =>
-                        setGroupIds((ids) =>
-                          e.target.checked ? [...ids, group.id] : ids.filter((i) => i !== group.id),
-                        )
-                      }
-                    />
-                    <span className="truncate">{group.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {group.memberCount}/{group.maxSize}
-                    </span>
-                  </Label>
+                  <Checkbox
+                    key={group.id}
+                    label={
+                      <>
+                        <span className="truncate">{group.name}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {group.memberCount}/{group.maxSize}
+                        </span>
+                      </>
+                    }
+                    checked={groupIds.includes(group.id)}
+                    onChange={(e) => {
+                      setError(null);
+                      setGroupIds((ids) =>
+                        e.target.checked ? [...ids, group.id] : ids.filter((i) => i !== group.id),
+                      );
+                    }}
+                  />
                 ))}
               </div>
             </>
           )}
         </fieldset>
       </fieldset>
-      <ErrorAlert>{error}</ErrorAlert>
+      <MessageZone label="Messages" messages={messages} />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={cancel}>
           {readOnly ? "Fermer" : "Annuler"}
         </Button>
         {!readOnly && <Button type="submit">{submitLabel}</Button>}

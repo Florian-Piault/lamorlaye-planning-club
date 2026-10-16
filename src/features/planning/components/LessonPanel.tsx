@@ -1,6 +1,8 @@
 import { Plus, Trash2, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useEffect, useId, useMemo, useState } from "react";
-import { ErrorAlert } from "@/components/form/Field";
+import { type FormEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages, warnings as warningMessages } from "@/components/feedback/messages";
+import { sameValues } from "@/components/form/formState";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -47,6 +49,11 @@ interface LessonPanelProps {
   onDelete?: () => void;
   /** Brouillon du nouveau cours, dessiné sur la grille. */
   onDraftChange?: (values: LessonFormValues) => void;
+  /**
+   * Saisie modifiée (différente des valeurs à l'ouverture) : l'écran demande
+   * alors confirmation avant de fermer le panneau ou d'en ouvrir un autre.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   /** Création rapide d'un groupe ; renvoie son identifiant. */
   onCreateGroup: (input: GroupInput) => Promise<string>;
   /** Titre (et nom accessible) du formulaire. */
@@ -90,6 +97,7 @@ export function LessonPanel({
   onClose,
   onDelete,
   onDraftChange,
+  onDirtyChange,
   onCreateGroup,
   title: titleProp,
   submitLabel = mode === "create" ? "Créer le cours" : "Enregistrer",
@@ -113,6 +121,7 @@ export function LessonPanel({
   const [error, setError] = useState<string | null>(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const id = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const set = (patch: Partial<LessonFormValues>) => {
     setError(null);
     setValues((v) => ({ ...v, ...patch }));
@@ -121,6 +130,19 @@ export function LessonPanel({
   useEffect(() => {
     onDraftChange?.(values);
   }, [values, onDraftChange]);
+
+  const dirty = !readOnly && !sameValues(values, initialValues);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+
+  // Garde de modale (B3) : à la création, le curseur est dans le premier champ.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seulement à l'ouverture du panneau.
+  useEffect(() => {
+    if (mode !== "create" || readOnly) return;
+    formRef.current?.querySelector<HTMLElement>("input:enabled, select:enabled")?.focus();
+  }, []);
 
   const groupOptions = useMemo(
     () =>
@@ -188,7 +210,13 @@ export function LessonPanel({
 
   return (
     <>
-      <form onSubmit={submit} aria-label={title} className="flex flex-col gap-3" noValidate>
+      <form
+        ref={formRef}
+        onSubmit={submit}
+        aria-label={title}
+        className="flex flex-col gap-3"
+        noValidate
+      >
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-sm">{title}</h2>
           <Button
@@ -352,19 +380,10 @@ export function LessonPanel({
           </div>
         </fieldset>
 
-        {warnings.length > 0 && (
-          <ul aria-label="Avertissements du créneau" className="flex flex-col gap-1">
-            {warnings.map((w) => (
-              <li
-                key={w}
-                className="rounded-md bg-destructive/10 px-2 py-1 text-destructive text-xs"
-              >
-                ⚠ {w}
-              </li>
-            ))}
-          </ul>
-        )}
-        <ErrorAlert>{error}</ErrorAlert>
+        <MessageZone
+          label="Avertissements du créneau"
+          messages={[...errorMessages(error), ...warningMessages(warnings)]}
+        />
 
         <div className="flex flex-wrap gap-2">
           {!readOnly && <Button type="submit">{submitLabel}</Button>}

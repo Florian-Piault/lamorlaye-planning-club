@@ -1,10 +1,14 @@
 import { CalendarPlus, Pencil, Plus, WandSparkles } from "lucide-react";
 import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { useReadOnly, useViewedSeason } from "@/app/season";
-import { ErrorAlert, Field } from "@/components/form/Field";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages } from "@/components/feedback/messages";
+import { Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
 import { Checkbox, Input } from "@/components/ui/input";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { loadPlanningState, persistCommand } from "@/db/repositories/planning";
@@ -185,13 +189,19 @@ function ClosureForm({
   onSubmit: (values: ClosureValues) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [values, setValues] = useState<ClosureValues>({
+  const initial: ClosureValues = {
     label: initialValues.label,
     startDate: initialValues.startDate,
     endDate: initialValues.endDate,
-  });
-  const [error, setError] = useState<string | null>(null);
-  const set = (patch: Partial<ClosureValues>) => setValues((v) => ({ ...v, ...patch }));
+  };
+  const [values, setValues] = useState<ClosureValues>(initial);
+  const { error, setError, changed } = useFormErrors<ClosureValues>();
+  useDirtyGuard(!sameValues(values, initial));
+  const cancel = useGuardedCancel(onCancel);
+  const set = (patch: Partial<ClosureValues>) => {
+    changed(patch);
+    setValues((v) => ({ ...v, ...patch }));
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -206,12 +216,7 @@ function ClosureForm({
     <form onSubmit={submit} noValidate aria-label="Période de fermeture" className="grid gap-4">
       <Field label="Libellé" required hint="Ex. « Vacances de la Toussaint », « Tournoi du club »">
         {(props) => (
-          <Input
-            {...props}
-            autoFocus
-            value={values.label}
-            onChange={(e) => set({ label: e.target.value })}
-          />
+          <Input {...props} value={values.label} onChange={(e) => set({ label: e.target.value })} />
         )}
       </Field>
       <div className="grid grid-cols-2 gap-3">
@@ -236,9 +241,9 @@ function ClosureForm({
           )}
         </Field>
       </div>
-      <ErrorAlert>{error}</ErrorAlert>
+      <MessageZone label="Messages" messages={errorMessages(error)} />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={cancel}>
           Annuler
         </Button>
         <Button type="submit">Enregistrer</Button>
@@ -272,8 +277,12 @@ function ClosureAssistant({
   );
   const [rows, setRows] = useState<Row[]>(initial);
   const [error, setError] = useState<string | null>(null);
-  const set = (id: string, patch: Partial<Row>) =>
+  useDirtyGuard(!sameValues(rows, initial));
+  const cancel = useGuardedCancel(onCancel);
+  const set = (id: string, patch: Partial<Row>) => {
+    setError(null);
     setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  };
   const chosen = rows.filter((r) => r.checked && r.inSeason);
 
   const submit = async (event: FormEvent) => {
@@ -358,9 +367,9 @@ function ClosureAssistant({
           );
         })}
       </ul>
-      <ErrorAlert>{error}</ErrorAlert>
+      <MessageZone label="Messages" messages={errorMessages(error)} />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={cancel}>
           Annuler
         </Button>
         <Button type="submit">

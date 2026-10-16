@@ -1,11 +1,13 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
+import { type MouseEvent, useId } from "react";
 
 import { cn } from "@/lib/utils";
+import { Tooltip } from "./tooltip";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -31,24 +33,80 @@ const buttonVariants = cva(
   },
 );
 
+type ButtonProps = React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean;
+    /**
+     * Raison affichée quand le bouton est grisé (`disabled`) : en petit texte à
+     * côté du bouton, dans une place réservée, et en bulle au survol et au
+     * clavier. Le bouton reste alors focalisable (`aria-disabled`) pour que la
+     * raison soit lisible au clavier.
+     */
+    disabledReason?: string;
+    /** Côté du texte de la raison ; `"none"` : en bulle seulement (bouton icône). */
+    reasonSide?: "start" | "end" | "none";
+    /** Bulle d'aide commune (au survol et au clavier), à la place d'un `title` natif. */
+    tooltip?: string;
+  };
+
 function Button({
   className,
   variant,
   size,
   asChild = false,
+  disabledReason,
+  reasonSide = "end",
+  tooltip,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
+}: ButtonProps) {
   const Comp = asChild ? Slot : "button";
+  const reasonId = useId();
+  const classes = cn(buttonVariants({ variant, size, className }));
 
-  return (
+  if (disabledReason === undefined) {
+    const plain = (
+      <Comp data-slot="button" data-variant={variant ?? "default"} className={classes} {...props} />
+    );
+    return tooltip ? <Tooltip content={tooltip}>{plain}</Tooltip> : plain;
+  }
+
+  const { disabled, onClick, ...rest } = props;
+  const blocked = Boolean(disabled);
+  const button = (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
+      data-variant={variant ?? "default"}
+      className={classes}
+      {...rest}
+      // Clés absentes quand le bouton est actif : la bulle peut alors le décrire.
+      {...(blocked ? { "aria-disabled": true, "aria-describedby": reasonId } : {})}
+      onClick={(event: MouseEvent<HTMLButtonElement>) => {
+        // Grisé mais focalisable : le clic (ou Entrée dans un formulaire) est sans effet.
+        if (blocked) event.preventDefault();
+        else onClick?.(event);
+      }}
     />
+  );
+  const reason = (
+    <span
+      id={reasonId}
+      aria-hidden={!blocked || undefined}
+      className={cn(
+        "text-muted-foreground text-xs",
+        reasonSide === "none" ? "sr-only" : !blocked && "invisible",
+      )}
+    >
+      {disabledReason}
+    </span>
+  );
+  return (
+    <span data-slot="button-with-reason" className="inline-flex items-center gap-2">
+      {reasonSide === "start" && reason}
+      <Tooltip content={blocked ? disabledReason : tooltip} describe={!blocked}>
+        {button}
+      </Tooltip>
+      {reasonSide !== "start" && reason}
+    </span>
   );
 }
 

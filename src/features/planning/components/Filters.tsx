@@ -68,12 +68,18 @@ export const Filters = memo(function Filters({
           ))}
         </Select>
       </label>
-      {hasFilters(filters) && (
-        <Button variant="ghost" size="sm" className="h-7" onClick={() => onChange(noFilters)}>
-          <X aria-hidden />
-          Effacer les filtres
-        </Button>
-      )}
+      {/* Toujours présent (rien ne bouge) : grisé, avec sa raison, sans filtre actif. */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7"
+        disabled={!hasFilters(filters)}
+        disabledReason="Aucun filtre actif"
+        onClick={() => onChange(noFilters)}
+      >
+        <X aria-hidden />
+        Effacer les filtres
+      </Button>
     </div>
   );
 });

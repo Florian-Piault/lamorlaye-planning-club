@@ -201,7 +201,7 @@ test.describe("référentiels", () => {
 
     await page.getByRole("button", { name: "Retirer Éluard Zoé du groupe" }).click();
     await expect(page.getByTestId("group-size")).toHaveText("2 / 2");
-    await expect(page.getByRole("list", { name: "Alertes" })).toBeHidden();
+    await expect(page.getByRole("list", { name: "Alertes" })).toBeEmpty();
 
     // Glisser-déposer d'un élève trouvé sur la composition (§8).
     await search.fill("zoe");

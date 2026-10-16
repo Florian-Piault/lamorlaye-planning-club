@@ -1,13 +1,17 @@
 import { Check } from "lucide-react";
 import { type FormEvent, useState } from "react";
-import { ErrorAlert, Field } from "@/components/form/Field";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages } from "@/components/feedback/messages";
+import { Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
-import { Checkbox, Input, Label } from "@/components/ui/input";
+import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
+import { Checkbox, Input } from "@/components/ui/input";
 import type { Instructor } from "@/db/schema";
 import { INSTRUCTOR_PALETTE, normalizeColor } from "@/domain/colors";
 import { suggestInitials } from "@/domain/initials";
 import {
-  type FieldErrors,
   type InstructorFormValues,
   type InstructorInput,
   instructorSchema,
@@ -61,14 +65,19 @@ export function InstructorForm({
 }: InstructorFormProps) {
   const [values, setValues] = useState(initialValues);
   const [initialsEdited, setInitialsEdited] = useState(initialValues.initials !== "");
-  const [errors, setErrors] = useState<FieldErrors<InstructorFormValues>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { errors, setErrors, error, setError, changed } = useFormErrors<InstructorFormValues>();
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
   const takenInitials = others.map((o) => o.initials);
+  useDirtyGuard(!sameValues(values, initialValues));
+  const cancel = useGuardedCancel(onCancel);
 
   const update = (patch: Partial<InstructorFormValues>) => {
-    setSaved(false);
+    // Les initiales suggérées changent avec le nom : leur erreur s'efface aussi.
+    changed(
+      !initialsEdited && ("firstName" in patch || "lastName" in patch)
+        ? { ...patch, initials: "" }
+        : patch,
+    );
     setValues((current) => {
       const next = { ...current, ...patch };
       if (!initialsEdited && ("firstName" in patch || "lastName" in patch)) {
@@ -87,7 +96,6 @@ export function InstructorForm({
     setBusy(true);
     try {
       await onSubmit(result.data);
-      setSaved(true);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -172,29 +180,26 @@ export function InstructorForm({
           onChange={(color) => update({ color })}
           initials={values.initials}
         />
-        <Label className="font-normal">
-          <Checkbox
-            checked={values.active}
-            onChange={(e) => update({ active: e.target.checked })}
-          />
-          Actif (proposé dans le planning)
-        </Label>
+        <Checkbox
+          label="Actif (proposé dans le planning)"
+          checked={values.active}
+          onChange={(e) => update({ active: e.target.checked })}
+        />
       </fieldset>
-      <ErrorAlert>{error}</ErrorAlert>
       {!readOnly && (
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={busy}>
-            {submitLabel}
-          </Button>
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Annuler
+        <>
+          <MessageZone label="Messages" messages={errorMessages(error)} />
+          <div className="flex items-center gap-2">
+            <Button type="submit" disabled={busy}>
+              {submitLabel}
             </Button>
-          )}
-          {saved && (
-            <output className="text-muted-foreground text-sm">Modifications enregistrées.</output>
-          )}
-        </div>
+            {cancel && (
+              <Button type="button" variant="outline" onClick={cancel}>
+                Annuler
+              </Button>
+            )}
+          </div>
+        </>
       )}
     </form>
   );

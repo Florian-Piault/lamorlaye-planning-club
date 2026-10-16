@@ -3,6 +3,7 @@
  * serveur Vite (`import("/src/test/e2e.ts")`) : ils partagent la base sql.js
  * en mémoire de l'application ouverte. Jamais importés par l'application.
  */
+import { eq } from "drizzle-orm";
 import { openAppDatabase } from "@/db";
 import { createCourt, listCourts, updateCourt } from "@/db/repositories/courts";
 import { loadPlanningState, persistCommand } from "@/db/repositories/planning";
@@ -17,6 +18,7 @@ import {
   instructorUnavailabilities,
   lessonExceptions,
   lessons,
+  seasons,
   students,
 } from "@/db/schema";
 import { createClosure, emptyPlanningState } from "@/domain/commands";
@@ -119,6 +121,15 @@ export async function tryWritingSeason(name: string): Promise<string[]> {
     }
   }
   return results;
+}
+
+/**
+ * Archive la saison active en base, à l'insu de l'écran ouvert : ses écritures
+ * suivantes sont refusées par la base (échec d'enregistrement simulé).
+ */
+export async function archiveActiveSeason(): Promise<void> {
+  const { db, season } = await activeSeason();
+  await db.update(seasons).set({ status: "archived" }).where(eq(seasons.id, season.id));
 }
 
 /**

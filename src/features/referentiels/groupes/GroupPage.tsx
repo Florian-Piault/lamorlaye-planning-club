@@ -8,11 +8,13 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { ArrowLeft, GripVertical, Plus, TriangleAlert, UserMinus } from "lucide-react";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { SearchInput } from "@/components/data/ListControls";
-import { ErrorAlert } from "@/components/form/Field";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages, warnings } from "@/components/feedback/messages";
+import { useToast } from "@/components/feedback/Toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,6 +112,7 @@ export function GroupPage() {
   const season = useViewedSeason();
   const readOnly = useReadOnly();
   const navigate = useNavigate();
+  const toast = useToast();
   const load = useCallback(async () => {
     const [group, members, students, levels] = await Promise.all([
       getGroup(db, id),
@@ -121,8 +124,20 @@ export function GroupPage() {
   }, [db, id, season.id]);
   const { data, loading, reload } = useLoader(load);
   const [query, setQuery] = useState("");
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragged, setDragged] = useState<string | null>(null);
+
+  // Résultats superposés : refermés par un clic en dehors (ou Échap), sans décaler la composition.
+  useEffect(() => {
+    if (!resultsOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!searchRef.current?.contains(event.target as Node)) setResultsOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [resultsOpen]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const memberIds = useMemo(() => new Set(data?.members.map((m) => m.id)), [data]);
@@ -199,7 +214,6 @@ export function GroupPage() {
           </div>
         )}
       </div>
-      <ErrorAlert>{error}</ErrorAlert>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <Card>
@@ -215,7 +229,8 @@ export function GroupPage() {
               readOnly={readOnly}
               onSubmit={async (input) => {
                 await updateGroup(db, id, input);
-                reload();
+                await reload();
+                toast.success("Modifications enregistrées.");
               }}
             />
           </CardContent>
@@ -235,18 +250,10 @@ export function GroupPage() {
             <CardDescription>Âges calculés au début de la saison.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {alerts.messages.length > 0 && (
-              <ul aria-label="Alertes" className="flex flex-wrap gap-2">
-                {alerts.messages.map((message) => (
-                  <li key={message}>
-                    <Badge variant="warning">
-                      <TriangleAlert aria-hidden />
-                      {message}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <MessageZone
+              label="Alertes"
+              messages={[...errorMessages(error), ...warnings(alerts.messages)]}
+            />
 
             <DndContext
               sensors={sensors}
@@ -275,15 +282,32 @@ export function GroupPage() {
               }}
             >
               {!readOnly && (
-                <div className="flex flex-col gap-2">
+                // biome-ignore lint/a11y/noStaticElementInteractions: ouverture et Échap de la liste superposée des résultats.
+                <div
+                  ref={searchRef}
+                  className="relative max-w-md"
+                  onFocus={() => setResultsOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && resultsOpen) {
+                      event.preventDefault();
+                      setResultsOpen(false);
+                    }
+                  }}
+                >
                   <SearchInput
                     value={query}
-                    onChange={setQuery}
+                    onChange={(value) => {
+                      setQuery(value);
+                      setResultsOpen(true);
+                    }}
                     label="Ajouter un élève (nom, prénom, téléphone)"
                     className="max-w-md"
                   />
-                  {query.trim() !== "" && (
-                    <ul aria-label="Élèves trouvés" className="divide-y rounded-lg border">
+                  {resultsOpen && query.trim() !== "" && (
+                    <ul
+                      aria-label="Élèves trouvés"
+                      className="absolute inset-x-0 top-full z-30 mt-1 max-h-80 divide-y overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg"
+                    >
                       {candidates.length === 0 && (
                         <li className="px-3 py-2 text-muted-foreground text-sm">
                           Aucun élève trouvé.

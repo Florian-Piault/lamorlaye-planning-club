@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { keyLabel, shortcutLabel } from "@/lib/keys";
 
 export interface WarningItem {
   lessonId: string;
@@ -22,7 +23,7 @@ export const WarningsPanel = memo(function WarningsPanel({ items, onShow }: Warn
         <ul className="flex list-disc flex-col gap-1 pl-4 text-muted-foreground text-xs">
           <li>
             <b className="text-foreground">Créer</b> : cliquer-glisser dans la colonne d'un court,
-            ou <Kbd>N</Kbd>
+            ou <Kbd>{shortcutLabel("mod+n")}</Kbd>
           </li>
           <li>
             <b className="text-foreground">Déplacer</b> : glisser un cours (jour, heure, court ; pas
@@ -32,8 +33,8 @@ export const WarningsPanel = memo(function WarningsPanel({ items, onShow }: Warn
             <b className="text-foreground">Durée</b> : tirer le bord bas d'un cours
           </li>
           <li>
-            <b className="text-foreground">Dupliquer</b> : glisser en maintenant <Kbd>Alt</Kbd>/
-            <Kbd>⌥</Kbd>
+            <b className="text-foreground">Dupliquer</b> : glisser en maintenant{" "}
+            <Kbd>{keyLabel("alt")}</Kbd>
           </li>
           <li>
             <b className="text-foreground">Changer de moniteur</b> : glisser sa pastille sur un
@@ -44,16 +45,17 @@ export const WarningsPanel = memo(function WarningsPanel({ items, onShow }: Warn
             pastille
           </li>
           <li>
-            <b className="text-foreground">Modifier</b> : cliquer un cours · <Kbd>Suppr</Kbd> le
-            supprime
+            <b className="text-foreground">Modifier</b> : cliquer un cours ·{" "}
+            <Kbd>{keyLabel("delete")}</Kbd> le supprime
           </li>
           <li>
             <b className="text-foreground">Semaine datée</b> : <Kbd>←</Kbd> / <Kbd>→</Kbd> semaine
             précédente / suivante ; cliquer une séance pour l'annuler, la remplacer ou la rétablir
           </li>
           <li>
-            <b className="text-foreground">Annuler / rétablir</b> : <Kbd>Ctrl/⌘ Z</Kbd> ·{" "}
-            <Kbd>Ctrl/⌘ ⇧ Z</Kbd> · <Kbd>Échap</Kbd> interrompt un glisser
+            <b className="text-foreground">Annuler / rétablir</b> :{" "}
+            <Kbd>{shortcutLabel("mod+z")}</Kbd> · <Kbd>{shortcutLabel("mod+shift+z")}</Kbd> ·{" "}
+            <Kbd>{keyLabel("escape")}</Kbd> interrompt un glisser
           </li>
         </ul>
       </section>

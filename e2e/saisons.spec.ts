@@ -53,8 +53,8 @@ async function duplicateClub(page: Page) {
   await expect(dialog.getByLabel("Date de début")).toHaveValue("2027-09-01");
   await dialog.getByRole("button", { name: "Dupliquer la saison" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId("season-message")).toHaveText(
-    "Saison créée par duplication : 2 courts, 3 moniteurs, 4 groupes, 8 élèves, 2 cours repris.",
+  await expect(page.getByTestId("toast")).toHaveText(
+    "Saison « 2027-2028 » créée par duplication : 2 courts, 3 moniteurs, 4 groupes, 8 élèves, 2 cours repris.",
   );
 }
 
@@ -338,7 +338,7 @@ test.describe("RGPD", () => {
     await dialog.getByLabel(/Je confirme la suppression définitive/).check();
     await confirm.click();
     await expect(dialog).toBeHidden();
-    await expect(page.getByTestId("students-message")).toHaveText(
+    await expect(page.getByTestId("toast")).toHaveText(
       "Données de l'élève supprimées définitivement (2 fiches).",
     );
     await expect(page.getByTestId("student-count")).toHaveText("7 élèves");
@@ -389,7 +389,7 @@ test.describe("RGPD", () => {
     await dialog.getByRole("button", { name: "Supprimer définitivement…" }).click();
     await dialog.getByLabel(/Je confirme la suppression définitive/).check();
     await dialog.getByRole("button", { name: "Supprimer définitivement", exact: true }).click();
-    await expect(page.getByTestId("privacy-message")).toHaveText(
+    await expect(page.getByTestId("toast")).toHaveText(
       "Données supprimées définitivement (1 fiche).",
     );
     await viewSeason(page, "2026-2027 (archivée)");

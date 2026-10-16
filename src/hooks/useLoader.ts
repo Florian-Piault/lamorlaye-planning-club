@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { readOnlyErrorOf } from "@/db/readOnly";
 
 export interface Loader<T> {
   data: T | undefined;
   error: unknown;
   loading: boolean;
-  /** Relance le chargement (après une modification). */
-  reload: () => void;
+  /** Relance le chargement (après une modification) ; résolu une fois les données relues. */
+  reload: () => Promise<void>;
 }
 
 /**
@@ -19,21 +19,41 @@ export function useLoader<T>(load: () => Promise<T>): Loader<T> {
     loading: true,
   });
   const [version, setVersion] = useState(0);
+  /** Rechargements en attente : résolus à la fin du prochain chargement abouti. */
+  const waiting = useRef<(() => void)[]>([]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `version` déclenche le rechargement.
   useEffect(() => {
     let cancelled = false;
+    const settle = () => {
+      for (const resolve of waiting.current.splice(0)) resolve();
+    };
     setState((s) => ({ ...s, loading: true }));
     load().then(
-      (data) => !cancelled && setState({ data, loading: false }),
-      (error: unknown) => !cancelled && setState((s) => ({ ...s, error, loading: false })),
+      (data) => {
+        if (cancelled) return;
+        setState({ data, loading: false });
+        settle();
+      },
+      (error: unknown) => {
+        if (cancelled) return;
+        setState((s) => ({ ...s, error, loading: false }));
+        settle();
+      },
     );
     return () => {
       cancelled = true;
     };
   }, [load, version]);
 
-  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const reload = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        waiting.current.push(resolve);
+        setVersion((v) => v + 1);
+      }),
+    [],
+  );
   return { data: state.data, error: state.error, loading: state.loading, reload };
 }
 

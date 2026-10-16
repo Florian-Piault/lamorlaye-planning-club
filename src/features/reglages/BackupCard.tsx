@@ -1,10 +1,11 @@
 import { DatabaseBackup, Download, Lock, RotateCcw, Upload } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useToast } from "@/components/feedback/Toast";
 import { ErrorAlert, Field } from "@/components/form/Field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Checkbox, Input, Label } from "@/components/ui/input";
+import { Checkbox, Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -73,7 +74,7 @@ function DesktopBackups() {
     return { location, backups: sortBackups(backups) };
   }, []);
   const { data, reload } = useLoader(load);
-  const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -82,9 +83,9 @@ function DesktopBackups() {
   const run = async (action: () => Promise<string | null>) => {
     setBusy(true);
     setError(null);
-    setMessage(null);
     try {
-      setMessage(await action());
+      const message = await action();
+      if (message) toast.success(message);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -134,7 +135,6 @@ function DesktopBackups() {
           Sauvegarder maintenant
         </Button>
       </div>
-      {message && <output className="text-muted-foreground text-sm">{message}</output>}
       <ErrorAlert>{error}</ErrorAlert>
 
       <div className="flex flex-col gap-2">
@@ -250,10 +250,11 @@ function ExportForm({
         if (!issue) onExport(password);
       }}
     >
-      <Label className="font-normal">
-        <Checkbox checked={encrypt} onChange={(e) => setEncrypt(e.target.checked)} />
-        Chiffrer la sauvegarde par un mot de passe (recommandé)
-      </Label>
+      <Checkbox
+        label="Chiffrer la sauvegarde par un mot de passe (recommandé)"
+        checked={encrypt}
+        onChange={(e) => setEncrypt(e.target.checked)}
+      />
       {encrypt && (
         <div className="grid gap-3">
           <Field label="Mot de passe" hint={`${MIN_PASSWORD_LENGTH} caractères au minimum.`}>

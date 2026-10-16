@@ -96,7 +96,7 @@ test.describe("grille semaine type", () => {
     ]);
     await form.getByLabel("Groupe", { exact: true }).selectOption({ label: "Mini-tennis (1/6)" });
     await instructor.selectOption({ label: "● Karim Benali" });
-    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeHidden();
+    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeEmpty();
     await form.getByRole("button", { name: "Créer le cours" }).click();
 
     await expect(form).toBeHidden();
@@ -155,15 +155,18 @@ test.describe("grille semaine type", () => {
     const galaxie = lesson(page, "Galaxie vert");
     await galaxie.click();
     const form = panel(page, "Modifier le cours");
-    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeHidden();
+    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeEmpty();
     await form.getByLabel("Jour").selectOption({ label: "Mercredi" });
     await form.getByLabel("Court").selectOption({ label: "Court 2" });
     await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toContainText(
       "déjà occupé par Ados perfectionnement",
     );
 
+    // Saisie modifiée : fermer le panneau demande confirmation (garde de modale).
     const empty = await slotPoint(page, SAT, C1, "15:00");
     await page.mouse.click(empty.x, empty.y);
+    const discard = page.getByRole("dialog", { name: "Abandonner les modifications ?" });
+    await discard.getByRole("button", { name: "Abandonner" }).click();
     await expect(form).toBeHidden();
     await expect(galaxie).not.toHaveAttribute("data-selected");
     await expect(galaxie).toContainText("10h00–11h00");
@@ -334,9 +337,7 @@ test.describe("grille semaine type", () => {
       "Confier « Galaxie vert » à Julie",
     );
     await expect(page.getByTestId("drag-tooltip")).toContainText("⚠ Hors disponibilités de Julie");
-    await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachuré : indisponibilités de Julie Martin",
-    );
+    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Julie Martin");
     await page.mouse.up();
 
     await expect(galaxie).toContainText("JM · 3/8");
@@ -406,12 +407,14 @@ test.describe("grille semaine type", () => {
     await page.keyboard.press("ControlOrMeta+z");
     await expect(galaxie).toHaveCount(1);
 
-    // Ctrl/Cmd+N ouvre le panneau « Nouveau cours » (§11.5), Échap le ferme ;
-    // N seul est sans effet (pas de raccourci d'une seule lettre, WCAG 2.1.4).
+    // Ctrl/Cmd+N ouvre le panneau « Nouveau cours » (§11.5), curseur dans le
+    // premier champ ; Échap le ferme. N seul est sans effet (pas de raccourci
+    // d'une seule lettre, WCAG 2.1.4).
     await page.keyboard.press("n");
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");
     await expect(panel(page, "Nouveau cours")).toBeVisible();
+    await expect(panel(page, "Nouveau cours").getByLabel("Rechercher un groupe")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");
@@ -424,9 +427,7 @@ test.describe("grille semaine type", () => {
     await expect(hatches).toHaveCount(0);
 
     await lesson(page, "Galaxie vert").hover();
-    await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachuré : indisponibilités de Karim Benali",
-    );
+    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Karim Benali");
     // Lundi 8h–9h, 12h–17h, 21h30–22h ; mardi 8h–9h, 12h–22h ; mercredi 8h–13h, 19h–22h ;
     // jeudi, vendredi, samedi entiers.
     await expect(hatches).toHaveCount(10);
@@ -439,7 +440,7 @@ test.describe("grille semaine type", () => {
     await expect(marc).toHaveAttribute("aria-pressed", "true");
     await expect(hatches).toHaveCount(6);
     await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachuré : Marc Leroy n'a saisi aucune disponibilité (indisponible partout)",
+      "Hachures : Marc Leroy (aucune disponibilité)",
     );
     await marc.click();
     await expect(hatches).toHaveCount(0);
@@ -503,7 +504,7 @@ test.describe("grille semaine type", () => {
     });
     await expect(lesson(page, "Galaxie vert")).toHaveCount(1);
     await expect(lesson(page, "Galaxie vert")).not.toHaveAttribute("data-warning");
-    await expect(page.getByText("1 version(s) de cours hors vigueur")).toBeVisible();
+    await expect(page.getByTestId("hidden-versions")).toHaveText("1 version(s) masquée(s)");
 
     await expect(page.getByRole("heading", { name: "Avertissements (1)" })).toBeVisible();
     const item = page.getByRole("list", { name: "Avertissements" }).getByRole("button");

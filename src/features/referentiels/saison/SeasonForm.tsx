@@ -1,11 +1,15 @@
 import { type FormEvent, useState } from "react";
-import { ErrorAlert, Field } from "@/components/form/Field";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages } from "@/components/feedback/messages";
+import { Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
-import { Checkbox, Input, Label, Select } from "@/components/ui/input";
+import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
+import { Checkbox, Input, Select } from "@/components/ui/input";
 import type { Season } from "@/db/schema";
 import { minutesToTime, WEEKDAYS } from "@/domain/time";
 import {
-  type FieldErrors,
   type SeasonFormValues,
   type SeasonInput,
   seasonSchema,
@@ -47,17 +51,20 @@ interface SeasonFormProps {
   onCancel?: () => void;
 }
 
-/** Fiche saison : nom, dates, amplitude horaire et jours affichés (§3.1). */
+/**
+ * Fiche saison : nom, dates, amplitude horaire et jours affichés (§3.1). La
+ * confirmation de l'enregistrement est un toast, émis par l'écran appelant.
+ */
 export function SeasonForm({ initialValues, submitLabel, onSubmit, onCancel }: SeasonFormProps) {
   const [values, setValues] = useState(initialValues);
-  const [errors, setErrors] = useState<FieldErrors<SeasonFormValues>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { errors, setErrors, error, setError, changed } = useFormErrors<SeasonFormValues>();
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
+  useDirtyGuard(!sameValues(values, initialValues));
+  const cancel = useGuardedCancel(onCancel);
 
   const set = <K extends keyof SeasonFormValues>(key: K, value: SeasonFormValues[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
-    setSaved(false);
+    changed({ [key]: value } as Partial<SeasonFormValues>);
   };
 
   const toggleDay = (day: number, checked: boolean) =>
@@ -78,7 +85,6 @@ export function SeasonForm({ initialValues, submitLabel, onSubmit, onCancel }: S
     setBusy(true);
     try {
       await onSubmit(result.data);
-      setSaved(true);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -149,29 +155,25 @@ export function SeasonForm({ initialValues, submitLabel, onSubmit, onCancel }: S
         <legend className="mb-2 font-medium text-sm">Jours affichés</legend>
         <div className="flex flex-wrap gap-x-5 gap-y-2">
           {WEEKDAYS.map((day) => (
-            <Label key={day.value} className="font-normal">
-              <Checkbox
-                checked={values.displayedDays.includes(day.value)}
-                onChange={(e) => toggleDay(day.value, e.target.checked)}
-              />
-              {day.label}
-            </Label>
+            <Checkbox
+              key={day.value}
+              label={day.label}
+              checked={values.displayedDays.includes(day.value)}
+              onChange={(e) => toggleDay(day.value, e.target.checked)}
+            />
           ))}
         </div>
         {errors.displayedDays && <p className="text-destructive text-xs">{errors.displayedDays}</p>}
       </fieldset>
-      <ErrorAlert>{error}</ErrorAlert>
+      <MessageZone label="Messages" messages={errorMessages(error)} />
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={busy}>
           {submitLabel}
         </Button>
-        {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
+        {cancel && (
+          <Button type="button" variant="outline" onClick={cancel}>
             Annuler
           </Button>
-        )}
-        {saved && (
-          <output className="text-muted-foreground text-sm">Modifications enregistrées.</output>
         )}
       </div>
     </form>

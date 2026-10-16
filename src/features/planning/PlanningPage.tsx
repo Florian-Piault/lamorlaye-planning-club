@@ -1,6 +1,7 @@
 import { DndContext } from "@dnd-kit/core";
-import { FileDown, LandPlot, Lock, Plus, Redo2, Undo2, X } from "lucide-react";
+import { FileDown, LandPlot, Lock, Plus, Redo2, Undo2 } from "lucide-react";
 import {
+  type ReactNode,
   type RefObject,
   useCallback,
   useEffect,
@@ -11,11 +12,14 @@ import {
 } from "react";
 import { Link } from "react-router";
 import { useSeason } from "@/app/season";
+import { useToast } from "@/components/feedback/Toast";
 import { ErrorAlert } from "@/components/form/Field";
 import { EmptyState, Page } from "@/components/layout/Page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useDiscardGuard, useEscapeCascade } from "@/components/ui/dialog";
 import { Label, Select } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { createGroup } from "@/db/repositories/groups";
 import type { Season } from "@/db/schema";
@@ -32,6 +36,8 @@ import { PAPER_SIZES, type PaperSize } from "@/features/pdf/model";
 import { PdfPreviewDialog } from "@/features/pdf/PdfPreviewDialog";
 import { RequireSeason } from "@/features/referentiels/ReferentielsPage";
 import { errorMessage } from "@/hooks/useLoader";
+import { shortcutLabel } from "@/lib/keys";
+import { cn } from "@/lib/utils";
 import { DragFeedback } from "./components/DragFeedback";
 import { Filters } from "./components/Filters";
 import { Legend, type LegendEntry } from "./components/Legend";
@@ -178,12 +184,6 @@ type PanelState =
   | { mode: "create"; initial: LessonFormValues; key: number }
   | { mode: "edit"; itemId: string };
 
-interface Toast {
-  key: number;
-  message: string;
-  undoable: boolean;
-}
-
 function lowerFirst(value: string): string {
   return value.charAt(0).toLowerCase() + value.slice(1);
 }
@@ -253,7 +253,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   const [filters, setFilters] = useState<PlanningFilters>(noFilters);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelState | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
+  const toast = useToast();
   const [pdfOpen, setPdfOpen] = useState(false);
   const [paper, setPaper] = useState<PaperSize>(rememberedPaper);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -272,19 +272,30 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   const [mode, setModeState] = useState<PlanningMode>(
     () => rememberedModes.get(season.id) ?? TYPE_MODE,
   );
+
+  // --- Garde du panneau de cours (spec UX v1.1) ------------------------------
+  // Le panneau se comporte comme une modale : si sa saisie a changé, le fermer,
+  // ouvrir un autre cours ou choisir un autre créneau demande confirmation.
+  const {
+    setDirty: onPanelDirtyChange,
+    guard: guardPanel,
+    confirmation: discardConfirmation,
+  } = useDiscardGuard();
+  const escapeForPicker = useEscapeCascade();
   const [datedMonday, setDatedMonday] = useState(() =>
     mode.kind === "dated" ? mode.monday : todayMonday,
   );
   const changeMode = useCallback(
-    (next: PlanningMode) => {
-      rememberedModes.set(season.id, next);
-      setModeState(next);
-      if (next.kind === "dated") setDatedMonday(next.monday);
-      setSelectedId(null);
-      setPanel(null);
-      interaction.update({ draft: null });
-    },
-    [season.id, interaction],
+    (next: PlanningMode) =>
+      guardPanel(() => {
+        rememberedModes.set(season.id, next);
+        setModeState(next);
+        if (next.kind === "dated") setDatedMonday(next.monday);
+        setSelectedId(null);
+        setPanel(null);
+        interaction.update({ draft: null });
+      }),
+    [season.id, interaction, guardPanel],
   );
   const dateOf = useMemo(() => dateOfMode(mode), [mode]);
   const ctx: ActionContext = useMemo(
@@ -557,10 +568,23 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   );
 
   // --- Actions --------------------------------------------------------------
-  const notify = useCallback((message: string, undoable = false) => {
-    setToast({ key: Date.now(), message, undoable });
-  }, []);
-  const hideToast = useCallback(() => setToast(null), []);
+  // Toast commun : succès (avec « Annuler cette action »), erreurs persistantes.
+  const undoRef = useRef<() => void>(() => {});
+  const notify = useCallback(
+    (message: string, undoable = false) =>
+      toast.success(
+        message,
+        undoable
+          ? { action: { label: "Annuler cette action", run: () => undoRef.current() } }
+          : undefined,
+      ),
+    [toast],
+  );
+  const notifyError = useCallback((message: string) => toast.error(message), [toast]);
+  // Échec d'écriture en base (le moteur a restauré l'état) : erreur persistante.
+  useEffect(() => {
+    if (snapshot.error) toast.error(snapshot.error, { onDismiss: () => store.dismissError() });
+  }, [snapshot.error, toast, store]);
 
   /**
    * Exécute une commande du moteur : mémoire, base, pile d'annulation.
@@ -575,11 +599,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         notify(command.label, true);
         return command;
       } catch (e) {
-        notify(errorMessage(e));
+        notifyError(errorMessage(e));
         return false;
       }
     },
-    [store, notify],
+    [store, notify, notifyError],
   );
 
   /** Sélectionne l'élément créé par une commande, sinon l'élément d'origine. */
@@ -596,36 +620,42 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     interaction.update({ draft: null });
   }, [interaction]);
 
+  /** Fermeture demandée par l'utilisatrice (croix, Fermer, Échap, clic dans le vide). */
+  const requestClosePanel = useCallback(() => guardPanel(closePanel), [guardPanel, closePanel]);
+
   const openLesson = useCallback(
-    (id: string) => {
-      interaction.update({ draft: null });
-      setSelectedId(id);
-      setPanel({ mode: "edit", itemId: id });
-    },
-    [interaction],
+    (id: string) =>
+      guardPanel(() => {
+        interaction.update({ draft: null });
+        setSelectedId(id);
+        setPanel({ mode: "edit", itemId: id });
+      }),
+    [interaction, guardPanel],
   );
 
   const openNew = useCallback(
     (values?: Partial<LessonFormValues>) => {
       if (readOnly) return;
-      interaction.update({ draft: null });
-      setSelectedId(null);
-      setPanel({
-        mode: "create",
-        key: Date.now(),
-        initial: {
-          groupId: "",
-          instructorId: "",
-          weekday: weekdays[0] ?? 1,
-          start: Math.min(Math.max(17 * 60, dayStart), dayEnd - 60),
-          durationMinutes: 60,
-          courtId: "",
-          note: "",
-          ...values,
-        },
+      guardPanel(() => {
+        interaction.update({ draft: null });
+        setSelectedId(null);
+        setPanel({
+          mode: "create",
+          key: Date.now(),
+          initial: {
+            groupId: "",
+            instructorId: "",
+            weekday: weekdays[0] ?? 1,
+            start: Math.min(Math.max(17 * 60, dayStart), dayEnd - 60),
+            durationMinutes: 60,
+            courtId: "",
+            note: "",
+            ...values,
+          },
+        });
       });
     },
-    [interaction, weekdays, dayStart, dayEnd, readOnly],
+    [interaction, weekdays, dayStart, dayEnd, readOnly, guardPanel],
   );
 
   const undo = useCallback(() => {
@@ -637,6 +667,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     const command = store.redo();
     if (command) notify(`Rétabli : ${lowerFirst(command.label)}`);
   }, [store, notify]);
+  undoRef.current = undo;
 
   const removeLesson = useCallback(
     (id: string) => {
@@ -772,10 +803,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           durationMinutes: candidate.durationMinutes,
           courtId: candidate.courtId ?? "",
         }),
-      onBoardClick: () => {
-        setSelectedId(null);
-        closePanel();
-      },
+      onBoardClick: () =>
+        guardPanel(() => {
+          setSelectedId(null);
+          closePanel();
+        }),
       onCancel: () => notify("Déplacement interrompu"),
     },
   });
@@ -821,7 +853,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     redo,
     openNew,
     removeLesson,
-    closePanel,
+    requestClosePanel,
     panel,
     selected,
     gestures,
@@ -835,7 +867,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     redo,
     openNew,
     removeLesson,
-    closePanel,
+    requestClosePanel,
     panel,
     selected,
     gestures,
@@ -848,12 +880,16 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     const onKeyDown = (event: KeyboardEvent) => {
       const k = keyboard.current;
       if (document.querySelector("dialog[open]")) return;
+      // Échap en cascade : un champ date ou heure, puis une bulle ouverte, d'abord.
+      const picker = escapeForPicker(event);
       if (event.key === "Escape") {
+        if (picker || event.defaultPrevented || document.querySelector("[role=tooltip]")) return;
         const drag = interaction.get().drag;
         // Un glisser dnd-kit est interrompu par dnd-kit lui-même (onDragCancel).
         if (drag && drag.kind !== "select") return;
         if (k.gestures.cancelSelection()) return;
-        if (k.panel) k.closePanel();
+        // Comme une fenêtre : la garde demande confirmation si la saisie a changé.
+        if (k.panel) k.requestClosePanel();
         else if (k.selected) setSelectedId(null);
         return;
       }
@@ -901,7 +937,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     };
     window.addEventListener("keydown", onKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-  }, [interaction]);
+  }, [interaction, escapeForPicker]);
 
   // --- Rendu ----------------------------------------------------------------
   const editedItem = panel?.mode === "edit" ? itemsById.get(panel.itemId) : undefined;
@@ -929,7 +965,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     instructors: refs.instructors,
     levels: refs.levels,
     onSubmit: submitPanel,
-    onClose: closePanel,
+    onClose: requestClosePanel,
+    onDirtyChange: onPanelDirtyChange,
     onCreateGroup: createQuickGroup,
     dayHeading: headingOf,
     dateOf,
@@ -1056,11 +1093,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
               <Button
                 size="sm"
                 onClick={() => openNew()}
-                title={
-                  mode.kind === "dated"
-                    ? "Nouveau cours ponctuel (Ctrl/⌘ N)"
-                    : "Nouveau cours (Ctrl/⌘ N)"
-                }
+                title={`${mode.kind === "dated" ? "Nouveau cours ponctuel" : "Nouveau cours"} (${shortcutLabel("mod+n")})`}
               >
                 <Plus aria-hidden />
                 Nouveau cours
@@ -1091,7 +1124,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             size="sm"
             variant="outline"
             onClick={openPdf}
-            title="PDF de la semaine affichée (Ctrl/⌘ P)"
+            title={`PDF de la semaine affichée (${shortcutLabel("mod+p")})`}
           >
             <FileDown aria-hidden />
             PDF
@@ -1120,21 +1153,6 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           courts={filterOptions.courts}
           groups={filterOptions.groups}
         />
-        {snapshot.error && (
-          <div className="flex items-start gap-2 border-b px-4 py-2">
-            <div className="flex-1">
-              <ErrorAlert>{snapshot.error}</ErrorAlert>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Masquer l'erreur"
-              onClick={() => store.dismissError()}
-            >
-              <X aria-hidden />
-            </Button>
-          </div>
-        )}
         <div className="flex min-h-0 flex-1">
           <PlanningGrid
             geometry={geometry}
@@ -1168,7 +1186,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         }}
         groupName={(id) => (id ? (groupsById.get(id)?.name ?? "cours") : "cours")}
       />
-      {toast && <ToastMessage key={toast.key} toast={toast} onUndo={undo} onClose={hideToast} />}
+      {discardConfirmation}
       <PdfPreviewDialog
         job={pdfJob}
         onClose={() => setPdfOpen(false)}
@@ -1194,6 +1212,12 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   );
 }
 
+/**
+ * Barre de mode, sur une ligne à hauteur fixe (B7) : la phrase de portée est
+ * tronquée si la place manque, les informations ponctuelles (versions
+ * masquées, moniteur hachuré) sont des pastilles courtes avec leur détail en
+ * bulle. Rien ne bouge en dessous au survol d'un cours.
+ */
 function ModeBar({
   season,
   readOnly,
@@ -1215,76 +1239,83 @@ function ModeBar({
     <div
       data-testid="mode-bar"
       data-mode={mode.kind}
-      className={
-        mode.kind === "type"
-          ? "flex flex-wrap items-center gap-x-4 gap-y-1 bg-sky-700 px-4 py-1 text-white text-xs dark:bg-sky-800"
-          : "flex flex-wrap items-center gap-x-4 gap-y-1 bg-emerald-700 px-4 py-1 text-white text-xs dark:bg-emerald-800"
-      }
+      className={cn(
+        "flex h-7 shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap px-4 text-white text-xs",
+        mode.kind === "type" ? "bg-sky-700 dark:bg-sky-800" : "bg-emerald-700 dark:bg-emerald-800",
+      )}
     >
       {readOnly ? (
-        <span>
+        <span className="min-w-0 truncate">
           ● Mode{" "}
           <b>{mode.kind === "type" ? "Semaine type" : `Semaine du ${formatDate(mode.monday)}`}</b> —
           saison {season.name} archivée, consultation seule
         </span>
       ) : mode.kind === "type" ? (
-        <span>
+        <span className="min-w-0 truncate">
           ● Mode <b>Semaine type</b> — saison {season.name} (les modifications s'appliquent à toute
           la saison)
         </span>
       ) : (
-        <span>
-          ● Mode <b>Semaine du {formatDate(mode.monday)}</b> — les modifications ne concernent que
-          cette semaine (exceptions) ·{" "}
-          <Link to="/referentiels/fermetures" className="underline underline-offset-2">
+        <>
+          <span className="min-w-0 truncate">
+            ● Mode <b>Semaine du {formatDate(mode.monday)}</b> — les modifications ne concernent que
+            cette semaine (exceptions)
+          </span>
+          <Link
+            to="/referentiels/fermetures"
+            className="shrink-0 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-white"
+          >
             Périodes de fermeture
           </Link>
-        </span>
+        </>
       )}
-      {hiddenVersions > 0 && (
-        <span className="opacity-90">
-          {hiddenVersions} version(s) de cours hors vigueur à ce jour non affichée(s)
-        </span>
-      )}
-      <span data-testid="hatch-info" className="ml-auto opacity-95">
-        {entry &&
-          (entry.noAvailability
-            ? `Hachuré : ${entry.name} n'a saisi aucune disponibilité (indisponible partout)`
-            : `Hachuré : indisponibilités de ${entry.name}`)}
-      </span>
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        {hiddenVersions > 0 && (
+          <ModePill
+            testId="hidden-versions"
+            detail={`${hiddenVersions} version(s) de cours hors vigueur à ce jour non affichée(s)`}
+          >
+            {hiddenVersions} version(s) masquée(s)
+          </ModePill>
+        )}
+        {entry && (
+          <ModePill
+            testId="hatch-info"
+            detail={
+              entry.noAvailability
+                ? `Hachuré : ${entry.name} n'a saisi aucune disponibilité (indisponible partout)`
+                : `Hachuré : indisponibilités de ${entry.name}`
+            }
+          >
+            Hachures : {entry.name}
+            {entry.noAvailability && " (aucune disponibilité)"}
+          </ModePill>
+        )}
+      </div>
     </div>
   );
 }
 
-function ToastMessage({
-  toast,
-  onUndo,
-  onClose,
+/** Pastille courte de la barre de mode, détail en bulle (survol et clavier). */
+function ModePill({
+  testId,
+  detail,
+  children,
 }: {
-  toast: Toast;
-  onUndo: () => void;
-  onClose: () => void;
+  testId: string;
+  detail: string;
+  children: ReactNode;
 }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
   return (
-    <div
-      role="status"
-      data-testid="toast"
-      className="-translate-x-1/2 fixed bottom-5 left-1/2 z-[200] flex items-center gap-3 rounded-lg bg-foreground px-3.5 py-2 text-background text-sm shadow-lg"
-    >
-      <span>{toast.message}</span>
-      {toast.undoable && (
-        <button
-          type="button"
-          className="font-semibold text-sky-300 dark:text-sky-700"
-          onClick={onUndo}
-        >
-          Annuler cette action
-        </button>
-      )}
-    </div>
+    <Tooltip content={detail}>
+      <span
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: focalisable pour lire la bulle au clavier.
+        tabIndex={0}
+        data-testid={testId}
+        className="rounded-full border border-white/60 px-2 leading-[18px] focus-visible:outline-2 focus-visible:outline-white"
+      >
+        {children}
+      </span>
+    </Tooltip>
   );
 }

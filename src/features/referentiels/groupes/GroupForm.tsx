@@ -1,15 +1,14 @@
 import { type FormEvent, useState } from "react";
-import { ErrorAlert, Field } from "@/components/form/Field";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages } from "@/components/feedback/messages";
+import { Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
-import { Checkbox, Input, Label, Select } from "@/components/ui/input";
+import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
+import { Checkbox, Input, Select } from "@/components/ui/input";
 import type { Group, Level } from "@/db/schema";
-import {
-  type FieldErrors,
-  type GroupFormValues,
-  type GroupInput,
-  groupSchema,
-  validate,
-} from "@/domain/validation";
+import { type GroupFormValues, type GroupInput, groupSchema, validate } from "@/domain/validation";
 import { errorMessage } from "@/hooks/useLoader";
 
 export const emptyGroupValues: GroupFormValues = {
@@ -42,7 +41,10 @@ interface GroupFormProps {
   readOnly?: boolean;
 }
 
-/** Fiche groupe (§3.4) : nom, niveau, tranche d'âge et effectif maximum. */
+/**
+ * Fiche groupe (§3.4) : nom, niveau, tranche d'âge et effectif maximum. La
+ * confirmation de l'enregistrement est un toast, émis par l'écran appelant.
+ */
 export function GroupForm({
   initialValues,
   levels,
@@ -52,11 +54,11 @@ export function GroupForm({
   readOnly = false,
 }: GroupFormProps) {
   const [values, setValues] = useState(initialValues);
-  const [errors, setErrors] = useState<FieldErrors<GroupFormValues>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const { errors, setErrors, error, setError, changed } = useFormErrors<GroupFormValues>();
+  useDirtyGuard(!sameValues(values, initialValues));
+  const cancel = useGuardedCancel(onCancel);
   const set = (patch: Partial<GroupFormValues>) => {
-    setSaved(false);
+    changed(patch);
     setValues((v) => ({ ...v, ...patch }));
   };
 
@@ -71,7 +73,6 @@ export function GroupForm({
     setError(null);
     try {
       await onSubmit(result.data);
-      setSaved(true);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -133,24 +134,24 @@ export function GroupForm({
             )}
           </Field>
         </div>
-        <Label className="font-normal">
-          <Checkbox checked={values.active} onChange={(e) => set({ active: e.target.checked })} />
-          Actif (proposé dans le planning)
-        </Label>
+        <Checkbox
+          label="Actif (proposé dans le planning)"
+          checked={values.active}
+          onChange={(e) => set({ active: e.target.checked })}
+        />
       </fieldset>
-      <ErrorAlert>{error}</ErrorAlert>
       {!readOnly && (
-        <div className="flex items-center gap-2">
-          <Button type="submit">{submitLabel}</Button>
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Annuler
-            </Button>
-          )}
-          {saved && (
-            <output className="text-muted-foreground text-sm">Modifications enregistrées.</output>
-          )}
-        </div>
+        <>
+          <MessageZone label="Messages" messages={errorMessages(error)} />
+          <div className="flex items-center gap-2">
+            <Button type="submit">{submitLabel}</Button>
+            {cancel && (
+              <Button type="button" variant="outline" onClick={cancel}>
+                Annuler
+              </Button>
+            )}
+          </div>
+        </>
       )}
     </form>
   );

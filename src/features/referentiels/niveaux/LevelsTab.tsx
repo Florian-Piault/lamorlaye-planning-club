@@ -1,10 +1,14 @@
 import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useReadOnly } from "@/app/season";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages } from "@/components/feedback/messages";
 import { ErrorAlert, Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
-import { Checkbox, Input, Label } from "@/components/ui/input";
+import { Dialog, useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
+import { Checkbox, Input } from "@/components/ui/input";
 import { useDatabase } from "@/db/DatabaseProvider";
 import {
   createLevel,
@@ -16,13 +20,7 @@ import {
   updateLevel,
 } from "@/db/repositories/levels";
 import type { Level } from "@/db/schema";
-import {
-  type FieldErrors,
-  type LevelFormValues,
-  type LevelInput,
-  levelSchema,
-  validate,
-} from "@/domain/validation";
+import { type LevelFormValues, type LevelInput, levelSchema, validate } from "@/domain/validation";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
 import { DeleteAction } from "../components/DeleteAction";
 import { SortableList } from "../components/SortableList";
@@ -144,8 +142,13 @@ interface LevelFormProps {
 
 function LevelForm({ initialValues, onSubmit, onCancel }: LevelFormProps) {
   const [values, setValues] = useState(initialValues);
-  const [errors, setErrors] = useState<FieldErrors<LevelFormValues>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { errors, setErrors, error, setError, changed } = useFormErrors<LevelFormValues>();
+  useDirtyGuard(!sameValues(values, initialValues));
+  const cancel = useGuardedCancel(onCancel);
+  const set = (patch: Partial<LevelFormValues>) => {
+    changed(patch);
+    setValues((v) => ({ ...v, ...patch }));
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -162,24 +165,17 @@ function LevelForm({ initialValues, onSubmit, onCancel }: LevelFormProps) {
     <form onSubmit={submit} noValidate className="grid gap-4">
       <Field label="Libellé" required error={errors.label}>
         {(props) => (
-          <Input
-            {...props}
-            autoFocus
-            value={values.label}
-            onChange={(e) => setValues({ ...values, label: e.target.value })}
-          />
+          <Input {...props} value={values.label} onChange={(e) => set({ label: e.target.value })} />
         )}
       </Field>
-      <Label className="font-normal">
-        <Checkbox
-          checked={values.active}
-          onChange={(e) => setValues({ ...values, active: e.target.checked })}
-        />
-        Actif (proposé dans les fiches)
-      </Label>
-      <ErrorAlert>{error}</ErrorAlert>
+      <Checkbox
+        label="Actif (proposé dans les fiches)"
+        checked={values.active}
+        onChange={(e) => set({ active: e.target.checked })}
+      />
+      <MessageZone label="Messages" messages={errorMessages(error)} />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={cancel}>
           Annuler
         </Button>
         <Button type="submit">Enregistrer</Button>

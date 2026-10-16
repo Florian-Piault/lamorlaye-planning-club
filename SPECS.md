@@ -108,14 +108,14 @@ Maquette de référence : `maquettes/vue-semaine.html`, onglet A.
 
 ### 4.2 Navigation et modes
 
-- Sélecteur de mode, toujours visible, avec un bandeau de couleur distinct :
+- Sélecteur de mode, toujours visible, avec un bandeau de couleur distinct, sur une ligne à hauteur fixe : les informations ponctuelles (versions de cours masquées, moniteur dont les indisponibilités sont hachurées) y sont des pastilles courtes, détail en bulle ; rien ne bouge en dessous au survol d'un cours :
   - **Semaine type** : édition des cours récurrents de la saison.
   - **Semaine du JJ/MM/AAAA** : vue d'une semaine datée (occurrences + exceptions), navigation semaine précédente / suivante / aujourd'hui / sélecteur de date.
 - En semaine datée : les occurrences annulées sont affichées grisées et barrées ; les remplacements portent un indicateur (icône) et la couleur du remplaçant ; les périodes de fermeture apparaissent comme une bande grisée « Fermé — Vacances de … ».
 
 ### 4.3 Filtres
 
-- Filtrer par moniteur(s), court(s), groupe : les cours non concernés sont estompés.
+- Filtrer par moniteur(s), court(s), groupe : les cours non concernés sont estompés. « Effacer les filtres » est toujours présent, grisé avec sa raison (« Aucun filtre actif ») tant qu'aucun filtre n'est actif.
 - Légende des moniteurs (pastille couleur + nom + total d'heures de la semaine affichée).
 
 ### 4.4 Affichage des disponibilités
@@ -244,7 +244,19 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 - Volumétrie cible : 10 courts, 20 moniteurs, 60 groupes, 500 élèves, 150 cours dans la semaine type.
 - Affichage d'une semaine et retour visuel du glisser-déposer instantanés (< 100 ms perçus).
 - Résolution minimale : 1366 × 768. Thèmes clair et sombre suivant le réglage du système.
-- Raccourcis clavier : Suppr (supprimer le cours sélectionné), Ctrl/Cmd+Z / Maj+Z, Ctrl/Cmd+N (nouveau cours), ← / → (semaine précédente / suivante), Ctrl/Cmd+P (imprimer).
+- Raccourcis clavier : Suppr (supprimer le cours sélectionné), Ctrl/Cmd+Z / Maj+Z, Ctrl/Cmd+N (nouveau cours), ← / → (semaine précédente / suivante), Ctrl/Cmd+P (imprimer). Les touches annoncées à l'écran suivent le système : ⌘, ⌥, ⇧, ⌫ sur macOS ; Ctrl, Alt, Maj, Suppr ailleurs.
+- **Rien ne bouge sous le curseur** (v1.1) :
+  - les avertissements et l'erreur générale d'un formulaire s'affichent dans une **zone de message réservée** de deux lignes, toujours présente au-dessus des boutons (vide = blanc) ; l'erreur passe en tête, en rouge ; au-delà de deux messages, la dernière ligne devient « + N autres avertissements », dépliable au clic. Elle accueille aussi « Élève mineur… », les avertissements du créneau du panneau de cours et les alertes de la fiche groupe ;
+  - une erreur sous un champ apparaît après validation et s'efface dès que le champ est modifié ;
+  - les confirmations sont un **toast** commun en bas à droite : un seul à la fois, succès effacé après ~4 s (en pause au survol), erreur affichée jusqu'à sa fermeture, action facultative (« Annuler cette action ») ; région `aria-live`. Plus de message de succès en ligne ; la création d'une saison est confirmée par « Saison « 2026-2027 » créée », une fois la saison relue ;
+  - les résultats de recherche de la fiche groupe s'affichent en liste superposée ;
+  - un bouton grisé dit pourquoi : raison en petit texte à côté (place réservée) et en bulle, bouton toujours focalisable (« Ajouter la plage », enregistrement de l'aperçu PDF, semaines précédente / suivante, « Effacer les filtres ») ;
+  - bulle d'aide commune : au survol après ~300 ms et au focus clavier, fermée par Échap.
+- **Fenêtres (modales) et panneau de cours** (v1.1) :
+  - à l'ouverture, le curseur est dans le premier champ ; sans champ, sur le bouton non destructif (« Annuler » d'une suppression). Le panneau de cours le fait à la création d'un cours ;
+  - Échap en cascade : le premier Échap dans un champ date ou heure reste au sélecteur, le suivant s'adresse à la fenêtre ; dans le panneau de cours, Échap tapé dans un champ ne ferme pas le panneau ;
+  - si la saisie diffère de son état à l'ouverture, toute fermeture (Échap, croix, Annuler ; pour le panneau de cours, aussi le choix d'un autre cours ou d'un autre créneau, ou le changement de semaine) demande « Abandonner les modifications ? » avec « Continuer la saisie » (par défaut) et « Abandonner » ; une saisie intacte se ferme sans question ;
+  - chaque case à cocher est reliée explicitement à son libellé (annoncée par son libellé).
 
 ### 11.6 Données personnelles (RGPD)
 - Données d'élèves (dont mineurs) stockées uniquement en local sur le poste du responsable.

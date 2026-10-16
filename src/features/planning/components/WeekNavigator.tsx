@@ -72,8 +72,10 @@ export function WeekNavigator({
             variant="outline"
             className="size-8"
             aria-label="Semaine précédente"
-            title="Semaine précédente (←)"
+            tooltip="Semaine précédente (←)"
             disabled={!previous}
+            disabledReason="Première semaine de la saison"
+            reasonSide="none"
             onClick={() => previous && go(previous)}
           >
             <ChevronLeft aria-hidden />
@@ -83,8 +85,10 @@ export function WeekNavigator({
             variant="outline"
             className="size-8"
             aria-label="Semaine suivante"
-            title="Semaine suivante (→)"
+            tooltip="Semaine suivante (→)"
             disabled={!next}
+            disabledReason="Dernière semaine de la saison"
+            reasonSide="none"
             onClick={() => next && go(next)}
           >
             <ChevronRight aria-hidden />

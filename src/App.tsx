@@ -1,6 +1,7 @@
 import { type ComponentType, type LazyExoticComponent, lazy, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router";
 import { SeasonProvider } from "@/app/season";
+import { ToastProvider } from "@/components/feedback/Toast";
 import { AppShell } from "@/components/layout/AppShell";
 import { type AppDatabase, openAppDatabase } from "@/db";
 import { DatabaseProvider } from "@/db/DatabaseProvider";
@@ -94,9 +95,11 @@ export function App({ openDatabase = openAppDatabase }: AppProps) {
   return (
     <DatabaseProvider open={openDatabase}>
       <SeasonProvider>
-        <HashRouter>
-          <AppRoutes />
-        </HashRouter>
+        <ToastProvider>
+          <HashRouter>
+            <AppRoutes />
+          </HashRouter>
+        </ToastProvider>
       </SeasonProvider>
     </DatabaseProvider>
   );

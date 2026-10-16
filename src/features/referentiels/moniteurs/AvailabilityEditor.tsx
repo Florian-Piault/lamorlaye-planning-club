@@ -313,7 +313,12 @@ function AddSlotForm({
           ))}
         </Select>
       </Label>
-      <Button type="submit" variant="outline" disabled={invalid}>
+      <Button
+        type="submit"
+        variant="outline"
+        disabled={invalid}
+        disabledReason="L'heure de fin doit suivre l'heure de début"
+      >
         <Plus aria-hidden />
         Ajouter la plage
       </Button>

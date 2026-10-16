@@ -2,6 +2,7 @@ import { Pencil, Plus, ShieldCheck } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
+import { useToast } from "@/components/feedback/Toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -41,7 +42,7 @@ export function StudentsTab() {
   const season = useViewedSeason();
   const readOnly = useReadOnly();
   const [privacy, setPrivacy] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
   const load = useCallback(async () => {
     const [students, groups, levels] = await Promise.all([
       listStudents(db, season.id),
@@ -63,10 +64,7 @@ export function StudentsTab() {
 
   // Rappels stables : les lignes (mémoïsées) ne sont redessinées que si leur élève change.
   const edit = useCallback((student: StudentListItem) => setEditing({ mode: "edit", student }), []);
-  const showPrivacy = useCallback((id: string) => {
-    setMessage(null);
-    setPrivacy(id);
-  }, []);
+  const showPrivacy = useCallback((id: string) => setPrivacy(id), []);
   const remove = useCallback((id: string) => deleteStudent(db, id), [db]);
 
   const students = data?.students ?? [];
@@ -122,11 +120,6 @@ export function StudentsTab() {
           )}
         </div>
       </div>
-      {message && (
-        <output className="text-muted-foreground text-sm" data-testid="students-message">
-          {message}
-        </output>
-      )}
       <Table aria-label="Élèves">
         <TableHeader>
           <TableRow>
@@ -207,7 +200,7 @@ export function StudentsTab() {
         onClose={() => setPrivacy(null)}
         onErased={(count) => {
           setPrivacy(null);
-          setMessage(
+          toast.success(
             `Données de l'élève supprimées définitivement (${count} ${count > 1 ? "fiches" : "fiche"}).`,
           );
           reload();

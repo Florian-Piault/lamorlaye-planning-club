@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
-import { ErrorAlert } from "@/components/form/Field";
+import { useToast } from "@/components/feedback/Toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDatabase } from "@/db/DatabaseProvider";
 import {
@@ -41,7 +41,7 @@ export function InstructorPage() {
   }, [db, id, season.id]);
   const { data, loading, reload } = useLoader(load);
   const [slots, setSlots] = useState<WeeklySlot[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const instructor = data?.instructor;
   useEffect(() => {
@@ -50,15 +50,14 @@ export function InstructorPage() {
 
   const run = useCallback(
     async (action: () => Promise<unknown>) => {
-      setError(null);
       try {
         await action();
       } catch (e) {
-        setError(errorMessage(e));
+        toast.error(errorMessage(e));
       }
       reload();
     },
-    [reload],
+    [reload, toast],
   );
 
   const changeSlots = useCallback(
@@ -122,7 +121,6 @@ export function InstructorPage() {
           </div>
         )}
       </div>
-      <ErrorAlert>{error}</ErrorAlert>
 
       <Card>
         <CardHeader>
@@ -156,7 +154,8 @@ export function InstructorPage() {
               readOnly={readOnly}
               onSubmit={async (input) => {
                 await updateInstructor(db, id, input);
-                reload();
+                await reload();
+                toast.success("Modifications enregistrées.");
               }}
             />
           </CardContent>

@@ -4,7 +4,7 @@ import { ErrorAlert } from "@/components/form/Field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Checkbox, Label } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/input";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { eraseStudents, findStudentRecords } from "@/db/repositories/rgpd";
 import { studentExportBytes, studentExportFileName } from "@/domain/rgpd";
@@ -145,10 +145,11 @@ function PrivacyContent({
           </p>
           {confirming ? (
             <div className="flex flex-col gap-2">
-              <Label className="font-normal">
-                <Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-                Je confirme la suppression définitive des données de {name}
-              </Label>
+              <Checkbox
+                label={`Je confirme la suppression définitive des données de ${name}`}
+                checked={confirmed}
+                onChange={(e) => setConfirmed(e.target.checked)}
+              />
               <div className="flex gap-2">
                 <Button variant="destructive" disabled={!confirmed || busy} onClick={erase}>
                   <Trash2 aria-hidden />

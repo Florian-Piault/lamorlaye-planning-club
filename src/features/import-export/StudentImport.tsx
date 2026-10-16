@@ -528,10 +528,11 @@ function PreviewStep({
         </p>
       )}
 
-      <Label className="font-normal">
-        <Checkbox checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} />
-        Afficher uniquement les lignes à vérifier
-      </Label>
+      <Checkbox
+        label="Afficher uniquement les lignes à vérifier"
+        checked={onlyIssues}
+        onChange={(e) => setOnlyIssues(e.target.checked)}
+      />
 
       <div className="max-h-[28rem] overflow-auto rounded-md border">
         <Table aria-label="Aperçu de l'import">
