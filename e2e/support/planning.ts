@@ -151,12 +151,86 @@ export function lesson(page: Page, group: string): Locator {
   return page.getByTestId("lesson").filter({ hasText: group });
 }
 
+/** Barre d'outils du planning (une seule ligne, au-dessus de la barre de mode). */
+export function toolbar(page: Page): Locator {
+  return page.getByTestId("planning-toolbar");
+}
+
+/** Sélecteur « Planning habituel » / « Une semaine précise ». */
+export function modes(page: Page): Locator {
+  return page.getByRole("group", { name: "Mode d'affichage" });
+}
+
+/** Passe en semaine datée (« Une semaine précise »). */
+export async function showDatedWeek(page: Page) {
+  await modes(page).getByRole("button", { name: "Une semaine précise" }).click();
+  await expect(page.getByTestId("mode-bar")).toHaveAttribute("data-mode", "dated");
+}
+
+/** Barre des jours, au-dessus de la grille. */
+export function dayBar(page: Page): Locator {
+  return page.getByTestId("day-bar");
+}
+
+/** Vue Jour sur le jour nommé (« Lundi »…), par sa pastille de la barre des jours. */
+export async function showDay(page: Page, weekday: string) {
+  await dayBar(page)
+    .getByRole("button", { name: new RegExp(`^${weekday}, \\d+ cours$`) })
+    .click();
+  await expect(page.getByTestId("day-header")).toHaveCount(1);
+}
+
+/** Retour à la vue Semaine. */
+export async function showWeek(page: Page) {
+  await dayBar(page)
+    .getByRole("group", { name: "Affichage de la grille" })
+    .getByRole("button", { name: "Semaine" })
+    .click();
+}
+
+/**
+ * Ouvre le menu « Filtres » de la barre d'outils (s'il est fermé) et renvoie
+ * son contenu : filtres par moniteur, court et groupe, « Effacer les filtres ».
+ */
+export async function openFilters(page: Page): Promise<Locator> {
+  const button = toolbar(page).getByRole("button", { name: /^Filtres/ });
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  const id = await button.getAttribute("aria-controls");
+  const menu = page.locator(`[id="${id}"]`);
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+/** Replie ou affiche le panneau latéral (bouton de la barre des jours). */
+export async function togglePanel(page: Page, action: "Replier" | "Afficher") {
+  await dayBar(page)
+    .getByRole("button", { name: `${action} le panneau` })
+    .click();
+}
+
+/** Fiche du cours au survol (à la place de l'infobulle native). */
+export function lessonCard(page: Page): Locator {
+  return page.getByTestId("lesson-card");
+}
+
+/** Survole un cours et attend sa fiche. */
+export async function hoverLesson(page: Page, target: Locator): Promise<Locator> {
+  await target.scrollIntoViewIfNeeded();
+  await target.hover();
+  const card = lessonCard(page);
+  await expect(card).toBeVisible();
+  return card;
+}
+
 export interface Point {
   x: number;
   y: number;
 }
 
-/** Coordonnées écran d'un créneau : jour (0 = lundi), court (0 = premier), heure `HH:MM`. */
+/**
+ * Coordonnées écran d'un créneau : jour (rang parmi les jours dessinés : 0 =
+ * lundi en vue Semaine, toujours 0 en vue Jour), court (0 = premier), heure `HH:MM`.
+ */
 export async function slotPoint(
   page: Page,
   dayIndex: number,

@@ -4,6 +4,7 @@ import {
   dragMouse,
   GRAB_OFFSET,
   grabPoint,
+  hoverLesson,
   lesson,
   openPlanning,
   readPlanning,
@@ -49,7 +50,7 @@ test.describe("semaines datées", () => {
   }) => {
     await openPlanning(page);
     await expect(modeBar(page)).toHaveAttribute("data-mode", "type");
-    await expect(page.getByTestId("day-header").first()).toHaveText(/^LundiC1/);
+    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi\D*Court 1/);
     // ← / → sont sans effet en semaine type.
     await page.keyboard.press("ArrowRight");
     await expect(modeBar(page)).toHaveAttribute("data-mode", "type");
@@ -58,11 +59,11 @@ test.describe("semaines datées", () => {
     await modes.getByRole("button", { name: "Une semaine précise" }).click();
     await expect(modeBar(page)).toHaveAttribute("data-mode", "dated");
     await expect(modeBar(page)).toContainText("Semaine du 2 novembre");
-    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi 02\/11C1/);
+    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi 02\/11.*Court 1/);
 
     await page.keyboard.press("ArrowRight");
     await expect(modeBar(page)).toContainText("Semaine du 9 novembre");
-    await expect(page.getByTestId("day-header").nth(2)).toHaveText(/^Mercredi 11\/11C1/);
+    await expect(page.getByTestId("day-header").nth(2)).toHaveText(/^Mercredi 11\/11.*Court 1/);
     await page.keyboard.press("ArrowLeft");
     await page.keyboard.press("ArrowLeft");
     await expect(modeBar(page)).toContainText("Semaine du 26 octobre");
@@ -88,7 +89,7 @@ test.describe("semaines datées", () => {
 
     await modes.getByRole("button", { name: "Planning habituel" }).click();
     await expect(modeBar(page)).toHaveAttribute("data-mode", "type");
-    await expect(page.getByTestId("day-header").first()).toHaveText(/^LundiC1/);
+    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi\D*Court 1/);
   });
 
   test("un cours déplacé en semaine datée ne modifie ni la semaine type ni les autres semaines", async ({
@@ -197,7 +198,7 @@ test.describe("semaines datées", () => {
 
     await expect(galaxie).toHaveAttribute("data-cancelled", "true");
     await expect(galaxie).toHaveCSS("text-decoration-line", "line-through");
-    await expect(galaxie).toHaveAttribute("title", /Annulé cette semaine : Pluie/);
+    await expect(await hoverLesson(page, galaxie)).toContainText("Annulé cette semaine : Pluie");
     await expect(
       legend.getByRole("button", { name: "Karim Benali, 0h cette semaine" }),
     ).toBeVisible();
@@ -219,12 +220,10 @@ test.describe("semaines datées", () => {
     await expect(galaxie).toContainText("JM · 3/8");
     await expect(galaxie).toHaveCSS("background-color", "rgb(29, 78, 216)");
     await expect(galaxie.getByTestId("lesson-marker")).toHaveText("⇄");
-    await expect(galaxie).toHaveAttribute(
-      "title",
-      /Remplacement : Julie Martin au lieu de Karim Benali/,
-    );
     await expect(galaxie).toHaveAttribute("data-warning", "true");
-    await expect(galaxie).toHaveAttribute("title", /⚠ Hors disponibilités de Julie/);
+    const card = await hoverLesson(page, galaxie);
+    await expect(card).toContainText("Remplacement : Julie Martin au lieu de Karim Benali");
+    await expect(card).toContainText("⚠ Hors disponibilités de Julie");
     await expect(
       legend.getByRole("button", { name: "Julie Martin, 2h30 cette semaine" }),
     ).toBeVisible();

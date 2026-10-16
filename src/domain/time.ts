@@ -26,6 +26,11 @@ export function weekdayLabel(weekday: number): string {
   return WEEKDAYS.find((d) => d.value === weekday)?.label ?? `Jour ${weekday}`;
 }
 
+/** Abréviation d'un jour : 1 → « Lun ». */
+export function weekdayShort(weekday: number): string {
+  return WEEKDAYS.find((d) => d.value === weekday)?.short ?? "";
+}
+
 export function isValidTime(value: string): boolean {
   return TIME_PATTERN.test(value);
 }

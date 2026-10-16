@@ -113,25 +113,33 @@ Tous les enregistrements portent un **UUID** comme identifiant ainsi que les cha
 
 ### 4.1 Disposition (variante A retenue)
 
-Maquette de référence : `maquettes/vue-semaine.html`, onglet A.
+Maquette de référence : `maquettes/vue-semaine.html`, onglet A ; lisibilité à 960 px : prototype retenu (variante G) dans `.plan/ux-v1-1/prototypes/lisibilite-grille/`.
 
 - **Heures en lignes** (amplitude de la saison, graduations à l'heure et à la demi-heure).
-- **Jours en colonnes**, chaque jour étant **subdivisé en sous-colonnes, une par court** (en-tête : nom du jour, puis C1, C2…). Séparateur marqué entre deux jours.
-- Chaque cours est un bloc coloré à la **couleur du moniteur** affichant : nom du groupe, horaire, initiales/nom du moniteur, effectif (`inscrits / max`).
-- Infobulle au survol : détail complet (court, moniteur, effectif, avertissements).
-- Défilement horizontal si la largeur de la fenêtre ne suffit pas ; en-têtes et axe horaire figés.
+- **Jours en colonnes**, chaque jour étant **subdivisé en sous-colonnes, une par court**. Séparateur marqué entre deux jours.
+  - En-tête d'un jour : son nom (« Lundi », « Lundi 02/11 » en semaine datée), raccourci si la colonne est étroite (« Lun. 02/11 », « Lu »). En vue Semaine, un clic sur l'en-tête affiche ce jour seul.
+  - En-tête d'un court : son **vrai nom**, abrégé si la colonne est étroite (« Terre battue 1 » → « TB1 », « Central » → « Cent. », « Court 2 » → « C2 »), précédé d'une icône **soleil** (extérieur) ou **maison** (couvert) ; nom complet et nature en bulle. La légende « couvert · extérieur » est dans la barre des jours.
+- **Vue Semaine / Jour** : la vue Semaine dessine tous les jours affichés ; la vue Jour un seul, avec des courts plus larges (88 px au moins) pour que le nom d'un groupe tienne sur une carte d'une heure. La vue est retrouvée en revenant sur l'écran (par saison, le temps de la session) ; « Jour » depuis la vue Semaine rouvre le dernier jour vu, sinon aujourd'hui s'il est dans la semaine précise affichée, sinon le premier jour. Activé au clavier, l'en-tête d'un jour passe le focus à la pastille de ce jour. Un cours sélectionné qui n'est plus dessiné (autre jour) n'est plus sélectionné : Suppr ne supprime jamais un cours invisible.
+- **Barre des jours**, au-dessus de la grille : en semaine datée, la navigation des semaines (§4.2) en tête, séparée par un filet ; la bascule « Semaine / Jour » ; une pastille par jour avec son nombre de cours (séances annulées exclues) — le dimanche, s'il est affiché, est toujours atteignable ; en vue Jour, les flèches jour précédent / suivant (en boucle) ; la légende des courts ; le bouton « Replier le panneau » / « Afficher le panneau ».
+- Chaque cours est un bloc coloré à la **couleur du moniteur** affichant : nom du groupe, horaire, initiales/nom du moniteur, effectif (`inscrits / max`). Le nom passe sur deux lignes si la carte est assez haute (une heure et demie ou plus).
+- **Fiche du cours au survol**, à la place de l'infobulle native : nom complet du groupe, jour et horaire, court, moniteur, effectif, état de la séance, note et avertissements (en rouge), liseré à la couleur du moniteur. Elle apparaît après un court délai (~400 ms), à côté du cours, sans rien déplacer ; elle disparaît au clic, au défilement, à la sortie du cours ou à Échap, et ne s'affiche pas pendant un glisser. Les lecteurs d'écran ont le même détail : le nom du cours (groupe, jour et horaire, court, moniteur, état, nombre d'avertissements) et sa description (lignes de la fiche et texte des avertissements).
+- Défilement horizontal si la largeur de la fenêtre ne suffit pas (vue Semaine, ou vue Jour avec beaucoup de courts) ; en-têtes et axe horaire figés.
+- **Une seule barre d'outils**, sur une ligne : sur le Planning, la barre haute de l'application (fil d'Ariane, saison) est masquée ; le titre « Planning » est réservé aux lecteurs d'écran. Dans l'ordre : sélecteur de mode (§4.2), « + Nouveau cours » (avec son libellé) — ou, en saison terminée, la pastille « Consultation seulement » (raison en bulle) —, Annuler, Rétablir et PDF en icônes avec leur bulle, menu « Filtres » (§4.3), légende des moniteurs (§4.3), sélecteur de saison compact (nom seul, saison complète en bulle). Quand la barre est étroite (moins de 50rem, par exemple à 960 px avec le menu déplié), « Filtres » se réduit à son icône et à son compteur, la saison à son nom, les boutons se resserrent. Le menu « Filtres » reste dans la zone de contenu (décalé vers la gauche, rétréci si besoin).
+- **Panneau latéral repliable** (bouton de la barre des jours) : replié, il disparaît entièrement, sans rail, et la grille prend sa place. Il se rouvre de lui-même, le temps d'un cours ouvert ou créé (clic, sélection sur la grille, « Nouveau cours », Ctrl/⌘ N, avertissement) ; « Replier le panneau » ferme alors ce cours (sous la garde du panneau). Le choix vaut pour la session.
+- **Menu de l'application réductible aux icônes** (bouton « Réduire le menu » / « Déplier le menu » en bas du menu), pour toute l'application : libellés en bulle au survol, toujours annoncés. Choix mémorisé sur le poste (préférence locale).
 
 ### 4.2 Navigation et modes
 
-- Sélecteur de mode, toujours visible, avec un bandeau de couleur distinct, sur une ligne à hauteur fixe : les informations ponctuelles (versions de cours masquées, moniteur dont les indisponibilités sont hachurées) y sont des pastilles courtes, détail en bulle ; rien ne bouge en dessous au survol d'un cours :
+- Sélecteur de mode « Planning habituel » / « Une semaine précise », toujours visible dans la barre d'outils.
+- Bandeau de couleur distinct, sur une **seule ligne fine à hauteur fixe** : nom du mode ou de la semaine et phrase de portée (tronquée si besoin) ; les informations ponctuelles (versions de cours masquées, moniteur dont les indisponibilités sont hachurées) y sont des pastilles courtes, détail en bulle ; rien ne bouge en dessous au survol d'un cours :
   - **Semaine type** : édition des cours récurrents de la saison.
-  - **Semaine du JJ/MM/AAAA** : vue d'une semaine datée (occurrences + exceptions), navigation semaine précédente / suivante / aujourd'hui / sélecteur de date.
+  - **Semaine du JJ/MM/AAAA** : vue d'une semaine datée (occurrences + exceptions), navigation semaine précédente / suivante / aujourd'hui / sélecteur de date, **en tête de la barre des jours** (§4.1) ; le jour affiché en vue Jour est gardé d'une semaine à l'autre.
 - En semaine datée : les occurrences annulées sont affichées grisées et barrées ; les remplacements portent un indicateur (icône) et la couleur du remplaçant ; les périodes de fermeture apparaissent comme une bande grisée « Fermé — Vacances de … ».
 
 ### 4.3 Filtres
 
-- Filtrer par moniteur(s), court(s), groupe : les cours non concernés sont estompés. « Effacer les filtres » est toujours présent, grisé avec sa raison (« Aucun filtre actif ») tant qu'aucun filtre n'est actif.
-- Légende des moniteurs (pastille couleur + nom + total d'heures de la semaine affichée).
+- Filtrer par moniteur(s), court(s), groupe : les cours non concernés sont estompés. Les filtres sont dans un **menu déroulant « Filtres »** de la barre d'outils, dont le bouton affiche le nombre de filtres actifs ; le menu se ferme par Échap, un clic au-dehors ou un second clic. « Effacer les filtres » y est toujours présent, grisé avec sa raison (« Aucun filtre actif ») tant qu'aucun filtre n'est actif.
+- Légende des moniteurs : pastilles réduites à la couleur et au prénom (sous 60rem de barre, comme à 960 px : un rond à la couleur du moniteur portant ses initiales, pour qu'un maximum reste visible sans défiler), toujours cliquables (§4.4) et glissables (§5.2), sur une ligne qui défile si la place manque ; nom complet et heures de la semaine affichée en bulle. Le total d'heures n'est plus dans la barre : il reste dans l'écran « Heures » (§10).
 
 ### 4.4 Affichage des disponibilités
 
@@ -192,7 +200,7 @@ Accessibles par clic droit / menu du cours :
 
 ## 7. Conflits et avertissements
 
-Aucun conflit n'est bloquant : tout est autorisé mais **signalé** (bordure rouge + icône ⚠ sur le cours, détail dans l'infobulle et le panneau).
+Aucun conflit n'est bloquant : tout est autorisé mais **signalé** (bordure rouge + icône ⚠ sur le cours, détail dans la fiche du cours au survol et le panneau).
 
 | Contrôle | Message type |
 |---|---|

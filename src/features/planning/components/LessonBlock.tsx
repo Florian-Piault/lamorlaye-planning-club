@@ -1,6 +1,8 @@
 import { useDraggable } from "@dnd-kit/core";
 import { type KeyboardEvent, memo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { lessonNameLines } from "../grid/dayView";
+import { lessonDescriptionId } from "../hoverCard";
 import { type InteractionStore, useInteraction } from "../interaction";
 
 export interface LessonBlockProps {
@@ -15,8 +17,6 @@ export interface LessonBlockProps {
   timeLabel: string;
   /** « KB · 5/8 ». */
   detail: string;
-  /** Infobulle : détail complet et avertissements. */
-  title: string;
   ariaLabel: string;
   warning: boolean;
   dimmed: boolean;
@@ -34,6 +34,8 @@ export interface LessonBlockProps {
   interaction: InteractionStore;
   onOpen: (id: string) => void;
   onHover: (instructorId: string | null) => void;
+  /** Fiche du cours au survol : cours survolé, ou `null` à la sortie. */
+  onCard: (id: string | null, element?: HTMLElement) => void;
 }
 
 /**
@@ -45,7 +47,7 @@ export interface LessonBlockProps {
  * cible d'une pastille sont redessinés.
  */
 export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
-  const { id, interaction, onOpen, onHover, cancelled, locked } = props;
+  const { id, interaction, onOpen, onHover, onCard, cancelled, locked } = props;
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `lesson:${id}`,
     data: { type: "move", lessonId: id },
@@ -72,9 +74,11 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
   const hovered = useRef(false);
   useEffect(
     () => () => {
-      if (hovered.current) onHover(null);
+      if (!hovered.current) return;
+      onHover(null);
+      onCard(null);
     },
-    [onHover],
+    [onHover, onCard],
   );
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -108,16 +112,22 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
       // Verrouillé (saison archivée), le cours reste consultable : il n'est pas « désactivé ».
       aria-disabled={locked && !cancelled ? undefined : attributes["aria-disabled"]}
       aria-label={props.ariaLabel}
-      title={props.title}
+      // Détail de la fiche au survol, pour les lecteurs d'écran, après les consignes de dnd-kit.
+      aria-describedby={[attributes["aria-describedby"], lessonDescriptionId(id)]
+        .filter(Boolean)
+        .join(" ")}
       onClick={() => onOpen(id)}
       onKeyDown={onKeyDown}
-      onMouseEnter={() => {
+      onMouseEnter={(event) => {
         hovered.current = true;
         onHover(cancelled ? null : props.instructorId);
+        // La fiche ne s'affiche pas pendant un glisser (voir HoverCardStore).
+        onCard(id, event.currentTarget);
       }}
       onMouseLeave={() => {
         hovered.current = false;
         onHover(null);
+        onCard(null);
       }}
       className={cn(
         "group/lesson absolute z-[5] touch-none select-none overflow-hidden rounded-[5px] px-1.5 py-0.5 text-[11px] text-white leading-tight shadow-sm",
@@ -148,6 +158,7 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
         detail={props.detail}
         warning={props.warning}
         marker={cancelled ? "✕" : props.replaced ? "⇄" : props.modified ? "✎" : null}
+        nameLines={lessonNameLines(props.height)}
       />
       {!cancelled && !locked && <ResizeHandle lessonId={id} />}
     </div>
@@ -160,6 +171,7 @@ export function LessonContent({
   detail,
   warning,
   marker = null,
+  nameLines = 1,
 }: {
   groupName: string;
   timeLabel: string;
@@ -167,10 +179,22 @@ export function LessonContent({
   warning: boolean;
   /** Indicateur de séance datée : annulée ✕, remplacement ⇄, modifiée ✎. */
   marker?: string | null;
+  /** Nom sur deux lignes quand la carte est assez haute. */
+  nameLines?: 1 | 2;
 }) {
   return (
     <>
-      <div className="truncate pr-3 font-semibold">{groupName}</div>
+      <div
+        data-testid="lesson-name"
+        className={cn(
+          "font-semibold",
+          nameLines === 2 ? "line-clamp-2 break-words" : "truncate",
+          // Place réservée aux indicateurs du coin supérieur droit, s'il y en a.
+          (warning || marker) && "pr-3",
+        )}
+      >
+        {groupName}
+      </div>
       <div className="truncate">{timeLabel}</div>
       <div className="truncate">{detail}</div>
       {(warning || marker) && (

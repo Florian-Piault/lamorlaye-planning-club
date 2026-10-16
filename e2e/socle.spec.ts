@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { createSeason, lesson, openPlanning, slotPoint } from "./support/planning";
+import { createSeason, lesson, openFilters, openPlanning, slotPoint } from "./support/planning";
 
 /**
  * Socle UX commun (lot L9) : rien ne bouge sous le curseur (zone de message
@@ -142,7 +142,8 @@ test.describe("rien ne bouge sous le curseur", () => {
     browserName,
   }) => {
     await openPlanning(page);
-    const clear = page.getByRole("button", { name: "Effacer les filtres" });
+    const menu = await openFilters(page);
+    const clear = menu.getByRole("button", { name: "Effacer les filtres" });
     await expect(clear).toBeDisabled();
     await expect(clear).toHaveAccessibleDescription("Aucun filtre actif");
     await expect(page.getByText("Aucun filtre actif", { exact: true })).toBeVisible();

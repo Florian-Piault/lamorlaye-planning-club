@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createConflictIndex, slotFromLesson } from "@/domain/conflicts";
 import { lesson } from "@/test/planning";
 import {
+  activeFilterCount,
   busyLabel,
   candidateSlot,
   candidateWarnings,
@@ -239,6 +240,7 @@ describe("filtres", () => {
 
   it("laisse tout visible sans filtre", () => {
     expect(hasFilters(noFilters)).toBe(false);
+    expect(activeFilterCount(noFilters)).toBe(0);
     expect(matchesFilters(target, noFilters)).toBe(true);
   });
 
@@ -249,6 +251,8 @@ describe("filtres", () => {
     expect(matchesFilters(target, { ...noFilters, groupId: "g2" })).toBe(false);
     const all = { instructorIds: ["m1"], courtIds: ["c1"], groupId: "g1" };
     expect(hasFilters(all)).toBe(true);
+    expect(activeFilterCount(all)).toBe(3);
+    expect(activeFilterCount({ ...all, instructorIds: ["m1", "m2"], groupId: null })).toBe(3);
     expect(matchesFilters(target, all)).toBe(true);
   });
 

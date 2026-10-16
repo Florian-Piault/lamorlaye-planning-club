@@ -1,8 +1,11 @@
-import { memo, type PointerEvent, type RefObject, useMemo } from "react";
+import { House, Sun } from "lucide-react";
+import { memo, type PointerEvent, type RefObject, useCallback, useMemo } from "react";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { Court } from "@/db/schema";
 import type { Conflict } from "@/domain/conflicts";
 import { weekdayLabel } from "@/domain/time";
 import { cn } from "@/lib/utils";
+import { courtHeaderLabel, dayHeaderLabel } from "../grid/dayView";
 import {
   AXIS_WIDTH,
   boardSize,
@@ -15,8 +18,15 @@ import {
   slotRect,
 } from "../grid/geometry";
 import type { CandidateLesson } from "../grid/view";
+import {
+  HoverCardStore,
+  type LessonCard,
+  lessonDescription,
+  lessonDescriptionId,
+} from "../hoverCard";
 import { hatchedInstructorId, type InteractionStore, useInteraction } from "../interaction";
 import { LessonBlock, LessonContent } from "./LessonBlock";
+import { LessonHoverCard } from "./LessonHoverCard";
 
 export interface LessonView extends Rect {
   id: string;
@@ -25,7 +35,8 @@ export interface LessonView extends Rect {
   groupName: string;
   timeLabel: string;
   detail: string;
-  title: string;
+  /** Fiche au survol : détail complet et avertissements. */
+  card: LessonCard;
   ariaLabel: string;
   warning: boolean;
   dimmed: boolean;
@@ -69,12 +80,14 @@ interface PlanningGridProps {
   /** En-tête d'un jour (« Lundi » ou « Lundi 02/11 »). */
   dayHeading?: (weekday: number) => string;
   closedDays?: readonly ClosedDayView[];
+  /** Vue Semaine : clic sur l'en-tête d'un jour pour l'afficher seul. */
+  onShowDay?: (weekday: number) => void;
 }
 
 /**
- * Grille de la semaine (§4.1, variante A) : jours en colonnes subdivisées par
- * court, heures en lignes ; en-têtes et axe horaire restent visibles pendant
- * le défilement.
+ * Grille de la semaine ou d'un jour (§4.1, variante A) : jours en colonnes
+ * subdivisées par court, heures en lignes ; en-têtes et axe horaire restent
+ * visibles pendant le défilement. Fiche du cours au survol.
  */
 export function PlanningGrid({
   geometry,
@@ -90,12 +103,19 @@ export function PlanningGrid({
   onBoardPointerDown,
   dayHeading = weekdayLabel,
   closedDays = noClosedDays,
+  onShowDay,
 }: PlanningGridProps) {
   const size = boardSize(geometry);
   const onHover = useMemo(
     () => (instructorId: string | null) => interaction.update({ hoverInstructorId: instructorId }),
     [interaction],
   );
+  const cards = useMemo(
+    () => new HoverCardStore(() => interaction.get().drag !== null),
+    [interaction],
+  );
+  const cardsById = useMemo(() => new Map(lessons.map((l) => [l.id, l.card])), [lessons]);
+  const cardOf = useCallback((id: string) => cardsById.get(id), [cardsById]);
   return (
     <div
       ref={scrollerRef}
@@ -103,7 +123,12 @@ export function PlanningGrid({
       className="relative min-w-0 flex-1 overflow-auto bg-background"
     >
       <div style={{ width: AXIS_WIDTH + size.width }}>
-        <GridHeader geometry={geometry} courts={courts} dayHeading={dayHeading} />
+        <GridHeader
+          geometry={geometry}
+          courts={courts}
+          dayHeading={dayHeading}
+          onShowDay={onShowDay}
+        />
         <div className="flex pt-2 pb-4">
           <TimeAxis geometry={geometry} height={size.height} />
           <div
@@ -130,16 +155,39 @@ export function PlanningGrid({
               interaction={interaction}
               onOpen={onOpenLesson}
               onHover={onHover}
+              onCard={cards.hover}
             />
             <PreviewLayer geometry={geometry} interaction={interaction} lookOf={lookOf} />
           </div>
         </div>
       </div>
+      <LessonHoverCard store={cards} cardOf={cardOf} />
+      <LessonDescriptions lessons={lessons} />
     </div>
   );
 }
 
 const noClosedDays: readonly ClosedDayView[] = [];
+
+/**
+ * Descriptions des cours (`aria-describedby`) : le détail de la fiche au
+ * survol, masqué à l'écran, hors de la grille (rien n'y change au glisser).
+ */
+const LessonDescriptions = memo(function LessonDescriptions({
+  lessons,
+}: {
+  lessons: readonly LessonView[];
+}) {
+  return (
+    <div hidden>
+      {lessons.map((lesson) => (
+        <span key={lesson.id} id={lessonDescriptionId(lesson.id)}>
+          {lessonDescription(lesson.card)}
+        </span>
+      ))}
+    </div>
+  );
+});
 
 /** Bandes grisées des jours fermés ; les cours ponctuels (stages) s'affichent par-dessus. */
 const ClosureLayer = memo(function ClosureLayer({
@@ -182,51 +230,94 @@ const GridHeader = memo(function GridHeader({
   geometry,
   courts,
   dayHeading,
+  onShowDay,
 }: {
   geometry: GridGeometry;
   courts: readonly Court[];
   dayHeading: (weekday: number) => string;
+  onShowDay?: (weekday: number) => void;
 }) {
   const byId = new Map(courts.map((c) => [c.id, c]));
+  const dayWidth = geometry.courtIds.length * geometry.columnWidth;
   return (
     <div className="sticky top-0 z-20 flex border-b bg-card">
       <div className="sticky left-0 z-[21] shrink-0 bg-card" style={{ width: AXIS_WIDTH }} />
-      {geometry.weekdays.map((weekday) => (
-        <div
-          key={weekday}
-          data-testid="day-header"
-          className="shrink-0 border-l-2"
-          style={{ width: geometry.courtIds.length * geometry.columnWidth }}
-        >
-          <div className="truncate pt-1.5 pb-0.5 text-center font-semibold text-sm">
-            {dayHeading(weekday)}
+      {geometry.weekdays.map((weekday) => {
+        const label = dayHeading(weekday);
+        const text = dayHeaderLabel(label, weekday, dayWidth);
+        return (
+          <div
+            key={weekday}
+            data-testid="day-header"
+            className="shrink-0 border-l-2"
+            style={{ width: dayWidth }}
+          >
+            <div className="flex justify-center px-0.5 pt-1 pb-0.5 font-semibold text-sm">
+              {onShowDay ? (
+                <Tooltip content={`Afficher le ${weekdayLabel(weekday).toLowerCase()} seul`}>
+                  <button
+                    type="button"
+                    onClick={() => onShowDay(weekday)}
+                    className="max-w-full truncate rounded px-1.5 hover:bg-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span aria-hidden={text !== label || undefined}>{text}</span>
+                    {text !== label && <span className="sr-only">{label}</span>}
+                  </button>
+                </Tooltip>
+              ) : (
+                <span className="truncate px-1.5">{label}</span>
+              )}
+            </div>
+            <div className="flex">
+              {geometry.courtIds.map((courtId) => (
+                <CourtHeader key={courtId} court={byId.get(courtId)} width={geometry.columnWidth} />
+              ))}
+            </div>
           </div>
-          <div className="flex">
-            {geometry.courtIds.map((courtId, i) => {
-              const court = byId.get(courtId);
-              const kind = court?.kind === "indoor" ? "couvert" : "extérieur";
-              return (
-                <div
-                  key={courtId}
-                  title={`${court?.name ?? "Court"} (${kind})`}
-                  className="truncate pb-1 text-center text-[11px] text-muted-foreground"
-                  style={{ width: geometry.columnWidth }}
-                >
-                  C{i + 1}
-                  {court?.kind === "outdoor" && " ☀"}
-                  <span className="sr-only">
-                    {" "}
-                    {court?.name} ({kind})
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 });
+
+/**
+ * En-tête d'un court : vrai nom, abrégé si la colonne est étroite (« Terre
+ * battue 1 » → « TB1 »), icône soleil (extérieur) ou maison (couvert) ; nom
+ * complet et nature en bulle et pour les lecteurs d'écran.
+ */
+function CourtHeader({ court, width }: { court: Court | undefined; width: number }) {
+  const name = court?.name ?? "Court";
+  const outdoor = court?.kind === "outdoor";
+  const kind = outdoor ? "court extérieur" : "court couvert";
+  const { text, icon } = courtHeaderLabel(name, width);
+  const Icon = outdoor ? Sun : House;
+  return (
+    <Tooltip content={`${name} — ${kind}`} describe={false}>
+      <div
+        data-testid="court-header"
+        data-kind={court?.kind}
+        className="flex items-center justify-center gap-1 overflow-hidden px-0.5 pb-1 text-[11px] text-muted-foreground"
+        style={{ width }}
+      >
+        {icon && (
+          <Icon
+            aria-hidden
+            className={cn(
+              "size-3 shrink-0",
+              outdoor ? "text-amber-600 dark:text-amber-400" : "opacity-70",
+            )}
+          />
+        )}
+        <span aria-hidden className="truncate">
+          {text}
+        </span>
+        <span className="sr-only">
+          {name} ({kind})
+        </span>
+      </div>
+    </Tooltip>
+  );
+}
 
 const TimeAxis = memo(function TimeAxis({
   geometry,
@@ -324,16 +415,18 @@ const LessonsLayer = memo(function LessonsLayer({
   interaction,
   onOpen,
   onHover,
+  onCard,
 }: {
   lessons: readonly LessonView[];
   selectedId: string | null;
   interaction: InteractionStore;
   onOpen: (id: string) => void;
   onHover: (instructorId: string | null) => void;
+  onCard: (id: string | null, element?: HTMLElement) => void;
 }) {
   return (
     <>
-      {lessons.map((lesson) => (
+      {lessons.map(({ card: _card, ...lesson }) => (
         <LessonBlock
           key={lesson.id}
           {...lesson}
@@ -341,6 +434,7 @@ const LessonsLayer = memo(function LessonsLayer({
           interaction={interaction}
           onOpen={onOpen}
           onHover={onHover}
+          onCard={onCard}
         />
       ))}
     </>

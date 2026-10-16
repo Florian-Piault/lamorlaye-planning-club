@@ -295,6 +295,11 @@ export function hasFilters(filters: PlanningFilters): boolean {
   );
 }
 
+/** Nombre de filtres actifs, affiché sur le bouton « Filtres » : moniteurs, courts, groupe. */
+export function activeFilterCount(filters: PlanningFilters): number {
+  return filters.instructorIds.length + filters.courtIds.length + (filters.groupId ? 1 : 0);
+}
+
 /** Le cours est-il concerné par les filtres ? (les autres sont estompés) */
 export function matchesFilters(
   lesson: { instructorId: string | null; courtId: string | null; groupId: string | null },

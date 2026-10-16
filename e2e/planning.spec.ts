@@ -6,11 +6,14 @@ import {
   GRAB_OFFSET,
   goToPlanning,
   grabPoint,
+  hoverLesson,
   lesson,
+  openFilters,
   openPlanning,
   readLessons,
   resizePoint,
   slotPoint,
+  toolbar,
 } from "./support/planning";
 
 /**
@@ -52,15 +55,22 @@ test.describe("grille semaine type", () => {
     await expect(galaxie).toContainText("10h00–11h00");
     await expect(galaxie).toContainText("KB · 3/8");
     await expect(galaxie).toHaveCSS("background-color", "rgb(194, 65, 12)");
-    await expect(galaxie).toHaveAttribute("title", /Court 1 \(couvert\)\nMoniteur : Karim Benali/);
+    // Plus d'infobulle native : la fiche du cours s'affiche au survol.
+    await expect(galaxie).not.toHaveAttribute("title");
+    const card = await hoverLesson(page, galaxie);
+    await expect(card).toContainText("Court 1 (couvert)Moniteur : Karim Benali");
+    // Pastilles réduites à la couleur et au prénom ; heures en bulle, sans total.
     const legend = page.getByRole("group", { name: "Légende des moniteurs" });
-    await expect(
-      legend.getByRole("button", { name: "Julie Martin, 1h30 cette semaine" }),
-    ).toBeVisible();
+    const julie = legend.getByRole("button", { name: "Julie Martin, 1h30 cette semaine" });
+    await expect(julie).toContainText("Julie");
+    // Barre large : les initiales (barre étroite) restent masquées.
+    await expect(julie.getByTestId("instructor-initials")).toBeHidden();
     await expect(
       legend.getByRole("button", { name: "Karim Benali, 1h cette semaine" }),
     ).toBeVisible();
-    await expect(page.getByTestId("week-total")).toHaveText("Total : 2h30");
+    await julie.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Julie Martin · 1h30 cette semaine");
+    await expect(toolbar(page)).not.toContainText("Total");
   });
 
   test("crée un cours par sélection sur la grille, moniteurs disponibles en tête", async ({
@@ -508,15 +518,27 @@ test.describe("grille semaine type", () => {
     const galaxie = lesson(page, "Galaxie vert");
     const ados = lesson(page, "Ados perfectionnement");
 
-    const byInstructor = page.getByRole("group", { name: "Filtrer par moniteur" });
+    // Filtres dans un menu déroulant de la barre d'outils, avec le nombre de filtres actifs.
+    const filtersButton = toolbar(page).getByRole("button", { name: /^Filtres/ });
+    await expect(filtersButton).toHaveAccessibleName("Filtres");
+    const menu = await openFilters(page);
+    const byInstructor = menu.getByRole("group", { name: "Filtrer par moniteur" });
     await byInstructor.getByRole("button", { name: "Julie Martin" }).click();
     await expect(galaxie).toHaveAttribute("data-dimmed", "true");
     await expect(ados).not.toHaveAttribute("data-dimmed");
     await byInstructor.getByRole("button", { name: "Karim Benali" }).click();
     await expect(galaxie).not.toHaveAttribute("data-dimmed");
-    await page.getByRole("button", { name: "Effacer les filtres" }).click();
+    await expect(filtersButton).toHaveAccessibleName("Filtres, 2 actifs");
+    await expect(page.getByTestId("filter-count")).toHaveText("2");
+    // Échap ferme le menu, les filtres restent appliqués.
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(filtersButton).toBeFocused();
+    await expect(galaxie).not.toHaveAttribute("data-dimmed");
+    await (await openFilters(page)).getByRole("button", { name: "Effacer les filtres" }).click();
+    await expect(filtersButton).toHaveAccessibleName("Filtres");
 
-    const byCourt = page.getByRole("group", { name: "Filtrer par court" });
+    const byCourt = menu.getByRole("group", { name: "Filtrer par court" });
     await byCourt.getByRole("button", { name: "Court 1" }).click();
     await expect(ados).toHaveAttribute("data-dimmed", "true");
     await expect(galaxie).not.toHaveAttribute("data-dimmed");
@@ -526,7 +548,11 @@ test.describe("grille semaine type", () => {
     await page.getByLabel("Filtrer par groupe").selectOption({ label: "Ados perfectionnement" });
     await expect(galaxie).toHaveAttribute("data-dimmed", "true");
     await expect(ados).not.toHaveAttribute("data-dimmed");
+    // Un clic au-dehors ferme le menu.
+    await page.getByTestId("app-sidebar").click({ position: { x: 10, y: 10 } });
+    await expect(menu).toBeHidden();
     await expect(galaxie).toHaveCSS("opacity", "0.25");
+    await expect(page.getByTestId("filter-count")).toHaveText("1");
   });
 
   test("liste les avertissements et navigue vers le cours concerné", async ({ page }) => {

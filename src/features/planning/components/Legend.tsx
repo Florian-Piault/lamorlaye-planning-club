@@ -9,6 +9,7 @@ export interface LegendEntry {
   id: string;
   name: string;
   firstName: string;
+  initials: string;
   color: string;
   minutes: number;
   noAvailability: boolean;
@@ -16,25 +17,36 @@ export interface LegendEntry {
 
 interface LegendProps {
   entries: readonly LegendEntry[];
-  totalMinutes: number;
   interaction: InteractionStore;
   /** Saison archivée : les pastilles ne se glissent plus sur les cours. */
   readOnly?: boolean;
 }
 
 /**
- * Légende des moniteurs (§4.3) avec leur total d'heures de la semaine. Une
- * pastille se clique pour hachurer les indisponibilités du moniteur (§4.4) et
- * se glisse sur un cours pour le lui confier (§5.2).
+ * Légende des moniteurs (§4.3), dans l'en-tête du planning : pastilles
+ * réduites à la couleur et au prénom, sur une seule ligne qui défile si la
+ * place manque ; nom et heures de la semaine en bulle (le total est dans
+ * « Heures »). Une pastille se clique pour hachurer les indisponibilités du
+ * moniteur (§4.4) et se glisse sur un cours pour le lui confier (§5.2).
  */
 export const Legend = memo(function Legend({
   entries,
-  totalMinutes,
   interaction,
   readOnly = false,
 }: LegendProps) {
   return (
-    <fieldset aria-label="Légende des moniteurs" className="flex flex-wrap items-center gap-1.5">
+    <fieldset
+      aria-label="Légende des moniteurs"
+      data-testid="instructor-legend"
+      onWheel={(event) => {
+        // La molette fait défiler la ligne de pastilles horizontalement.
+        const strip = event.currentTarget;
+        if (event.deltaX === 0 && strip.scrollWidth > strip.clientWidth) {
+          strip.scrollLeft += event.deltaY;
+        }
+      }}
+      className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-x-auto py-1 [scrollbar-width:thin] @max-[60rem]:gap-0.5"
+    >
       {entries.map((entry) => (
         <InstructorPill
           key={entry.id}
@@ -43,9 +55,6 @@ export const Legend = memo(function Legend({
           readOnly={readOnly}
         />
       ))}
-      <span data-testid="week-total" className="ml-1 text-muted-foreground text-xs">
-        Total : {hoursLabel(totalMinutes)}
-      </span>
     </fieldset>
   );
 });
@@ -75,7 +84,7 @@ function InstructorPill({
   const help = (
     <>
       <span className="block">
-        {entry.name}
+        {entry.name} · {hours} cette semaine
         {entry.noAvailability && " — aucune disponibilité saisie"}
       </span>
       <span className="block">Cliquer : afficher ses indisponibilités</span>
@@ -94,20 +103,32 @@ function InstructorPill({
         data-testid="instructor-pill"
         onClick={() => interaction.update({ pinnedInstructorId: pinned ? null : entry.id })}
         className={cn(
-          "inline-flex touch-none select-none items-center gap-1.5 rounded-full border bg-card py-1 pr-2.5 pl-1.5 text-xs",
+          "inline-flex shrink-0 touch-none select-none items-center gap-1.5 whitespace-nowrap rounded-full border bg-card py-0.5 pr-2 pl-1 text-xs",
+          // Barre de moins de 60rem (960 px, menu déplié ou réduit) : un rond à la
+          // couleur du moniteur, avec ses initiales.
+          "@max-[60rem]:border-transparent @max-[60rem]:bg-transparent @max-[60rem]:p-0",
           readOnly ? "cursor-pointer" : "cursor-grab",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          pinned && "border-primary bg-accent",
+          pinned && "border-primary bg-accent @max-[60rem]:ring-2 @max-[60rem]:ring-foreground",
         )}
       >
-        <span className="size-3.5 rounded-full" style={{ backgroundColor: entry.color }} />
-        {entry.firstName}
-        {entry.noAvailability && (
-          <span className="text-destructive" aria-hidden>
-            ⚠
-          </span>
-        )}
-        <small className="text-muted-foreground">{hours}</small>
+        <span className="contents @max-[60rem]:hidden">
+          <span className="size-3 rounded-full" style={{ backgroundColor: entry.color }} />
+          {entry.firstName}
+          {entry.noAvailability && (
+            <span className="text-destructive" aria-hidden>
+              ⚠
+            </span>
+          )}
+        </span>
+        <span
+          aria-hidden
+          data-testid="instructor-initials"
+          className="hidden size-6 items-center justify-center rounded-full font-semibold text-[10px] text-white @max-[60rem]:inline-flex"
+          style={{ backgroundColor: entry.color }}
+        >
+          {entry.initials}
+        </span>
       </button>
     </Tooltip>
   );

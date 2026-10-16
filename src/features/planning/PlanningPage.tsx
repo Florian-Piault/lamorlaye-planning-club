@@ -14,6 +14,7 @@ import { Link } from "react-router";
 import { useSeason } from "@/app/season";
 import { useToast } from "@/components/feedback/Toast";
 import { ErrorAlert } from "@/components/form/Field";
+import { OwnToolbar, SeasonSelector } from "@/components/layout/AppShell";
 import { EmptyState, Page } from "@/components/layout/Page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import { todayInParis } from "@/domain/dates";
 import { canRedo, canUndo, redoLabel, undoLabel } from "@/domain/history";
 import { unavailableIntervals } from "@/domain/instructorAvailability";
 import { weekOccurrences } from "@/domain/occurrences";
-import { formatDate, timeToMinutes, WEEKDAYS, weekdayLabel } from "@/domain/time";
+import { formatDate, timeToMinutes, weekdayLabel, weekdayShort } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
 import { weekPdfJob } from "@/features/pdf/jobs";
 import { PAPER_SIZES, type PaperSize } from "@/features/pdf/model";
@@ -38,14 +39,15 @@ import { RequireSeason } from "@/features/referentiels/ReferentielsPage";
 import { errorMessage } from "@/hooks/useLoader";
 import { ariaShortcut, shortcutLabel } from "@/lib/keys";
 import { cn } from "@/lib/utils";
+import { DayBar } from "./components/DayBar";
 import { DragFeedback } from "./components/DragFeedback";
-import { Filters } from "./components/Filters";
+import { FiltersMenu } from "./components/Filters";
 import { Legend, type LegendEntry } from "./components/Legend";
 import { type LessonFormValues, LessonPanel } from "./components/LessonPanel";
 import { OccurrenceActions } from "./components/OccurrenceActions";
 import { type CandidateLook, type LessonView, PlanningGrid } from "./components/PlanningGrid";
 import { type WarningItem, WarningsPanel } from "./components/WarningsPanel";
-import { WeekNavigator } from "./components/WeekNavigator";
+import { ModeSelector, WeekNavigator } from "./components/WeekNavigator";
 import {
   type ActionContext,
   applyItemFromWeek,
@@ -62,9 +64,17 @@ import {
   saveItem,
 } from "./grid/actions";
 import {
+  dayToOpen,
+  focusedWeekday,
+  type GridView,
+  gridWeekdays,
+  lessonCountByWeekday,
+  viewColumnWidth,
+  WEEK_VIEW,
+} from "./grid/dayView";
+import {
   AXIS_WIDTH,
   clockLabel,
-  fitColumnWidth,
   type GridGeometry,
   HOUR_HEIGHT,
   layoutItems,
@@ -103,7 +113,6 @@ import {
   type PlanningFilters,
   semaineTypeDate,
   slotWarnings,
-  totalMinutes,
   warningMessages,
   weekLessons,
 } from "./grid/view";
@@ -117,6 +126,13 @@ const NEUTRAL_COLOR = "#64748B";
 
 /** Dernier mode affiché, par saison : on le retrouve en revenant sur l'écran. */
 const rememberedModes = new Map<string, PlanningMode>();
+/** Dernière vue (Semaine / Jour), par saison. */
+const rememberedViews = new Map<string, GridView>();
+/** Dernier jour vu en vue Jour, par saison. */
+const rememberedDays = new Map<string, number>();
+/** Panneau latéral replié (pour la session). */
+let rememberedFold = false;
+const PANEL_ID = "planning-panel";
 /** Dernier format de papier choisi pour le PDF de la semaine. */
 let rememberedPaper: PaperSize = "A4";
 
@@ -256,6 +272,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   const [filters, setFilters] = useState<PlanningFilters>(noFilters);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelState | null>(null);
+  const [panelFolded, setPanelFolded] = useState(rememberedFold);
   const toast = useToast();
   const [pdfOpen, setPdfOpen] = useState(false);
   const [paper, setPaper] = useState<PaperSize>(rememberedPaper);
@@ -321,14 +338,53 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     items,
   );
 
+  // Jours de la saison (panneau, barre des jours) ; la grille n'en dessine
+  // qu'un en vue Jour.
   const weekdayList = displayedWeekdays(season.displayedDays, items);
-  const weekdays = useStable(weekdayList, weekdayList.join(","));
+  const allWeekdays = useStable(weekdayList, weekdayList.join(","));
+  const [view, setViewState] = useState<GridView>(
+    () => rememberedViews.get(season.id) ?? WEEK_VIEW,
+  );
+  // Dernier jour vu en vue Jour : « Jour » y revient depuis la vue Semaine.
+  const [lastDay, setLastDay] = useState<number | null>(
+    () => rememberedDays.get(season.id) ?? null,
+  );
+  const changeView = useCallback(
+    (next: GridView) => {
+      rememberedViews.set(season.id, next);
+      setViewState(next);
+      if (next.kind === "day") {
+        rememberedDays.set(season.id, next.weekday);
+        setLastDay(next.weekday);
+      }
+    },
+    [season.id],
+  );
+  const gridDayList = gridWeekdays(allWeekdays, view);
+  const weekdays = useStable(gridDayList, gridDayList.join(","));
+  const dayCounts = useMemo(() => lessonCountByWeekday(items), [items]);
+  const todayWeekday = allWeekdays.find((w) => dateOf(w) === today) ?? null;
+  const openedDay = dayToOpen(allWeekdays, lastDay, todayWeekday);
+  // En-tête d'un jour (vue Semaine) : le jour s'affiche seul et le focus passe
+  // à sa pastille, l'en-tête cliqué ayant disparu.
+  const showDayFromHeader = useCallback(
+    (weekday: number) => {
+      changeView({ kind: "day", weekday });
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLElement>('[data-testid="day-pill"][aria-pressed="true"]')
+          ?.focus(),
+      );
+    },
+    [changeView],
+  );
   const courtList = displayedCourts(refs.courts, items);
   const courts = useStable(courtList, courtList.map((c) => c.id).join(","));
   const courtIds = useMemo(() => courts.map((c) => c.id), [courts]);
-  const columnWidth = fitColumnWidth(
+  const columnWidth = viewColumnWidth(
     scrollerWidth - AXIS_WIDTH - 2,
     weekdays.length * courtIds.length,
+    view,
   );
   const geometry: GridGeometry = useMemo(
     () => ({ dayStart, dayEnd, hourHeight: HOUR_HEIGHT, columnWidth, weekdays, courtIds }),
@@ -388,6 +444,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       ),
     [geometry, items],
   );
+  const drawnIds = useMemo(() => new Set(boxes.map((b) => b.id)), [boxes]);
+  // Changement de jour (vue Jour) : la sélection d'un cours qui n'est plus dessiné est vidée.
+  useEffect(() => {
+    if (selectedId && itemsById.has(selectedId) && !drawnIds.has(selectedId)) setSelectedId(null);
+  }, [selectedId, itemsById, drawnIds]);
 
   const instructorName = useCallback(
     (id: string | null) => {
@@ -417,6 +478,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       const day = item.date
         ? `${weekdayLabel(item.weekday)} ${formatDate(item.date)}`
         : weekdayLabel(item.weekday);
+      const color = instructor?.color ?? NEUTRAL_COLOR;
       const status = [
         occurrence?.cancellation &&
           `Annulé cette semaine : ${cancellationLabel(occurrence.cancellation.reason, occurrence.cancellation.note)}`,
@@ -432,22 +494,23 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           ...box,
           id: item.id,
           instructorId: item.instructorId,
-          color: instructor?.color ?? NEUTRAL_COLOR,
+          color,
           groupName,
           timeLabel,
           detail: `${instructor?.initials ?? "?"}${size ? ` · ${size}` : ""}`,
-          title: [
-            groupName,
-            `${day} ${timeLabel}`,
-            courtName,
-            `Moniteur : ${instructorName(item.instructorId)}`,
-            size && `${size} élèves`,
-            ...status,
-            item.note,
-            ...messages.map((m) => `⚠ ${m}`),
-          ]
-            .filter(Boolean)
-            .join("\n"),
+          card: {
+            heading: groupName,
+            lines: [
+              `${day} ${timeLabel}`,
+              courtName,
+              `Moniteur : ${instructorName(item.instructorId)}`,
+              size && `${size} élèves`,
+              ...status,
+              item.note,
+            ].filter((line): line is string => Boolean(line)),
+            warnings: messages,
+            color,
+          },
           ariaLabel: `${groupName}, ${day} ${timeLabel}, ${court?.name ?? "court inconnu"}, ${instructorName(
             item.instructorId,
           )}${status.length > 0 ? `, ${status.join(", ").toLowerCase()}` : ""}${
@@ -482,7 +545,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         .sort((a, b) => a.weekday - b.weekday || a.start - b.start)
         .map((i) => ({
           lessonId: i.id,
-          title: `${WEEKDAYS.find((d) => d.value === i.weekday)?.short ?? ""}${
+          title: `${weekdayShort(i.weekday)}${
             i.date ? ` ${shortDate(i.date)}` : ""
           } ${clockLabel(i.start)} · ${
             (i.groupId && groupsById.get(i.groupId)?.name) ||
@@ -502,13 +565,13 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           id: i.id,
           name: `${i.firstName} ${i.lastName}`,
           firstName: i.firstName,
+          initials: i.initials,
           color: i.color,
           minutes: minutes.get(i.id) ?? 0,
           noAvailability: i.availabilities.length === 0,
         })),
     [refs.instructors, minutes],
   );
-  const weekTotal = useMemo(() => totalMinutes(active), [active]);
 
   // PDF de la semaine affichée (§9.2, Ctrl/Cmd+P).
   const pdfJob = useMemo(
@@ -686,14 +749,25 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
 
   const showLesson = useCallback(
     (id: string) => {
+      // Vue Jour : on passe au jour du cours s'il n'est pas affiché.
+      const weekday = itemsById.get(id)?.weekday;
+      if (
+        view.kind === "day" &&
+        weekday !== undefined &&
+        weekday !== focusedWeekday(allWeekdays, view)
+      ) {
+        changeView({ kind: "day", weekday });
+      }
       openLesson(id);
-      requestAnimationFrame(() => {
-        boardRef.current
-          ?.querySelector(`[data-lesson-id="${CSS.escape(id)}"]`)
-          ?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
-      });
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          boardRef.current
+            ?.querySelector(`[data-lesson-id="${CSS.escape(id)}"]`)
+            ?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+        }),
+      );
     },
-    [openLesson],
+    [openLesson, itemsById, view, allWeekdays, changeView],
   );
 
   const submitPanel = (values: LessonFormValues) => {
@@ -868,7 +942,9 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   );
 
   // --- Raccourcis clavier (§11.5) ---------------------------------------------
-  const selected = selectedId && itemsById.has(selectedId) ? selectedId : null;
+  // Un cours sélectionné qui n'est plus dessiné (autre jour en vue Jour) ne
+  // l'est plus : Suppr ne supprime jamais un cours invisible.
+  const selected = selectedId && drawnIds.has(selectedId) ? selectedId : null;
   const neighbours = mode.kind === "dated" ? weekNeighbours(seasonRange, mode.monday) : null;
   const keyboard = useRef({
     undo,
@@ -905,7 +981,14 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       // Échap en cascade : un champ date ou heure, puis une bulle ouverte, d'abord.
       const picker = escapeForPicker(event);
       if (event.key === "Escape") {
-        if (picker || event.defaultPrevented || document.querySelector("[role=tooltip]")) return;
+        // Bulle, fiche d'un cours ou menu « Filtres » ouverts : Échap les ferme, eux seuls.
+        if (
+          picker ||
+          event.defaultPrevented ||
+          document.querySelector("[role=tooltip], [data-escape-layer], [data-menu-open]")
+        ) {
+          return;
+        }
         const drag = interaction.get().drag;
         // Un glisser dnd-kit est interrompu par dnd-kit lui-même (onDragCancel).
         if (drag && drag.kind !== "select") return;
@@ -964,6 +1047,21 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   // --- Rendu ----------------------------------------------------------------
   const editedItem = panel?.mode === "edit" ? itemsById.get(panel.itemId) : undefined;
   const panelOpen = panel?.mode === "create" || editedItem !== undefined;
+  // Replié, le panneau disparaît ; il se rouvre de lui-même, le temps d'un
+  // cours ouvert ou créé.
+  const panelVisible = !panelFolded || panelOpen;
+  const togglePanel = () => {
+    if (!panelVisible) {
+      rememberedFold = false;
+      setPanelFolded(false);
+      return;
+    }
+    guardPanel(() => {
+      closePanel();
+      rememberedFold = true;
+      setPanelFolded(true);
+    });
+  };
 
   if (courts.length === 0) {
     return (
@@ -979,7 +1077,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
   }
 
   const commonPanelProps = {
-    weekdays,
+    weekdays: allWeekdays,
     dayStart,
     dayEnd,
     courts,
@@ -1098,25 +1196,35 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       onDragCancel={gestures.onDragCancel}
       accessibility={accessibility}
     >
+      <OwnToolbar />
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2.5">
-          <h1 className="mr-2 font-semibold text-lg tracking-tight">Planning</h1>
-          <WeekNavigator
-            mode={mode}
-            season={seasonRange}
-            datedMonday={datedMonday}
-            todayMonday={todayMonday}
-            onChange={changeMode}
-          />
+        {/* Une seule barre d'outils, sur une ligne : la barre haute est masquée. */}
+        <header
+          data-testid="planning-toolbar"
+          // Conteneur : en dessous de 50rem, « Filtres » et la saison se compactent.
+          className="@container flex h-12 shrink-0 flex-nowrap items-center gap-1 border-b bg-card px-4"
+        >
+          <h1 className="sr-only">Planning</h1>
+          <ModeSelector mode={mode} datedMonday={datedMonday} onChange={changeMode} />
           {readOnly ? (
-            <Badge variant="outline" data-testid="planning-read-only">
-              <Lock aria-hidden />
-              Consultation seulement (saison terminée)
-            </Badge>
+            // Libellé court (la barre tient sur une ligne) ; la raison est en bulle.
+            <Tooltip content="Saison terminée : aucune modification possible">
+              <Badge
+                variant="outline"
+                className="shrink-0"
+                data-testid="planning-read-only"
+                // Focalisable : la bulle se lit au clavier.
+                tabIndex={0}
+              >
+                <Lock aria-hidden />
+                Consultation seulement
+              </Badge>
+            </Tooltip>
           ) : (
             <>
               <Button
                 size="sm"
+                className="text-xs @max-[50rem]:has-[>svg]:px-2"
                 onClick={() => openNew()}
                 aria-keyshortcuts={ariaShortcut("mod+n")}
                 tooltip={`${mode.kind === "dated" ? "Nouveau cours ponctuel" : "Nouveau cours"} (${shortcutLabel("mod+n")})`}
@@ -1125,47 +1233,51 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
                 Nouveau cours
               </Button>
               <Button
-                size="sm"
+                size="icon"
                 variant="outline"
+                className="size-8 @max-[50rem]:size-7"
+                aria-label="Annuler"
                 onClick={undo}
                 disabled={!canUndo(snapshot.history)}
                 aria-keyshortcuts={ariaShortcut("mod+z")}
                 tooltip={`${undoLabel(snapshot.history) ?? "Rien à annuler"} (${shortcutLabel("mod+z")})`}
               >
                 <Undo2 aria-hidden />
-                Annuler
               </Button>
               <Button
-                size="sm"
+                size="icon"
                 variant="outline"
+                className="size-8 @max-[50rem]:size-7"
+                aria-label="Rétablir"
                 onClick={redo}
                 disabled={!canRedo(snapshot.history)}
                 aria-keyshortcuts={ariaShortcut("mod+shift+z")}
                 tooltip={`${redoLabel(snapshot.history) ?? "Rien à rétablir"} (${shortcutLabel("mod+shift+z")})`}
               >
                 <Redo2 aria-hidden />
-                Rétablir
               </Button>
             </>
           )}
           <Button
-            size="sm"
+            size="icon"
             variant="outline"
+            className="size-8 @max-[50rem]:size-7"
+            aria-label="PDF"
             onClick={openPdf}
             aria-keyshortcuts={ariaShortcut("mod+p")}
             tooltip={`PDF de la semaine affichée (${shortcutLabel("mod+p")})`}
           >
             <FileDown aria-hidden />
-            PDF
           </Button>
-          <div className="ml-auto">
-            <Legend
-              entries={legendEntries}
-              totalMinutes={weekTotal}
-              interaction={interaction}
-              readOnly={readOnly}
-            />
-          </div>
+          <FiltersMenu
+            filters={filters}
+            onChange={setFilters}
+            instructors={filterOptions.instructors}
+            courts={filterOptions.courts}
+            groups={filterOptions.groups}
+          />
+          <Legend entries={legendEntries} interaction={interaction} readOnly={readOnly} />
+          <SeasonSelector compact />
         </header>
         <ModeBar
           readOnly={readOnly}
@@ -1174,12 +1286,25 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           names={legendEntries}
           laterChanges={mode.kind === "type" ? laterChangesSummary(lessons, referenceDate) : null}
         />
-        <Filters
-          filters={filters}
-          onChange={setFilters}
-          instructors={filterOptions.instructors}
-          courts={filterOptions.courts}
-          groups={filterOptions.groups}
+        <DayBar
+          weekdays={allWeekdays}
+          counts={dayCounts}
+          view={view}
+          onViewChange={changeView}
+          openedDay={openedDay}
+          weekNavigation={
+            mode.kind === "dated" ? (
+              <WeekNavigator
+                monday={mode.monday}
+                season={seasonRange}
+                todayMonday={todayMonday}
+                onChange={changeMode}
+              />
+            ) : null
+          }
+          panelVisible={panelVisible}
+          panelId={PANEL_ID}
+          onTogglePanel={togglePanel}
         />
         <div className="flex min-h-0 flex-1">
           <PlanningGrid
@@ -1196,13 +1321,17 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             onBoardPointerDown={gestures.onBoardPointerDown}
             dayHeading={headingOf}
             closedDays={closedDayList}
+            onShowDay={view.kind === "week" ? showDayFromHeader : undefined}
           />
-          <aside
-            aria-label="Panneau latéral"
-            className="w-80 shrink-0 overflow-y-auto border-l bg-card p-4"
-          >
-            {renderPanel()}
-          </aside>
+          {panelVisible && (
+            <aside
+              id={PANEL_ID}
+              aria-label="Panneau latéral"
+              className="w-80 shrink-0 overflow-y-auto border-l bg-card p-4"
+            >
+              {renderPanel()}
+            </aside>
+          )}
         </div>
       </div>
       <DragFeedback
@@ -1274,7 +1403,7 @@ function ModeBar({
       data-testid="mode-bar"
       data-mode={mode.kind}
       className={cn(
-        "flex h-7 shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap px-4 text-white text-xs",
+        "flex h-6 shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap px-4 text-white text-xs",
         mode.kind === "type" ? "bg-sky-700 dark:bg-sky-800" : "bg-emerald-700 dark:bg-emerald-800",
       )}
     >

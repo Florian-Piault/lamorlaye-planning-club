@@ -9,6 +9,7 @@ import {
   timeToMinutes,
   todayIso,
   weekdayLabel,
+  weekdayShort,
 } from "./time";
 
 describe("heures et dates", () => {
@@ -48,6 +49,8 @@ describe("heures et dates", () => {
     expect(formatDuration(90)).toBe("1 h 30");
     expect(weekdayLabel(3)).toBe("Mercredi");
     expect(weekdayLabel(9)).toBe("Jour 9");
+    expect(weekdayShort(7)).toBe("Dim");
+    expect(weekdayShort(9)).toBe("");
     expect(todayIso(new Date(2026, 9, 4, 23, 30))).toBe("2026-10-04");
   });
 });
