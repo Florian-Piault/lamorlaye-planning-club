@@ -41,3 +41,31 @@ export function shortcutLabel(shortcut: string, platform: Platform = detectPlatf
   const keys = shortcut.split("+").map((key) => keyLabel(key, platform));
   return keys.join(platform === "mac" ? " " : "+");
 }
+
+const ARIA_NAMES: Record<string, string> = {
+  alt: "Alt",
+  shift: "Shift",
+  delete: "Delete",
+  escape: "Escape",
+  enter: "Enter",
+  "←": "ArrowLeft",
+  "→": "ArrowRight",
+  "↑": "ArrowUp",
+  "↓": "ArrowDown",
+};
+
+/**
+ * Valeur de `aria-keyshortcuts` (noms de touches du DOM) : « mod+shift+z » →
+ * « Meta+Shift+Z » sous macOS, « Control+Shift+Z » ailleurs. Le raccourci est
+ * ainsi annoncé par le lecteur d'écran sans répéter la bulle comme description.
+ */
+export function ariaShortcut(shortcut: string, platform: Platform = detectPlatform()): string {
+  return shortcut
+    .split("+")
+    .map((key) => {
+      const k = key.toLowerCase();
+      if (k === "mod") return platform === "mac" ? "Meta" : "Control";
+      return ARIA_NAMES[k] ?? (key.length === 1 ? key.toUpperCase() : key);
+    })
+    .join("+");
+}

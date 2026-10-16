@@ -184,7 +184,7 @@ function findLesson(state: PlanningState, id: string): Lesson {
 
 function findException(state: PlanningState, id: string): LessonException {
   const exception = state.exceptions.find((e) => e.id === id);
-  if (!exception) throw new PlanningError("Exception introuvable.");
+  if (!exception) throw new PlanningError("Changement de la semaine introuvable.");
   return exception;
 }
 
@@ -441,7 +441,7 @@ export function applyFromWeek(
   const monday = startOfIsoWeek(date);
   const label = `Modification à partir de la semaine du ${formatDate(monday)}`;
   if (lesson.effectiveTo !== null && lesson.effectiveTo < monday) {
-    throw new PlanningError("Le cours n'est plus en vigueur cette semaine-là.");
+    throw new PlanningError("Ce cours n'a plus lieu cette semaine-là.");
   }
   if (lesson.effectiveFrom >= monday) return updateLesson(state, lessonId, patch, ctx, label);
 
@@ -658,9 +658,10 @@ export function restoreOccurrence(
   const exceptions = state.exceptions.filter(
     (e) => e.lessonId === ref.lessonId && e.occurrenceDate === ref.occurrenceDate,
   );
-  if (exceptions.length === 0) throw new PlanningError("Cette séance n'a pas d'exception.");
+  if (exceptions.length === 0)
+    throw new PlanningError("Cette séance n'a pas été changée cette semaine.");
   return labelled(
-    `Rétablissement de la séance du ${formatDate(ref.occurrenceDate)}`,
+    `Retour au cours habituel du ${formatDate(ref.occurrenceDate)}`,
     exceptions.map((e) => remove("exceptions", e)),
   );
 }
@@ -669,7 +670,7 @@ export function restoreOccurrence(
 export function deleteException(state: PlanningState, id: string): Command {
   const exception = findException(state, id);
   if (exception.kind === "one_off") return deleteOneOff(state, id);
-  return labelled("Suppression de l'exception", [remove("exceptions", exception)]);
+  return labelled("Suppression du changement de la semaine", [remove("exceptions", exception)]);
 }
 
 // ---------------------------------------------------------------------------

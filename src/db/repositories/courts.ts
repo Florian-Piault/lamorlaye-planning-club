@@ -46,8 +46,8 @@ export async function getCourtUsage(db: Db, id: string): Promise<Usage> {
     {
       table: lessonExceptions,
       where: eq(lessonExceptions.courtId, id),
-      singular: "exception",
-      plural: "exceptions",
+      singular: "séance d'une semaine précise",
+      plural: "séances d'une semaine précise",
     },
   ]);
 }

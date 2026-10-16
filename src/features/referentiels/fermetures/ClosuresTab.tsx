@@ -69,7 +69,7 @@ export function ClosuresTab() {
     <section className="flex max-w-3xl flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <p className="text-muted-foreground text-sm">
-          Pendant une fermeture, les cours de la semaine type sont suspendus ; les cours ponctuels
+          Pendant une fermeture, les cours du planning habituel sont suspendus ; les cours ponctuels
           (stages) restent possibles.
         </p>
         {!readOnly && (
@@ -110,6 +110,7 @@ export function ClosuresTab() {
                       variant="ghost"
                       size="icon"
                       aria-label={`Modifier ${closure.label}`}
+                      tooltip="Modifier"
                       onClick={() => setEditing({ mode: "edit", closure })}
                     >
                       <Pencil aria-hidden />

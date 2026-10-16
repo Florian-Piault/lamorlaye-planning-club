@@ -6,7 +6,7 @@ import { EmptyState, Loading, Page } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** Onglets des référentiels, dans l'ordre de saisie conseillé. */
+/** Onglets des référentiels (« Le club » à l'écran), dans l'ordre de saisie conseillé. */
 export const referentielTabs = [
   { path: "saison", label: "Saison" },
   { path: "courts", label: "Courts" },
@@ -21,14 +21,14 @@ export function ReferentielsPage() {
   const { season } = useSeason();
   return (
     <Page
-      title="Référentiels"
+      title="Le club"
       description={
         season
           ? `Saison ${season.name} : courts, moniteurs, niveaux, groupes, élèves et fermetures.`
           : "Saisons, courts, moniteurs, niveaux, groupes, élèves et fermetures."
       }
     >
-      <nav aria-label="Référentiels" className="-mt-2 mb-6 flex gap-1 border-b">
+      <nav aria-label="Fiches du club" className="-mt-2 mb-6 flex gap-1 border-b">
         {referentielTabs.map(({ path, label }) => (
           <NavLink
             key={path}

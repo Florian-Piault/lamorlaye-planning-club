@@ -1,61 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
 import { contrastIssues, tabStops, unnamedControls } from "./support/a11y";
 import { lesson, openPlanning, readLessons } from "./support/planning";
+import { SCREENS, visit } from "./support/screens";
 
 /**
  * Accessibilité (lot L8) : déplacement d'un cours au clavier avec annonces
  * en français, contrastes des écrans principaux en thème clair et sombre,
  * noms accessibles et focus visibles.
  */
-
-/** Écrans principaux, avec un repère attendu une fois chargés. */
-const SCREENS: { path: string; ready: (page: Page) => Promise<void> }[] = [
-  { path: "/#/planning", ready: (p) => expect(p.getByTestId("lesson").first()).toBeVisible() },
-  {
-    path: "/#/referentiels/saison",
-    ready: (p) => expect(p.getByRole("form", { name: "Saison" })).toBeVisible(),
-  },
-  {
-    path: "/#/referentiels/courts",
-    ready: (p) => expect(p.getByRole("button", { name: "Modifier Court 2" })).toBeVisible(),
-  },
-  {
-    path: "/#/referentiels/moniteurs",
-    ready: (p) => expect(p.getByRole("table", { name: "Moniteurs" })).toBeVisible(),
-  },
-  {
-    path: "/#/referentiels/niveaux",
-    ready: (p) => expect(p.getByRole("button", { name: "Modifier Galaxie blanc" })).toBeVisible(),
-  },
-  {
-    path: "/#/referentiels/groupes",
-    ready: (p) => expect(p.getByRole("table", { name: "Groupes" })).toBeVisible(),
-  },
-  {
-    path: "/#/referentiels/eleves",
-    ready: (p) => expect(p.getByRole("table", { name: "Élèves" })).toBeVisible(),
-  },
-  {
-    path: "/#/referentiels/fermetures",
-    ready: (p) => expect(p.getByRole("heading", { level: 1, name: "Référentiels" })).toBeVisible(),
-  },
-  {
-    path: "/#/heures",
-    ready: (p) => expect(p.getByRole("heading", { level: 1, name: "Heures" })).toBeVisible(),
-  },
-  {
-    path: "/#/import-export",
-    ready: (p) => expect(p.getByRole("heading", { level: 1, name: "Import/Export" })).toBeVisible(),
-  },
-  {
-    path: "/#/reglages",
-    ready: (p) => expect(p.getByTestId("storage-kind")).toBeVisible(),
-  },
-  {
-    path: "/#/a-propos",
-    ready: (p) => expect(p.getByTestId("app-version")).toBeVisible(),
-  },
-];
 
 /**
  * Espace saisit le cours focalisé. Le capteur clavier de dnd-kit n'écoute les
@@ -66,13 +18,6 @@ async function grab(page: Page) {
   await page.keyboard.press("Space");
   await expect(page.getByTestId("lesson-ghost")).toBeVisible();
   await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
-}
-
-/** Change d'écran sans recharger la page (la base sql.js est en mémoire). */
-async function visit(page: Page, path: string) {
-  await page.evaluate((hash) => {
-    window.location.hash = hash;
-  }, path.slice(1));
 }
 
 test.describe("déplacement d'un cours au clavier", () => {
@@ -174,7 +119,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await visit(page, "/#/planning");
       await page
         .getByRole("group", { name: "Mode d'affichage" })
-        .getByRole("button", { name: /^Semaine du/ })
+        .getByRole("button", { name: "Une semaine précise" })
         .click();
       await expect(page.getByTestId("mode-bar")).toHaveAttribute("data-mode", "dated");
       expect(await contrastIssues(page), "contrastes de la semaine datée").toEqual([]);

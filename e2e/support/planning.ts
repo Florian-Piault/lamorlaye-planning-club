@@ -74,7 +74,7 @@ export async function createSeason(page: Page) {
   await form.getByLabel("Date de fin").fill("2027-06-30");
   await form.getByLabel("Dimanche").uncheck();
   await form.getByRole("button", { name: "Créer la saison" }).click();
-  await expect(page.getByText("Saison active")).toBeVisible();
+  await expect(page.getByText("Saison en cours", { exact: true })).toBeVisible();
 }
 
 /** Module d'outils de test, chargé dans la page (chemin servi par Vite). */

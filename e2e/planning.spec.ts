@@ -126,7 +126,7 @@ test.describe("grille semaine type", () => {
     await form.getByRole("button", { name: "Nouveau groupe" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau groupe" });
     await dialog.getByLabel("Nom").fill("Galaxie jaune");
-    await dialog.getByLabel("Effectif maximum").fill("6");
+    await dialog.getByLabel("Élèves au maximum").fill("6");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
     await expect(dialog).toBeHidden();
     await expect(form.getByLabel("Groupe", { exact: true }).locator("option:checked")).toHaveText(
@@ -175,9 +175,9 @@ test.describe("grille semaine type", () => {
 
     // Le moniteur du panneau passe avant le survol pour les hachures.
     await instructor.selectOption({ label: "○ Julie Martin (indisponible)" });
-    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Julie Martin");
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Julie Martin");
     await lesson(page, "Galaxie vert").hover();
-    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Julie Martin");
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Julie Martin");
     await form.getByRole("button", { name: "Fermer", exact: true }).click();
     await page
       .getByRole("dialog", { name: "Abandonner les modifications ?" })
@@ -387,7 +387,7 @@ test.describe("grille semaine type", () => {
       "Confier « Galaxie vert » à Julie",
     );
     await expect(page.getByTestId("drag-tooltip")).toContainText("⚠ Hors disponibilités de Julie");
-    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Julie Martin");
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Julie Martin");
     await page.mouse.up();
 
     await expect(galaxie).toContainText("JM · 3/8");
@@ -477,7 +477,7 @@ test.describe("grille semaine type", () => {
     await expect(hatches).toHaveCount(0);
 
     await lesson(page, "Galaxie vert").hover();
-    await expect(page.getByTestId("hatch-info")).toHaveText("Hachures : Karim Benali");
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Karim Benali");
     // Lundi 8h–9h, 12h–17h, 21h30–22h ; mardi 8h–9h, 12h–22h ; mercredi 8h–13h, 19h–22h ;
     // jeudi, vendredi, samedi entiers.
     await expect(hatches).toHaveCount(10);
@@ -490,7 +490,7 @@ test.describe("grille semaine type", () => {
     await expect(marc).toHaveAttribute("aria-pressed", "true");
     await expect(hatches).toHaveCount(6);
     await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachures : Marc Leroy (aucune disponibilité)",
+      "Zones rayées : Marc Leroy (aucune disponibilité)",
     );
     await marc.click();
     await expect(hatches).toHaveCount(0);
@@ -554,7 +554,7 @@ test.describe("grille semaine type", () => {
     });
     await expect(lesson(page, "Galaxie vert")).toHaveCount(1);
     await expect(lesson(page, "Galaxie vert")).not.toHaveAttribute("data-warning");
-    await expect(page.getByTestId("hidden-versions")).toHaveText("1 version(s) masquée(s)");
+    await expect(page.getByTestId("later-changes")).toHaveText("1 cours a changé");
 
     await expect(page.getByRole("heading", { name: "Avertissements (1)" })).toBeVisible();
     const item = page.getByRole("list", { name: "Avertissements" }).getByRole("button");
@@ -584,7 +584,7 @@ test.describe("grille semaine type", () => {
     // L'écran est démonté puis rechargé depuis la base.
     await page
       .getByRole("navigation", { name: "Navigation principale" })
-      .getByRole("link", { name: "Référentiels" })
+      .getByRole("link", { name: "Le club" })
       .click();
     await goToPlanning(page);
     await expect(lesson(page, "Galaxie vert")).toContainText("9h00–10h00");

@@ -3,13 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isValidDate } from "@/domain/time";
 import { cn } from "@/lib/utils";
-import {
-  clampWeek,
-  type PlanningMode,
-  type SeasonRange,
-  weekButtonLabel,
-  weekNeighbours,
-} from "../grid/items";
+import { clampWeek, type PlanningMode, type SeasonRange, weekNeighbours } from "../grid/items";
 
 interface WeekNavigatorProps {
   mode: PlanningMode;
@@ -22,9 +16,10 @@ interface WeekNavigatorProps {
 }
 
 /**
- * Sélecteur de mode « Semaine type » / « Semaine du JJ/MM » et navigation
- * entre les semaines datées (§4.2) : précédente, suivante, aujourd'hui,
- * sélecteur de date. Les flèches ← / → du clavier font de même.
+ * Sélecteur de mode « Planning habituel » / « Une semaine précise » (semaine
+ * type et semaine datée, §4.2) et navigation entre les semaines : précédente,
+ * suivante, aujourd'hui, sélecteur de date. Les flèches ← / → du clavier font
+ * de même. La semaine affichée est nommée dans la barre de mode.
  */
 export function WeekNavigator({
   mode,
@@ -54,7 +49,7 @@ export function WeekNavigator({
           className={segment(mode.kind === "type")}
           onClick={() => onChange({ kind: "type" })}
         >
-          Semaine type
+          Planning habituel
         </button>
         <button
           type="button"
@@ -62,7 +57,7 @@ export function WeekNavigator({
           className={segment(mode.kind === "dated")}
           onClick={() => go(monday)}
         >
-          {weekButtonLabel(monday)}
+          Une semaine précise
         </button>
       </fieldset>
       {mode.kind === "dated" && (
@@ -73,6 +68,7 @@ export function WeekNavigator({
             className="size-8"
             aria-label="Semaine précédente"
             tooltip="Semaine précédente (←)"
+            aria-keyshortcuts="ArrowLeft"
             disabled={!previous}
             disabledReason="Première semaine de la saison"
             reasonSide="none"
@@ -86,6 +82,7 @@ export function WeekNavigator({
             className="size-8"
             aria-label="Semaine suivante"
             tooltip="Semaine suivante (→)"
+            aria-keyshortcuts="ArrowRight"
             disabled={!next}
             disabledReason="Dernière semaine de la saison"
             reasonSide="none"

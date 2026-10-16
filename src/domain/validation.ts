@@ -126,7 +126,10 @@ export const groupSchema = z
     maxSize: z
       .string()
       .trim()
-      .refine((v) => /^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 99, "Effectif invalide.")
+      .refine(
+        (v) => /^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 99,
+        "Nombre d'élèves invalide.",
+      )
       .transform(Number),
     active: z.boolean(),
   })

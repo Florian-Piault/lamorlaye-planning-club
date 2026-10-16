@@ -95,7 +95,8 @@ function Breadcrumb() {
 const DETAIL_PAGE = /^\/referentiels\/(moniteurs|groupes)\/.+$/;
 
 /**
- * Sélecteur de la saison consultée (§8.1) : saison active ou saison archivée.
+ * Sélecteur de la saison consultée (§8.1) : saison active (« en cours ») ou
+ * saison archivée (« terminée »).
  * Liste native transparente posée sur une pastille, pour garder le comportement
  * clavier et l'accessibilité du `<select>`.
  */
@@ -122,12 +123,12 @@ function SeasonSelector() {
         )}
         <span className="text-muted-foreground">Saison</span>
         <span className="font-semibold">{season?.name}</span>
-        <span className="text-muted-foreground">{readOnly ? "archivée" : "active"}</span>
+        <span className="text-muted-foreground">{readOnly ? "terminée" : "en cours"}</span>
         <ChevronsUpDown className="size-3.5 text-muted-foreground" />
       </div>
       <select
         id="season-selector"
-        aria-label="Saison consultée"
+        aria-label="Saison affichée"
         className="absolute inset-0 cursor-pointer opacity-0"
         value={season?.id ?? ""}
         onChange={(e) => {
@@ -140,7 +141,7 @@ function SeasonSelector() {
         {seasons.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}
-            {s.status === "archived" ? " (archivée)" : " (active)"}
+            {s.status === "archived" ? " (terminée)" : " (en cours)"}
           </option>
         ))}
       </select>
@@ -148,7 +149,7 @@ function SeasonSelector() {
   );
 }
 
-/** Bandeau signalant la consultation d'une saison archivée, en lecture seule. */
+/** Bandeau signalant la consultation d'une saison archivée (terminée), en lecture seule. */
 function ReadOnlyBanner() {
   const { season, activeSeason, readOnly, selectSeason } = useSeason();
   if (!readOnly || !season) return null;
@@ -160,7 +161,7 @@ function ReadOnlyBanner() {
     >
       <Archive className="size-4 shrink-0" aria-hidden />
       <span>
-        Saison <b>{season.name}</b> archivée : consultation en lecture seule, aucune modification
+        Saison <b>{season.name}</b> : consultation seulement (saison terminée), aucune modification
         possible.
       </span>
       {activeSeason && (

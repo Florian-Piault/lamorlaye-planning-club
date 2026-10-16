@@ -156,8 +156,8 @@ export function InstructorPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Disponibilités hebdomadaires</CardTitle>
-          <CardDescription>Plages récurrentes, valables toute la saison.</CardDescription>
+          <CardTitle>Disponible chaque semaine</CardTitle>
+          <CardDescription>Horaires de disponibilité, valables toute la saison.</CardDescription>
         </CardHeader>
         <CardContent>
           <AvailabilityEditor

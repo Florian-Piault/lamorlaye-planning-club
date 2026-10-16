@@ -16,6 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import type { ReactNode } from "react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { moveItem } from "@/domain/usage";
 import { cn } from "@/lib/utils";
 
@@ -122,16 +123,18 @@ function SortableRow({ id, name, children }: { id: string; name: string; childre
       )}
       data-testid="sortable-item"
     >
-      <button
-        type="button"
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        aria-label={`Déplacer ${name}`}
-        className="flex size-8 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
-      >
-        <GripVertical className="size-4" aria-hidden />
-      </button>
+      <Tooltip content="Glisser pour changer l'ordre (au clavier : Espace, puis flèches)">
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`Déplacer ${name}`}
+          className="flex size-8 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+        >
+          <GripVertical className="size-4" aria-hidden />
+        </button>
+      </Tooltip>
       <div className="flex min-w-0 flex-1 items-center gap-3">{children}</div>
     </li>
   );

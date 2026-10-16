@@ -44,7 +44,7 @@ test.describe("import d'élèves", () => {
     );
 
     // 2. Correspondance proposée d'après les en-têtes.
-    const mapping = page.getByRole("table", { name: "Correspondance des colonnes" });
+    const mapping = page.getByRole("table", { name: "Associer les colonnes de votre fichier" });
     await expect(mapping.getByLabel("Nom", { exact: true })).toHaveValue("0");
     await expect(mapping.getByLabel("Téléphone", { exact: true })).toHaveValue("3");
     await expect(mapping.getByLabel("Groupe(s)")).toHaveValue("5");
@@ -100,9 +100,9 @@ test.describe("import d'élèves", () => {
     await navigate(page, "Import/Export");
     await history.getByRole("button", { name: "Annuler l'import" }).click();
     await expect(history).toContainText("Import annulé : Import de 3 élèves");
-    await navigate(page, "Référentiels");
+    await navigate(page, "Le club");
     await page
-      .getByRole("navigation", { name: "Référentiels" })
+      .getByRole("navigation", { name: "Fiches du club" })
       .getByRole("link", { name: "Élèves" })
       .click();
     await expect(students.getByRole("row")).toHaveCount(3);
@@ -111,9 +111,9 @@ test.describe("import d'élèves", () => {
     await navigate(page, "Import/Export");
     await history.getByRole("button", { name: "Rétablir l'import" }).click();
     await expect(history).toContainText("Dernier import : Import de 3 élèves");
-    await navigate(page, "Référentiels");
+    await navigate(page, "Le club");
     await page
-      .getByRole("navigation", { name: "Référentiels" })
+      .getByRole("navigation", { name: "Fiches du club" })
       .getByRole("link", { name: "Élèves" })
       .click();
     await expect(students.getByRole("row")).toHaveCount(6);
@@ -123,7 +123,7 @@ test.describe("import d'élèves", () => {
     await openImport(page);
     const input = page.getByLabel("Fichier à importer");
     await input.setInputFiles(FIXTURE);
-    const mapping = page.getByRole("table", { name: "Correspondance des colonnes" });
+    const mapping = page.getByRole("table", { name: "Associer les colonnes de votre fichier" });
     // Ne pas importer les groupes ; mettre à jour les élèves déjà enregistrés.
     await mapping.getByLabel("Groupe(s)").selectOption({ label: "— Ne pas importer —" });
     await page.getByLabel("Les mettre à jour avec les valeurs du fichier").check();
@@ -134,7 +134,7 @@ test.describe("import d'élèves", () => {
     await expect(page.getByText("Groupes introuvables")).toBeHidden();
 
     // Retour au choix du fichier : la correspondance et l'option sont retrouvées.
-    await page.getByRole("button", { name: "Retour à la correspondance" }).click();
+    await page.getByRole("button", { name: "Retour au choix des colonnes" }).click();
     await page.getByRole("button", { name: "Changer de fichier" }).click();
     await input.setInputFiles(FIXTURE);
     await expect(mapping.getByLabel("Groupe(s)")).toHaveValue("");

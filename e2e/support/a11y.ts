@@ -190,11 +190,16 @@ export async function tabStops(page: Page, count: number): Promise<FocusStop[]> 
             background: style.backgroundColor,
           };
         };
+        // Sans transition, le style lu est l'état final (l'anneau des boutons s'anime :
+        // lu en cours d'animation sur une machine chargée, il semblait absent).
+        const transition = element.style.transition;
+        element.style.transition = "none";
         const focused = look();
         // Comparaison avec l'état sans focus : une ombre permanente n'est pas un indicateur.
         element.blur();
         const unfocused = look();
         element.focus();
+        element.style.transition = transition;
         const visible =
           focused.outline ||
           focused.shadow !== unfocused.shadow ||
@@ -209,4 +214,107 @@ export async function tabStops(page: Page, count: number): Promise<FocusStop[]> 
     );
   }
   return stops;
+}
+
+export interface IconButton {
+  /** Nom accessible (`aria-label` ou `aria-labelledby`). */
+  name: string;
+  /** Texte de la bulle commune affichée au focus clavier, ou `null`. */
+  tooltip: string | null;
+  /** Bulle native (`title`), à remplacer par la bulle commune. */
+  title: string | null;
+}
+
+/**
+ * Parcourt au plus `count` arrêts de tabulation (`Tab` ou `Shift+Tab`) et
+ * relève chaque bouton icône (bouton sans texte visible) : son nom accessible
+ * et la bulle commune qui s'affiche au focus clavier. S'arrête au premier
+ * élément déjà rencontré (tour complet).
+ */
+export async function iconButtonsByKeyboard(
+  page: Page,
+  count: number,
+  key: "Tab" | "Shift+Tab" = "Tab",
+): Promise<IconButton[]> {
+  const found: IconButton[] = [];
+  // Sous WebKit (macOS), Tab seul ne s'arrête que sur les champs : ⌥ Tab parcourt aussi les boutons.
+  const webkit = page.context().browser()?.browserType().name() === "webkit";
+  const press = webkit ? key.replace("Tab", "Alt+Tab") : key;
+  let seen = 0;
+  for (let i = 0; i < count; i++) {
+    await page.keyboard.press(press);
+    const focused = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!(element instanceof HTMLElement) || element === document.body) return "body";
+      if (element.dataset.e2eVisited) return "seen";
+      element.dataset.e2eVisited = "1";
+      if (!element.matches("button, [role=button]") || element.innerText.trim() !== "") {
+        return "other";
+      }
+      const labelledBy = element.getAttribute("aria-labelledby");
+      const name =
+        element.getAttribute("aria-label") ??
+        (labelledBy
+          ? labelledBy
+              .split(/\s+/)
+              .map((id) => document.getElementById(id)?.textContent ?? "")
+              .join(" ")
+          : "");
+      return { name: name.trim(), title: element.getAttribute("title") };
+    });
+    // Tour complet ; un champ date garde le focus le temps de ses segments (jour, mois, année).
+    seen = focused === "seen" ? seen + 1 : 0;
+    if (seen > 4) break;
+    if (typeof focused === "string") continue;
+    // Au clavier, la bulle s'affiche aussitôt : courte attente, le temps que
+    // le défilement jusqu'au bouton et le placement de la bulle se terminent.
+    let tooltip: string | null = null;
+    for (let attempt = 0; attempt < 10 && tooltip === null; attempt++) {
+      tooltip = await bubbleOfFocused(page);
+      if (tooltip === null) await page.waitForTimeout(100);
+    }
+    found.push({ ...focused, tooltip });
+  }
+  await page.evaluate(() => {
+    for (const element of document.querySelectorAll<HTMLElement>("[data-e2e-visited]")) {
+      delete element.dataset.e2eVisited;
+    }
+  });
+  return found;
+}
+
+/**
+ * Texte de la bulle affichée, à condition qu'elle soit bien celle de l'élément
+ * focalisé : collée à lui (juste dessous ou juste dessus) et dans son axe.
+ */
+function bubbleOfFocused(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const element = document.activeElement;
+    const bubble = document.querySelector<HTMLElement>("[role=tooltip]");
+    if (!(element instanceof HTMLElement) || !bubble) return null;
+    const a = element.getBoundingClientRect();
+    const b = bubble.getBoundingClientRect();
+    const touching = Math.abs(b.top - a.bottom) < 12 || Math.abs(a.top - b.bottom) < 12;
+    const aligned = b.left <= a.right && b.right >= a.left;
+    return touching && aligned ? bubble.innerText : null;
+  });
+}
+
+/** Texte visible de la page (sections repliées exclues). */
+export function visibleText(page: Page): Promise<string> {
+  return page.evaluate(() => document.body.innerText);
+}
+
+/**
+ * Avance au clavier (⌥ Tab sous WebKit) jusqu'à l'élément dont le nom
+ * accessible (`aria-label`) correspond, et le renvoie.
+ */
+export async function focusByKeyboard(page: Page, name: RegExp, count: number) {
+  const webkit = page.context().browser()?.browserType().name() === "webkit";
+  for (let i = 0; i < count; i++) {
+    await page.keyboard.press(webkit ? "Alt+Tab" : "Tab");
+    const label = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
+    if (label && name.test(label)) return page.getByRole("button", { name: label, exact: true });
+  }
+  throw new Error(`${name} introuvable au clavier`);
 }

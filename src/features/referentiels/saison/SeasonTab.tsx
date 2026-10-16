@@ -36,7 +36,7 @@ export function SeasonTab() {
         <CardHeader>
           <CardTitle>Créer la saison</CardTitle>
           <CardDescription>
-            La saison regroupe les courts, moniteurs, groupes, élèves et la semaine type.
+            La saison regroupe les courts, moniteurs, groupes, élèves et le planning habituel.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -63,8 +63,10 @@ export function SeasonTab() {
       ) : (
         <Card className="max-w-3xl">
           <CardHeader>
-            <CardTitle>Saison active</CardTitle>
-            <CardDescription>Amplitude horaire et jours affichés dans le planning.</CardDescription>
+            <CardTitle>Saison en cours</CardTitle>
+            <CardDescription>
+              Dates de la saison, heures et jours affichés dans le planning.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <SeasonForm
@@ -111,23 +113,23 @@ export function SeasonTab() {
                 <TableCell>{formatDate(s.endDate)}</TableCell>
                 <TableCell>
                   {s.status === "active" ? (
-                    <Badge>Active</Badge>
+                    <Badge>En cours</Badge>
                   ) : (
-                    <Badge variant="outline">Archivée</Badge>
+                    <Badge variant="outline">Terminée</Badge>
                   )}
                 </TableCell>
                 <TableCell>
                   {s.id === season.id ? (
-                    <span className="text-muted-foreground text-xs">Consultée</span>
+                    <span className="text-muted-foreground text-xs">Affichée</span>
                   ) : (
                     <Button
                       size="sm"
                       variant="ghost"
-                      aria-label={`Consulter la saison ${s.name}`}
+                      aria-label={`Afficher la saison ${s.name}`}
                       onClick={() => selectSeason(s.status === "active" ? null : s.id)}
                     >
                       <Eye aria-hidden />
-                      Consulter
+                      Afficher
                     </Button>
                   )}
                 </TableCell>
@@ -183,11 +185,11 @@ function ArchivedSeasonCard({ season }: { season: Season }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           Saison {season.name}
-          <Badge variant="outline">Archivée</Badge>
+          <Badge variant="outline">Terminée</Badge>
         </CardTitle>
         <CardDescription>
-          Saison passée, consultable en lecture seule : ses référentiels, son planning et ses
-          fermetures ne peuvent plus être modifiés.
+          Consultation seulement (saison terminée) : ses fiches, son planning et ses fermetures ne
+          peuvent plus être modifiés.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -196,7 +198,7 @@ function ArchivedSeasonCard({ season }: { season: Season }) {
           <dd>
             du {formatDate(season.startDate)} au {formatDate(season.endDate)}
           </dd>
-          <dt className="text-muted-foreground">Amplitude horaire</dt>
+          <dt className="text-muted-foreground">Heures affichées</dt>
           <dd>
             {season.displayStartTime} – {season.displayEndTime}
           </dd>
@@ -231,7 +233,7 @@ function NewSeasonDialog({ open, onOpenChange, source, create, onCreated }: NewS
       title="Nouvelle saison"
       description={
         source
-          ? `La saison « ${source.name} » sera archivée : elle restera consultable en lecture seule. Une seule saison est active à la fois.`
+          ? `La saison « ${source.name} » sera terminée : elle restera consultable, sans modification possible. Une seule saison est en cours à la fois.`
           : undefined
       }
       className="max-w-2xl"
@@ -255,10 +257,10 @@ function NewSeasonDialog({ open, onOpenChange, source, create, onCreated }: NewS
                     Dupliquer la saison {source.name}
                   </span>
                   <span className="block text-muted-foreground text-xs">
-                    Copie des courts, des moniteurs et de leurs disponibilités hebdomadaires, des
-                    groupes et de leur composition, des élèves et de la semaine type (cours en
-                    vigueur en fin de saison). Les exceptions, indisponibilités datées et fermetures
-                    ne sont pas copiées.
+                    Copie des courts, des moniteurs et de leurs disponibilités de chaque semaine,
+                    des groupes et de leurs élèves, et du planning habituel (les cours tels qu'ils
+                    sont en fin de saison). Les changements faits sur une semaine précise, les
+                    indisponibilités datées et les fermetures ne sont pas copiés.
                   </span>
                 </span>
               </Label>

@@ -123,7 +123,7 @@ export function GroupForm({
               />
             )}
           </Field>
-          <Field label="Effectif maximum" required error={errors.maxSize}>
+          <Field label="Élèves au maximum" required error={errors.maxSize}>
             {(props) => (
               <Input
                 {...props}

@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TechnicalDetails } from "@/components/ui/technical-details";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { loadImportContext } from "@/db/repositories/studentImport";
 import type { Season } from "@/db/schema";
@@ -46,7 +47,7 @@ type Step = "file" | "mapping" | "preview" | "done";
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "file", label: "Fichier" },
-  { key: "mapping", label: "Correspondance" },
+  { key: "mapping", label: "Colonnes" },
   { key: "preview", label: "Aperçu" },
   { key: "done", label: "Import" },
 ];
@@ -69,8 +70,8 @@ export function StudentImport() {
         <CardHeader>
           <CardTitle>Importer des élèves</CardTitle>
           <CardDescription data-testid="import-read-only">
-            La saison {season.name} est archivée : aucun élève ne peut y être importé. Revenez à la
-            saison active pour importer des élèves.
+            La saison {season.name} est terminée : aucun élève ne peut y être importé. Revenez à la
+            saison en cours pour importer des élèves.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -155,8 +156,8 @@ function StudentImportWizard({ season }: { season: Season }) {
         <CardHeader>
           <CardTitle>Importer des élèves</CardTitle>
           <CardDescription>
-            À partir d'un fichier CSV ou d'un classeur Excel (export des adhérents, par exemple).
-            Les élèves sont ajoutés à la saison {season.name}.
+            À partir d'un fichier Excel ou d'un export de votre logiciel d'adhérents. Les élèves
+            sont ajoutés à la saison {season.name}.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
@@ -235,15 +236,18 @@ function FileStep({
   return (
     <div className="flex flex-col gap-4">
       <div className="text-muted-foreground text-sm">
-        <p>
-          Formats acceptés : CSV (séparateur « ; », « , » ou tabulation, encodage UTF-8 ou
-          Windows-1252, détectés automatiquement) et Excel (.xlsx, .xls, premier onglet).
-        </p>
+        <p>Fichier Excel ou export de votre logiciel d'adhérents.</p>
         <p>
           La première ligne doit contenir les en-têtes des colonnes. Nom, prénom et téléphone sont
           obligatoires.
         </p>
       </div>
+      <TechnicalDetails>
+        <p>
+          Formats acceptés : Excel (.xlsx, .xls, premier onglet) et CSV (séparateur « ; », « , » ou
+          tabulation, encodage UTF-8 ou Windows-1252, détectés automatiquement).
+        </p>
+      </TechnicalDetails>
       {driver.kind === "tauri" ? (
         <div>
           <Button
@@ -334,7 +338,8 @@ function MappingStep({
         </span>
       </p>
 
-      <Table aria-label="Correspondance des colonnes" className="max-w-3xl">
+      <h3 className="font-medium text-sm">Associer les colonnes de votre fichier</h3>
+      <Table aria-label="Associer les colonnes de votre fichier" className="max-w-3xl">
         <TableHeader>
           <TableRow>
             <TableHead className="w-56">Champ de l'élève</TableHead>
@@ -384,8 +389,8 @@ function MappingStep({
       </Table>
       <p className="text-muted-foreground text-xs">
         Groupe(s) : nom du groupe de la saison (plusieurs groupes séparés par une virgule ou un
-        point-virgule). Niveau : libellé du référentiel des niveaux. La correspondance est mémorisée
-        pour le prochain import.
+        point-virgule). Niveau : nom d'un niveau du club. Le choix des colonnes est mémorisé pour le
+        prochain import.
       </p>
 
       <fieldset className="flex flex-col gap-2">
@@ -413,7 +418,7 @@ function MappingStep({
       </fieldset>
 
       {problems.length > 0 && (
-        <ul aria-label="Correspondance incomplète" className="text-destructive text-sm">
+        <ul aria-label="Il manque des colonnes obligatoires" className="text-destructive text-sm">
           {problems.map((p) => (
             <li key={p}>{p}</li>
           ))}
@@ -565,7 +570,7 @@ function PreviewStep({
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={onBack} disabled={busy}>
-          Retour à la correspondance
+          Retour au choix des colonnes
         </Button>
         <Button onClick={onImport} disabled={busy || toImport === 0}>
           <Upload aria-hidden />

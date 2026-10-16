@@ -26,7 +26,7 @@ function position(locator: Locator): Promise<{ x: number; y: number }> {
 }
 
 function tab(page: Page, name: string) {
-  return page.getByRole("navigation", { name: "Référentiels" }).getByRole("link", { name });
+  return page.getByRole("navigation", { name: "Fiches du club" }).getByRole("link", { name });
 }
 
 function discardDialog(page: Page) {
@@ -74,7 +74,7 @@ test.describe("rien ne bouge sous le curseur", () => {
     const barHeight = (await modeBar.boundingBox())?.height;
     await lesson(page, "Ados perfectionnement").hover();
     await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachures : Marc Leroy (aucune disponibilité)",
+      "Zones rayées : Marc Leroy (aucune disponibilité)",
     );
     expect((await modeBar.boundingBox())?.height).toBe(barHeight);
     expect(await position(create)).toEqual(before);
@@ -85,10 +85,10 @@ test.describe("rien ne bouge sous le curseur", () => {
     const legend = page.getByRole("group", { name: "Légende des moniteurs" });
     await legend.getByRole("button", { name: /^Marc Leroy/ }).click();
     const pill = page.getByTestId("hatch-info");
-    await expect(pill).toHaveText("Hachures : Marc Leroy (aucune disponibilité)");
+    await expect(pill).toHaveText("Zones rayées : Marc Leroy (aucune disponibilité)");
     await pill.hover();
     await expect(page.getByRole("tooltip")).toHaveText(
-      "Hachuré : Marc Leroy n'a saisi aucune disponibilité (indisponible partout)",
+      "Zones rayées : Marc Leroy n'a saisi aucune disponibilité (indisponible partout)",
     );
     await expect(pill).toHaveAccessibleDescription(/indisponible partout/);
     await page.mouse.move(5, 5);
@@ -115,7 +115,7 @@ test.describe("rien ne bouge sous le curseur", () => {
     await openPlanning(page);
     await page
       .getByRole("navigation", { name: "Navigation principale" })
-      .getByRole("link", { name: "Référentiels" })
+      .getByRole("link", { name: "Le club" })
       .click();
     await tab(page, "Groupes").click();
     await page.getByRole("link", { name: "Adultes débutants" }).click();
@@ -173,7 +173,7 @@ test.describe("rien ne bouge sous le curseur", () => {
     await openPlanning(page);
     await page
       .getByRole("group", { name: "Mode d'affichage" })
-      .getByRole("button", { name: /^Semaine du/ })
+      .getByRole("button", { name: "Une semaine précise" })
       .click();
     const previous = page.getByRole("button", { name: "Semaine précédente" });
     await expect(previous).toBeDisabled();
@@ -183,12 +183,12 @@ test.describe("rien ne bouge sous le curseur", () => {
 
     await page
       .getByRole("navigation", { name: "Navigation principale" })
-      .getByRole("link", { name: "Référentiels" })
+      .getByRole("link", { name: "Le club" })
       .click();
     await tab(page, "Moniteurs").click();
     await page.getByRole("link", { name: /Julie/ }).first().click();
-    const addSlot = page.getByRole("form", { name: "Saisir une plage" });
-    const add = addSlot.getByRole("button", { name: "Ajouter la plage" });
+    const addSlot = page.getByRole("form", { name: "Saisir un horaire" });
+    const add = addSlot.getByRole("button", { name: "Ajouter un horaire" });
     await expect(add).toBeEnabled();
     await addSlot.getByLabel("De").selectOption("14:00");
     await addSlot.getByLabel("À").selectOption("12:00");
@@ -202,7 +202,7 @@ test.describe("garde des modales", () => {
     await openPlanning(page);
     await page
       .getByRole("navigation", { name: "Navigation principale" })
-      .getByRole("link", { name: "Référentiels" })
+      .getByRole("link", { name: "Le club" })
       .click();
     await tab(page, "Courts").click();
     await page.getByRole("button", { name: "Nouveau court" }).click();

@@ -61,7 +61,7 @@ export function LevelsTab() {
       <div className="flex items-center justify-between gap-4">
         <p className="text-muted-foreground text-sm">
           Niveaux proposés pour les groupes et les élèves, communs à toutes les saisons.
-          {readOnly ? " Modifiables depuis la saison active." : " Glissez pour changer l'ordre."}
+          {readOnly ? " Modifiables depuis la saison en cours." : " Glissez pour changer l'ordre."}
         </p>
         {!readOnly && (
           <Button onClick={() => setEditing({ mode: "create" })}>
@@ -87,7 +87,7 @@ export function LevelsTab() {
                   variant="ghost"
                   size="icon"
                   aria-label={`Modifier ${level.label}`}
-                  title="Modifier"
+                  tooltip="Modifier"
                   onClick={() => setEditing({ mode: "edit", level })}
                 >
                   <Pencil aria-hidden />

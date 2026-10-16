@@ -1,7 +1,8 @@
 /**
  * Modes de l'écran Planning et éléments affichés sur la grille (SPECS.md
- * §4.2, §5.4, §5.5) : en mode « Semaine type », les cours en vigueur ; en mode
- * « Semaine du JJ/MM », les séances datées de la semaine (occurrences avec
+ * §4.2, §5.4, §5.5) : en semaine type (« Planning habituel » à l'écran), les
+ * cours en vigueur ; en semaine datée (« Une semaine précise », nommée
+ * « Semaine du 2 novembre »), les séances de la semaine (occurrences avec
  * leurs exceptions, cours ponctuels). Fonctions pures.
  */
 import type { Lesson } from "@/db/schema";
@@ -35,9 +36,25 @@ export function shortDate(date: string): string {
   return formatDate(date).slice(0, 5);
 }
 
-/** Libellé du mode daté : « Semaine du 02/11 ». */
-export function weekButtonLabel(monday: string): string {
-  return `Semaine du ${shortDate(monday)}`;
+const MONTHS = [
+  "janvier",
+  "février",
+  "mars",
+  "avril",
+  "mai",
+  "juin",
+  "juillet",
+  "août",
+  "septembre",
+  "octobre",
+  "novembre",
+  "décembre",
+] as const;
+
+/** Nom d'une semaine précise, d'après son lundi : « Semaine du 2 novembre », « du 1er mars ». */
+export function weekName(monday: string): string {
+  const [, month = 1, day = 1] = monday.split("-").map(Number);
+  return `Semaine du ${day === 1 ? "1er" : day} ${MONTHS[month - 1]}`;
 }
 
 /** En-tête d'un jour : « Lundi » ou « Lundi 02/11 ». */

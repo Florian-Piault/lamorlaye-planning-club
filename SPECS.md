@@ -25,18 +25,31 @@ Application de bureau multiplateforme (macOS, Windows, Linux) permettant au resp
 
 ## 2. Glossaire
 
-| Terme | Définition |
-|---|---|
-| Saison | Période d'activité (ex. 01/09/2026 → 30/06/2027) ayant sa propre semaine type, ses fermetures et ses groupes. |
-| Court | Terrain sur lequel se déroule un cours. Un cours occupe un court. |
-| Moniteur | Enseignant qui assure les cours. Identifié par une couleur. |
-| Groupe | Ensemble d'élèves suivant un même cours collectif. |
-| Élève | Personne inscrite dans un ou plusieurs groupes. |
-| Cours | Créneau hebdomadaire de la semaine type : jour, heure de début, durée, court, groupe, moniteur. |
-| Semaine type | Ensemble des cours récurrents, appliqué à toutes les semaines de la saison. |
-| Occurrence | Instance d'un cours à une date précise. |
-| Exception | Modification d'une occurrence (déplacement, annulation, remplacement) ou cours ponctuel n'existant qu'une semaine. |
-| Période de fermeture | Plage de dates sans cours réguliers (vacances scolaires, jours fériés). |
+Les termes métier sont ceux du code et du modèle de données ; l'interface affiche le libellé de la colonne « Libellé affiché » (spec UX v1.1, Vocabulaire). Aucun lexique n'est affiché dans l'application : les libellés se suffisent, avec une bulle d'aide sur les boutons icône.
+
+| Terme | Libellé affiché | Définition |
+|---|---|---|
+| Saison | Saison | Période d'activité (ex. 01/09/2026 → 30/06/2027) ayant sa propre semaine type, ses fermetures et ses groupes. |
+| Saison active / archivée / consultée | En cours / Terminée / Affichée | Une seule saison est active ; les précédentes sont archivées, en lecture seule (« Consultation seulement (saison terminée) »). La saison consultée est celle que montrent les écrans. |
+| Référentiels | Le club (menu, page) ; Fiches du club (onglets) | Saison, courts, moniteurs, niveaux, groupes, élèves et fermetures de la saison. |
+| Court | Court | Terrain sur lequel se déroule un cours. Un cours occupe un court. |
+| Moniteur | Moniteur | Enseignant qui assure les cours. Identifié par une couleur. |
+| Plage (de disponibilité) | Horaire de disponibilité ; section « Disponible chaque semaine » | Créneau hebdomadaire pendant lequel un moniteur peut assurer des cours. « Créneau » reste réservé aux cours. |
+| Groupe | Groupe | Ensemble d'élèves suivant un même cours collectif. |
+| Composition | Élèves du groupe | Élèves inscrits dans un groupe. |
+| Effectif | Nombre d'élèves ; « Groupe trop plein » en cas de dépassement | Nombre d'élèves d'un groupe, comparé à son maximum. |
+| Élève | Élève | Personne inscrite dans un ou plusieurs groupes. |
+| Cours | Cours | Créneau hebdomadaire de la semaine type : jour, heure de début, durée, court, groupe, moniteur. |
+| Semaine type | Planning habituel | Ensemble des cours récurrents, appliqué à toutes les semaines de la saison. Phrase de portée : « Vos changements valent pour toutes les semaines de la saison ». |
+| Semaine datée | Une semaine précise, nommée par sa date (« Semaine du 2 novembre ») | Une semaine du calendrier, avec ses séances et leurs exceptions. Phrase de portée : « Vos changements ne concernent que cette semaine ». |
+| Occurrence | Séance | Instance d'un cours à une date précise. |
+| Exception | Non affiché : « Modifié cette semaine », « Annulé cette semaine », « Remplacement : … », « Revenir au cours habituel » | Modification d'une occurrence (déplacement, annulation, remplacement) ou cours ponctuel n'existant qu'une semaine. |
+| Cours ponctuel | Cours ponctuel (« cette semaine seulement ») | Cours qui n'existe qu'une semaine (rattrapage, stage, séance d'essai), possible pendant une fermeture. |
+| Version de cours hors vigueur | Pastille « N cours changent plus tard dans la saison » / « N cours ont changé » | Après « Appliquer à partir de cette semaine », version d'un cours qui ne s'applique pas à la date de référence du planning habituel. |
+| Amplitude | Heures affichées ; « Le planning s'affiche à partir de / jusqu'à » | Heures de début et de fin de la grille du planning. |
+| Période de fermeture | Période de fermeture | Plage de dates sans cours réguliers (vacances scolaires, jours fériés). |
+
+Les informations techniques (stockage SQLite, emplacement, migrations, chiffrement AES-256, chiffrement du disque, formats CSV, encodages, séparateur) ne figurent que dans les sections repliées « Détails techniques » de Réglages (données, sauvegardes, données personnelles) et d'Import/Export ; l'export principal est « Exporter vers Excel », le CSV passe dans les détails.
 
 ## 3. Modèle de données
 

@@ -14,7 +14,7 @@ import {
   shortDate,
   TYPE_MODE,
   toCandidate,
-  weekButtonLabel,
+  weekName,
   weekNeighbours,
 } from "./items";
 
@@ -28,7 +28,9 @@ describe("modes de l'écran Planning", () => {
 
   it("libelle le mode et les jours", () => {
     expect(shortDate("2026-11-02")).toBe("02/11");
-    expect(weekButtonLabel("2026-11-02")).toBe("Semaine du 02/11");
+    expect(weekName("2026-11-02")).toBe("Semaine du 2 novembre");
+    expect(weekName("2027-03-01")).toBe("Semaine du 1er mars");
+    expect(weekName("2026-08-31")).toBe("Semaine du 31 août");
     expect(dayHeading(TYPE_MODE, 1)).toBe("Lundi");
     expect(dayHeading(datedMode("2026-11-02"), 3)).toBe("Mercredi 04/11");
   });

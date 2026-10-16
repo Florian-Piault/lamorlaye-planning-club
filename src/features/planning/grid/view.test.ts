@@ -12,6 +12,7 @@ import {
   hasFilters,
   type InstructorLabel,
   instructorChoices,
+  laterChangesSummary,
   matchesFilters,
   minutesByInstructor,
   NEW_LESSON_ID,
@@ -76,6 +77,57 @@ describe("semaine type", () => {
         .get("v2")
         ?.map((c) => c.kind),
     ).toEqual(["court_occupied", "instructor_busy"]);
+  });
+
+  describe("cours qui évoluent dans la saison (pastille de la barre de mode)", () => {
+    const before = lesson({ id: "v1", effectiveTo: "2026-11-01" });
+    const after = lesson({ id: "v2", effectiveFrom: "2026-11-02", previousLessonId: "v1" });
+    const steady = lesson({ id: "x" });
+
+    it("ne signale rien quand aucun cours n'évolue", () => {
+      expect(laterChangesSummary([steady], "2026-10-14")).toBeNull();
+    });
+
+    it("compte un cours modifié « à partir de » une seule fois, avant puis après", () => {
+      expect(laterChangesSummary([before, after, steady], "2026-10-14")).toEqual({
+        label: "1 cours change plus tard",
+        detail:
+          "Le planning habituel montre les cours tels qu'ils sont le 14/10/2026. 1 cours change d'horaire plus tard. Choisissez une semaine précise pour voir ces semaines-là.",
+      });
+      expect(laterChangesSummary([before, after], "2026-11-04")).toEqual({
+        label: "1 cours a changé",
+        detail:
+          "Le planning habituel montre les cours tels qu'ils sont le 04/11/2026. 1 cours a changé plus tôt.",
+      });
+    });
+
+    it("compte des chaînes de versions, pas des versions", () => {
+      const third = lesson({ id: "v3", effectiveFrom: "2027-01-04", previousLessonId: "v2" });
+      const middle = { ...after, effectiveTo: "2027-01-03" };
+      const summary = laterChangesSummary([before, middle, third], "2026-11-04");
+      expect(summary?.label).toBe("1 cours change plus tard");
+      expect(summary?.detail).toContain("1 cours change d'horaire plus tard.");
+      expect(summary?.detail).toContain("1 cours a changé plus tôt.");
+    });
+
+    it("distingue un cours qui commence plus tard et un cours qui s'arrête", () => {
+      const fresh = lesson({ id: "n", effectiveFrom: "2027-01-04" });
+      const ending = lesson({ id: "e", effectiveTo: "2027-02-28" });
+      const summary = laterChangesSummary([fresh, ending, steady], "2026-11-04");
+      expect(summary?.label).toBe("2 cours changent plus tard");
+      expect(summary?.detail).toContain("1 cours commence plus tard.");
+      expect(summary?.detail).toContain("1 cours s'arrête avant la fin de la saison.");
+      expect(summary?.detail).not.toContain("d'horaire");
+    });
+
+    it("signale un cours déjà arrêté", () => {
+      const ended = lesson({ id: "e", effectiveTo: "2026-10-01" });
+      expect(laterChangesSummary([ended], "2026-11-04")).toEqual({
+        label: "1 cours a changé",
+        detail:
+          "Le planning habituel montre les cours tels qu'ils sont le 04/11/2026. 1 cours s'est arrêté plus tôt.",
+      });
+    });
   });
 
   it("affiche les jours de la saison et ceux qui portent malgré tout un cours", () => {

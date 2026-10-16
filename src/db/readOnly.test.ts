@@ -87,7 +87,7 @@ async function expectReadOnly(write: () => Promise<unknown>) {
   );
   expect(error, "l'écriture aurait dû être refusée").not.toBeNull();
   expect(isReadOnlyViolation(error)).toBe(true);
-  expect(errorMessage(error)).toMatch(/archivée/);
+  expect(errorMessage(error)).toMatch(/terminée/);
 }
 
 const studentInput = {
@@ -204,7 +204,7 @@ describe("saison archivée en lecture seule : repositories", () => {
     await seedSeason(db, "2028-2029");
     await expectReadOnly(() => deleteLevel(db, other.id));
     const error = await deleteLevel(db, other.id).catch((e: unknown) => e);
-    expect(errorMessage(error)).toMatch(/^Ce niveau est utilisé par une saison archivée/);
+    expect(errorMessage(error)).toMatch(/^Ce niveau est utilisé par une saison terminée/);
     expect((await listLevels(db)).map((l) => l.id)).toContain(other.id);
   });
 
@@ -235,7 +235,7 @@ describe("saison archivée en lecture seule : commandes", () => {
       startTime: "09:00",
       courtId: seeded.courts.court1,
     });
-    await expect(persistCommand(db, move)).rejects.toThrow(/2026-2027 est archivée/);
+    await expect(persistCommand(db, move)).rejects.toThrow(/2026-2027 est terminée/);
     await expect(
       persistRevert(db, deleteLesson(state, seeded.lessons.current)),
     ).rejects.toBeInstanceOf(SeasonReadOnlyError);
@@ -296,7 +296,7 @@ describe("saison archivée en lecture seule : commandes", () => {
       }),
     );
     await store.flush();
-    expect(store.getSnapshot().error).toMatch(/archivée/);
+    expect(store.getSnapshot().error).toMatch(/terminée/);
     expect(store.getSnapshot().state.lessons).toEqual([]);
   });
 

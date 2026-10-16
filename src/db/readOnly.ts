@@ -22,7 +22,7 @@ import { closures, groups, lessonExceptions, lessons, seasons, students } from "
 export const READ_ONLY_MARKER = "Saison archivée : lecture seule";
 
 export const READ_ONLY_MESSAGE =
-  "Cette saison est archivée : elle est consultable en lecture seule et ne peut plus être modifiée.";
+  "Cette saison est terminée : elle est en consultation seulement et ne peut plus être modifiée.";
 
 export class SeasonReadOnlyError extends Error {
   override name = "SeasonReadOnlyError";
@@ -125,7 +125,7 @@ export async function assertWritable(db: Db, targets: WriteTargets): Promise<voi
   const archived = rows.flat().find((s) => s.status === "archived");
   if (archived) {
     throw new SeasonReadOnlyError(
-      `La saison ${archived.name} est archivée : elle est consultable en lecture seule et ne peut plus être modifiée.`,
+      `La saison ${archived.name} est terminée : elle est en consultation seulement et ne peut plus être modifiée.`,
     );
   }
 }

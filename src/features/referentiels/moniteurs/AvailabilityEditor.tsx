@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Label, Select } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   AVAILABILITY_STEP,
   availabilityChange,
@@ -224,13 +225,13 @@ export function AvailabilityEditor({
       <p className="text-muted-foreground text-sm">
         {readOnly
           ? ""
-          : "Cliquez-glissez sur une ligne pour ajouter une plage de disponibilité ; partez d'une plage existante pour l'effacer. Un clic simple remplit le formulaire ci-dessous. "}
+          : "Cliquez-glissez sur une ligne pour ajouter un horaire de disponibilité ; partez d'un horaire existant pour l'effacer. Un clic simple remplit le formulaire ci-dessous. "}
         Total : {formatDuration(totalWeeklyMinutes(slots))} par semaine.
       </p>
       {!readOnly && (
         <p id={hintId} className="sr-only">
-          Frise à la souris ; au clavier, utilisez le formulaire « Saisir une plage » sous la liste
-          des plages.
+          Frise à la souris ; au clavier, utilisez le formulaire « Saisir un horaire » sous la liste
+          des horaires.
         </p>
       )}
       <div className="select-none overflow-x-auto">
@@ -334,7 +335,7 @@ function SlotList({
   const otherDays = [...new Set(slots.map((s) => s.weekday))].filter((d) => !weekdays.includes(d));
   const days = [...weekdays, ...otherDays];
   return (
-    <ul aria-label="Plages de disponibilité" className="grid gap-1 text-sm sm:grid-cols-2">
+    <ul aria-label="Horaires de disponibilité" className="grid gap-1 text-sm sm:grid-cols-2">
       {days.map((weekday) => {
         const daySlots = slotsOfDay(slots, weekday);
         return (
@@ -350,20 +351,22 @@ function SlotList({
                 >
                   {label}
                   {!readOnly && (
-                    <button
-                      type="button"
-                      aria-label={`Retirer ${weekdayLabel(weekday).toLowerCase()} ${label}`}
-                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      onClick={() =>
-                        onRemove(
-                          weekday,
-                          timeToMinutes(slot.startTime),
-                          timeToMinutes(slot.endTime),
-                        )
-                      }
-                    >
-                      <X className="size-3" aria-hidden />
-                    </button>
+                    <Tooltip content="Retirer cet horaire">
+                      <button
+                        type="button"
+                        aria-label={`Retirer ${weekdayLabel(weekday).toLowerCase()} ${label}`}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        onClick={() =>
+                          onRemove(
+                            weekday,
+                            timeToMinutes(slot.startTime),
+                            timeToMinutes(slot.endTime),
+                          )
+                        }
+                      >
+                        <X className="size-3" aria-hidden />
+                      </button>
+                    </Tooltip>
                   )}
                 </span>
               );
@@ -414,7 +417,7 @@ function SlotForm({
   return (
     <form
       onSubmit={submit}
-      aria-label="Saisir une plage"
+      aria-label="Saisir un horaire"
       className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed p-3"
     >
       <Label className="flex-col items-start gap-1.5">
@@ -458,11 +461,11 @@ function SlotForm({
         disabledReason={
           invalid
             ? "L'heure de fin doit suivre l'heure de début"
-            : "Déjà disponible sur toute la plage"
+            : "Déjà disponible sur tout cet horaire"
         }
       >
         <Plus aria-hidden />
-        Ajouter la plage
+        Ajouter un horaire
       </Button>
       <Button
         type="button"
@@ -472,12 +475,12 @@ function SlotForm({
         disabledReason={
           invalid
             ? "Choisissez une heure de fin après l'heure de début"
-            : "Aucune disponibilité sur cette plage"
+            : "Aucune disponibilité sur cet horaire"
         }
         onClick={() => onApply(false)}
       >
         <Minus aria-hidden />
-        Retirer la plage
+        Retirer l'horaire
       </Button>
     </form>
   );

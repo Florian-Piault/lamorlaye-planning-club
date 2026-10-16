@@ -158,7 +158,7 @@ describe("validation des fiches", () => {
         maxSize: "0",
         active: true,
       }),
-    ).toEqual({ ok: false, errors: { maxSize: "Effectif invalide." } });
+    ).toEqual({ ok: false, errors: { maxSize: "Nombre d'élèves invalide." } });
   });
 
   it("valide un élève (téléphone obligatoire)", () => {

@@ -48,10 +48,14 @@ export function Tooltip({ content, children, describe = true }: TooltipProps) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<Position | null>(null);
+  /** Ouverte au clavier : elle suit son déclencheur au défilement au lieu de se fermer. */
+  const viaFocus = useRef(false);
+  const [scrolled, setScrolled] = useState(0);
   const empty = content === null || content === undefined || content === "" || content === false;
 
   const hide = useCallback(() => {
     clearTimeout(timer.current);
+    viaFocus.current = false;
     setOpen(false);
     setPosition(null);
   }, []);
@@ -80,14 +84,21 @@ export function Tooltip({ content, children, describe = true }: TooltipProps) {
       event.preventDefault();
       hide();
     };
+    // Un focus clavier fait souvent défiler la page jusqu'au déclencheur : la
+    // bulle le suit alors ; ouverte au survol, elle se ferme au défilement.
+    const onScroll = () => {
+      if (viaFocus.current) setScrolled((n) => n + 1);
+      else hide();
+    };
     window.addEventListener("keydown", onKey, true);
-    window.addEventListener("scroll", hide, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("keydown", onKey, true);
-      window.removeEventListener("scroll", hide, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open, hide]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: position recalculée à chaque défilement suivi (`scrolled`).
   useLayoutEffect(() => {
     if (!open) return;
     const trigger = triggerRef.current?.getBoundingClientRect();
@@ -104,11 +115,13 @@ export function Tooltip({ content, children, describe = true }: TooltipProps) {
       Math.max(MARGIN, window.innerWidth - MARGIN - bubble.width),
     );
     setPosition({ top, left });
-  }, [open]);
+  }, [open, scrolled]);
 
   const onFocus = (event: FocusEvent<HTMLElement>) => {
     // Au clavier seulement : un clic qui donne le focus ne fait pas surgir la bulle.
-    if (event.currentTarget.matches(":focus-visible")) show(true);
+    if (empty || !event.currentTarget.matches(":focus-visible")) return;
+    viaFocus.current = true;
+    show(true);
   };
 
   const container = triggerRef.current?.closest("dialog") ?? document.body;

@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useDatabase } from "@/db/DatabaseProvider";
 import {
   addGroupMember,
@@ -73,18 +74,19 @@ function DragHandle({ studentId, name }: CandidateData) {
     data: { studentId, name } satisfies CandidateData,
   });
   return (
-    <button
-      type="button"
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      tabIndex={-1}
-      aria-label={`Glisser ${name} dans le groupe`}
-      title="Glisser sur la composition du groupe"
-      className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-    >
-      <GripVertical className="size-4" aria-hidden />
-    </button>
+    <Tooltip content="Faire glisser dans la liste des élèves du groupe">
+      <button
+        type="button"
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        tabIndex={-1}
+        aria-label={`Glisser ${name} dans le groupe`}
+        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+      >
+        <GripVertical className="size-4" aria-hidden />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -242,7 +244,7 @@ export function GroupPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
-              Composition
+              Élèves du groupe
               <Badge
                 variant={alerts.overCapacity ? "destructive" : "secondary"}
                 data-testid="group-size"
@@ -263,7 +265,7 @@ export function GroupPage() {
               accessibility={{
                 screenReaderInstructions: {
                   draggable:
-                    "Glissez l'élève sur la composition du groupe pour l'y ajouter, ou utilisez le bouton « Ajouter ».",
+                    "Glissez l'élève dans la liste des élèves du groupe pour l'y ajouter, ou utilisez le bouton « Ajouter ».",
                 },
                 announcements: {
                   onDragStart: () => "Élève saisi.",
@@ -419,12 +421,13 @@ export function GroupPage() {
                             {!readOnly && (
                               <Button
                                 variant="ghost"
-                                size="icon"
+                                size="sm"
                                 aria-label={`Retirer ${name} du groupe`}
-                                title="Retirer du groupe"
+                                tooltip="Retirer du groupe (l'élève reste inscrit au club)"
                                 onClick={() => run(() => removeGroupMember(db, id, student.id))}
                               >
                                 <UserMinus aria-hidden />
+                                Retirer
                               </Button>
                             )}
                           </TableCell>

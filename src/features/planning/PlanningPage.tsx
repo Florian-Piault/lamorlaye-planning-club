@@ -36,7 +36,7 @@ import { PAPER_SIZES, type PaperSize } from "@/features/pdf/model";
 import { PdfPreviewDialog } from "@/features/pdf/PdfPreviewDialog";
 import { RequireSeason } from "@/features/referentiels/ReferentielsPage";
 import { errorMessage } from "@/hooks/useLoader";
-import { shortcutLabel } from "@/lib/keys";
+import { ariaShortcut, shortcutLabel } from "@/lib/keys";
 import { cn } from "@/lib/utils";
 import { DragFeedback } from "./components/DragFeedback";
 import { Filters } from "./components/Filters";
@@ -83,6 +83,7 @@ import {
   shortDate,
   TYPE_MODE,
   toCandidate,
+  weekName,
   weekNeighbours,
 } from "./grid/items";
 import {
@@ -94,6 +95,7 @@ import {
   displayedWeekdays,
   hasFilters,
   type InstructorLabel,
+  laterChangesSummary,
   matchesFilters,
   minutesByInstructor,
   NEW_LESSON_ID,
@@ -110,7 +112,7 @@ import { loadPlanningReferences, type PlanningReferences } from "./references";
 import { PlanningStore, usePlanningSnapshot } from "./store";
 import { useGridGestures } from "./useGridGestures";
 
-const DESCRIPTION = "Semaine type et semaines datées de la saison.";
+const DESCRIPTION = "Le planning habituel de la saison, et chaque semaine du calendrier.";
 const NEUTRAL_COLOR = "#64748B";
 
 /** Dernier mode affiché, par saison : on le retrouve en revenant sur l'écran. */
@@ -417,12 +419,12 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         : weekdayLabel(item.weekday);
       const status = [
         occurrence?.cancellation &&
-          `Annulée : ${cancellationLabel(occurrence.cancellation.reason, occurrence.cancellation.note)}`,
+          `Annulé cette semaine : ${cancellationLabel(occurrence.cancellation.reason, occurrence.cancellation.note)}`,
         occurrence?.replaced &&
           `Remplacement : ${instructorName(occurrence.instructorId)} au lieu de ${instructorName(
             occurrence.originalInstructorId,
           )}`,
-        occurrence?.modified && "Modifiée pour cette semaine",
+        occurrence?.modified && "Modifié cette semaine",
         item.kind === "one_off" && "Cours ponctuel",
       ].filter((s): s is string => Boolean(s));
       return [
@@ -967,7 +969,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     return (
       <Page title="Planning" description={DESCRIPTION}>
         <EmptyState icon={LandPlot} title="Aucun court">
-          <p>Ajoutez au moins un court pour construire la semaine type.</p>
+          <p>Ajoutez au moins un court pour construire le planning habituel.</p>
           <Button asChild className="mt-4">
             <Link to="/referentiels/courts">Saisir les courts</Link>
           </Button>
@@ -1012,7 +1014,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           groupOptional={dated}
           notice={
             dated
-              ? "Cours n'existant que cette semaine (rattrapage, stage, séance d'essai), possible pendant une fermeture."
+              ? "Cette semaine seulement : rattrapage, stage, séance d'essai… Possible pendant une fermeture."
               : undefined
           }
         />
@@ -1063,7 +1065,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           key={stamp}
           {...common}
           title="Cours ponctuel"
-          notice={`Le ${date} uniquement.`}
+          notice={`Cette semaine seulement : le ${date}.`}
           groupOptional
           onDelete={() => removeLesson(item.id)}
         >
@@ -1077,7 +1079,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
         {...common}
         title="Modifier pour cette semaine"
         submitLabel="Enregistrer pour cette semaine"
-        notice={`Séance du ${date} : « Enregistrer » ne modifie que cette séance ; la semaine type et les autres semaines restent inchangées.`}
+        notice={`Séance du ${date} : vos changements ne concernent que cette séance ; le planning habituel et les autres semaines restent inchangés.`}
         groupLocked
         actions={[
           { label: "Appliquer à partir de cette semaine", onClick: applyFromThisWeek(item) },
@@ -1109,14 +1111,15 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           {readOnly ? (
             <Badge variant="outline" data-testid="planning-read-only">
               <Lock aria-hidden />
-              Lecture seule
+              Consultation seulement (saison terminée)
             </Badge>
           ) : (
             <>
               <Button
                 size="sm"
                 onClick={() => openNew()}
-                title={`${mode.kind === "dated" ? "Nouveau cours ponctuel" : "Nouveau cours"} (${shortcutLabel("mod+n")})`}
+                aria-keyshortcuts={ariaShortcut("mod+n")}
+                tooltip={`${mode.kind === "dated" ? "Nouveau cours ponctuel" : "Nouveau cours"} (${shortcutLabel("mod+n")})`}
               >
                 <Plus aria-hidden />
                 Nouveau cours
@@ -1126,7 +1129,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
                 variant="outline"
                 onClick={undo}
                 disabled={!canUndo(snapshot.history)}
-                title={undoLabel(snapshot.history) ?? "Rien à annuler"}
+                aria-keyshortcuts={ariaShortcut("mod+z")}
+                tooltip={`${undoLabel(snapshot.history) ?? "Rien à annuler"} (${shortcutLabel("mod+z")})`}
               >
                 <Undo2 aria-hidden />
                 Annuler
@@ -1136,7 +1140,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
                 variant="outline"
                 onClick={redo}
                 disabled={!canRedo(snapshot.history)}
-                title={redoLabel(snapshot.history) ?? "Rien à rétablir"}
+                aria-keyshortcuts={ariaShortcut("mod+shift+z")}
+                tooltip={`${redoLabel(snapshot.history) ?? "Rien à rétablir"} (${shortcutLabel("mod+shift+z")})`}
               >
                 <Redo2 aria-hidden />
                 Rétablir
@@ -1147,7 +1152,8 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             size="sm"
             variant="outline"
             onClick={openPdf}
-            title={`PDF de la semaine affichée (${shortcutLabel("mod+p")})`}
+            aria-keyshortcuts={ariaShortcut("mod+p")}
+            tooltip={`PDF de la semaine affichée (${shortcutLabel("mod+p")})`}
           >
             <FileDown aria-hidden />
             PDF
@@ -1162,12 +1168,11 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           </div>
         </header>
         <ModeBar
-          season={season}
           readOnly={readOnly}
           mode={mode}
           interaction={interaction}
           names={legendEntries}
-          hiddenVersions={mode.kind === "type" ? lessons.length - items.length : 0}
+          laterChanges={mode.kind === "type" ? laterChangesSummary(lessons, referenceDate) : null}
         />
         <Filters
           filters={filters}
@@ -1236,28 +1241,34 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
 }
 
 /**
- * Barre de mode, sur une ligne à hauteur fixe (B7) : la phrase de portée est
- * tronquée si la place manque, les informations ponctuelles (versions
- * masquées, moniteur hachuré) sont des pastilles courtes avec leur détail en
- * bulle. Rien ne bouge en dessous au survol d'un cours.
+ * Barre de mode, sur une ligne à hauteur fixe (B7) : la phrase de portée,
+ * toujours visible, dit si les changements valent pour toute la saison ou
+ * pour cette semaine seulement ; elle est tronquée si la place manque. Les
+ * informations ponctuelles (cours qui changent plus tard, moniteur hachuré)
+ * sont des pastilles courtes avec leur détail en bulle. Rien ne bouge en
+ * dessous au survol d'un cours.
  */
 function ModeBar({
-  season,
   readOnly,
   mode,
   interaction,
   names,
-  hiddenVersions,
+  laterChanges,
 }: {
-  season: Season;
   readOnly: boolean;
   mode: PlanningMode;
   interaction: InteractionStore;
   names: readonly LegendEntry[];
-  hiddenVersions: number;
+  laterChanges: { label: string; detail: string } | null;
 }) {
   const hatched = useInteraction(interaction, hatchedInstructorId);
   const entry = hatched ? names.find((n) => n.id === hatched) : undefined;
+  const name = mode.kind === "type" ? "Planning habituel" : weekName(mode.monday);
+  const scope = readOnly
+    ? "Consultation seulement (saison terminée)"
+    : mode.kind === "type"
+      ? "Vos changements valent pour toutes les semaines de la saison"
+      : "Vos changements ne concernent que cette semaine";
   return (
     <div
       data-testid="mode-bar"
@@ -1267,38 +1278,22 @@ function ModeBar({
         mode.kind === "type" ? "bg-sky-700 dark:bg-sky-800" : "bg-emerald-700 dark:bg-emerald-800",
       )}
     >
-      {readOnly ? (
-        <span className="min-w-0 truncate">
-          ● Mode{" "}
-          <b>{mode.kind === "type" ? "Semaine type" : `Semaine du ${formatDate(mode.monday)}`}</b> —
-          saison {season.name} archivée, consultation seule
-        </span>
-      ) : mode.kind === "type" ? (
-        <span className="min-w-0 truncate">
-          ● Mode <b>Semaine type</b> — saison {season.name} (les modifications s'appliquent à toute
-          la saison)
-        </span>
-      ) : (
-        <>
-          <span className="min-w-0 truncate">
-            ● Mode <b>Semaine du {formatDate(mode.monday)}</b> — les modifications ne concernent que
-            cette semaine (exceptions)
-          </span>
-          <Link
-            to="/referentiels/fermetures"
-            className="shrink-0 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-white"
-          >
-            Périodes de fermeture
-          </Link>
-        </>
+      {/* La phrase de portée passe avant les pastilles : ce sont elles qui rétrécissent. */}
+      <span className="shrink-0">
+        ● <b>{name}</b> — <span data-testid="mode-scope">{scope}</span>
+      </span>
+      {!readOnly && mode.kind === "dated" && (
+        <Link
+          to="/referentiels/fermetures"
+          className="shrink-0 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-white"
+        >
+          Périodes de fermeture
+        </Link>
       )}
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
-        {hiddenVersions > 0 && (
-          <ModePill
-            testId="hidden-versions"
-            detail={`${hiddenVersions} version(s) de cours hors vigueur à ce jour non affichée(s)`}
-          >
-            {hiddenVersions} version(s) masquée(s)
+      <div className="ml-auto flex min-w-0 items-center justify-end gap-1.5">
+        {laterChanges && (
+          <ModePill testId="later-changes" detail={laterChanges.detail}>
+            {laterChanges.label}
           </ModePill>
         )}
         {entry && (
@@ -1306,11 +1301,11 @@ function ModeBar({
             testId="hatch-info"
             detail={
               entry.noAvailability
-                ? `Hachuré : ${entry.name} n'a saisi aucune disponibilité (indisponible partout)`
-                : `Hachuré : indisponibilités de ${entry.name}`
+                ? `Zones rayées : ${entry.name} n'a saisi aucune disponibilité (indisponible partout)`
+                : `Zones rayées : ${entry.name} n'est pas disponible`
             }
           >
-            Hachures : {entry.name}
+            Zones rayées : {entry.name}
             {entry.noAvailability && " (aucune disponibilité)"}
           </ModePill>
         )}
@@ -1319,7 +1314,10 @@ function ModeBar({
   );
 }
 
-/** Pastille courte de la barre de mode, détail en bulle (survol et clavier). */
+/**
+ * Pastille courte de la barre de mode, détail en bulle (survol et clavier) ;
+ * tronquée si la place manque, pour laisser la phrase de portée entière.
+ */
 function ModePill({
   testId,
   detail,
@@ -1335,7 +1333,7 @@ function ModePill({
         // biome-ignore lint/a11y/noNoninteractiveTabindex: focalisable pour lire la bulle au clavier.
         tabIndex={0}
         data-testid={testId}
-        className="rounded-full border border-white/60 px-2 leading-[18px] focus-visible:outline-2 focus-visible:outline-white"
+        className="min-w-0 truncate rounded-full border border-white/60 px-2 leading-[18px] focus-visible:outline-2 focus-visible:outline-white"
       >
         {children}
       </span>

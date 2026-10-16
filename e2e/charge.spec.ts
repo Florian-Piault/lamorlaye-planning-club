@@ -64,24 +64,28 @@ test.describe("volumétrie cible (§11.5)", () => {
     const modeBar = page.getByTestId("mode-bar");
     await page
       .getByRole("group", { name: "Mode d'affichage" })
-      .getByRole("button", { name: "Semaine du 16/11" })
+      .getByRole("button", { name: "Une semaine précise" })
       .click();
-    await expect(modeBar).toContainText("Semaine du 16/11/2026");
+    await expect(modeBar).toContainText("Semaine du 16 novembre");
     await expect(lessons).not.toHaveCount(0);
 
     const steps: number[] = [];
     let monday = new Date(Date.UTC(2026, 10, 16));
     for (let i = 0; i < 12; i++) {
       monday = new Date(monday.getTime() + 7 * 86_400_000);
-      const label = monday.toISOString().slice(0, 10).split("-").reverse().join("/");
+      const label = monday.toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+      });
       steps.push(
         await timed(async () => {
           await page.keyboard.press("ArrowRight");
-          await expect(modeBar).toContainText(`Semaine du ${label}`);
+          await expect(modeBar).toContainText(`Semaine du ${label.replace(/^1 /, "1er ")}`);
         }),
       );
       // Semaine entière de vacances de Noël : six bandes « Fermé ».
-      if (label === "28/12/2026") await expect(page.getByTestId("closure-band")).toHaveCount(6);
+      if (label === "28 décembre") await expect(page.getByTestId("closure-band")).toHaveCount(6);
     }
     // §11.5 : affichage d'une semaine perçu comme instantané.
     expect(report("navigation entre semaines datées", steps)).toBeLessThan(limit(500));
@@ -117,8 +121,8 @@ test.describe("volumétrie cible (§11.5)", () => {
   });
 
   test("ouvre les référentiels avec 500 élèves", async ({ page }) => {
-    await nav(page).getByRole("link", { name: "Référentiels" }).click();
-    const tabs = page.getByRole("navigation", { name: "Référentiels" });
+    await nav(page).getByRole("link", { name: "Le club" }).click();
+    const tabs = page.getByRole("navigation", { name: "Fiches du club" });
 
     const students = page.getByRole("table", { name: "Élèves" }).locator("tbody tr");
     const list = await timed(async () => {

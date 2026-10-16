@@ -13,11 +13,11 @@ async function createSeason(page: Page) {
   await form.getByLabel("Date de fin").fill("2027-06-30");
   await form.getByLabel("Dimanche").uncheck();
   await form.getByRole("button", { name: "Créer la saison" }).click();
-  await expect(page.getByText("Saison active")).toBeVisible();
+  await expect(page.getByText("Saison en cours", { exact: true })).toBeVisible();
 }
 
 function tab(page: Page, name: string) {
-  return page.getByRole("navigation", { name: "Référentiels" }).getByRole("link", { name });
+  return page.getByRole("navigation", { name: "Fiches du club" }).getByRole("link", { name });
 }
 
 async function createCourt(page: Page, name: string, kind: "Couvert" | "Extérieur") {
@@ -121,7 +121,7 @@ test.describe("référentiels", () => {
     // Plage du lundi glissée du repère « 14h » au repère « 18h » : 14:00–18:00 (B6).
     const monday = page.getByRole("group", { name: "Disponibilités du lundi" });
     await dragAlong(page, monday, "14:00", "18:00");
-    const slots = page.getByRole("list", { name: "Plages de disponibilité" });
+    const slots = page.getByRole("list", { name: "Horaires de disponibilité" });
     await expect(slots).toContainText("14:00–18:00");
     await expect(monday.locator('[data-time="17:45"]')).toHaveAttribute("data-available", "true");
     await expect(monday.locator('[data-time="18:00"]')).toHaveAttribute("data-available", "false");
@@ -130,11 +130,11 @@ test.describe("référentiels", () => {
     await expect(page.getByText("Total : 4 h par semaine")).toBeVisible();
 
     // Saisie précise au clavier.
-    const slotForm = page.getByRole("form", { name: "Saisir une plage" });
+    const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
     await slotForm.getByLabel("Jour").selectOption({ label: "Mercredi" });
     await slotForm.getByLabel("De").selectOption("14:00");
     await slotForm.getByLabel("À").selectOption("18:30");
-    await slotForm.getByRole("button", { name: "Ajouter la plage" }).click();
+    await slotForm.getByRole("button", { name: "Ajouter un horaire" }).click();
     await expect(slots).toContainText("14:00–18:30");
     await expect(page.getByText("Total : 8 h 30 par semaine")).toBeVisible();
 
@@ -173,8 +173,8 @@ test.describe("référentiels", () => {
     await createInstructor(page, "Karim", "Benali");
     const monday = page.getByRole("group", { name: "Disponibilités du lundi" });
     const tuesday = page.getByRole("group", { name: "Disponibilités du mardi" });
-    const slots = page.getByRole("list", { name: "Plages de disponibilité" });
-    const slotForm = page.getByRole("form", { name: "Saisir une plage" });
+    const slots = page.getByRole("list", { name: "Horaires de disponibilité" });
+    const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
     const toast = page.getByTestId("toast");
     const available = (row: Locator) => row.locator('[data-available="true"]');
 
@@ -189,7 +189,7 @@ test.describe("référentiels", () => {
     await expect(slotForm.getByLabel("À").locator("option:checked")).toHaveText("11:00");
     await expect(slotForm.getByLabel("De")).toBeFocused();
     await expect(available(tuesday)).toHaveCount(0);
-    await expect(slotForm.getByRole("button", { name: "Retirer la plage" })).toHaveAttribute(
+    await expect(slotForm.getByRole("button", { name: "Retirer l'horaire" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
@@ -202,15 +202,15 @@ test.describe("référentiels", () => {
     await expect(available(monday)).toHaveCount(16);
     await expect(slots).toContainText("14:00–18:00");
     // « Ajouter » serait sans effet : grisé, avec sa raison.
-    await expect(slotForm.getByRole("button", { name: "Ajouter la plage" })).toHaveAttribute(
+    await expect(slotForm.getByRole("button", { name: "Ajouter un horaire" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
-    await expect(slotForm.getByText("Déjà disponible sur toute la plage")).toBeVisible();
+    await expect(slotForm.getByText("Déjà disponible sur tout cet horaire")).toBeVisible();
 
     // Retirer une partie de la plage depuis le formulaire, puis annuler.
     await slotForm.getByLabel("De").selectOption("16:00");
-    await slotForm.getByRole("button", { name: "Retirer la plage" }).click();
+    await slotForm.getByRole("button", { name: "Retirer l'horaire" }).click();
     await expect(slots).toContainText("14:00–16:00");
     await expect(slots).not.toContainText("14:00–18:00");
     await expect(toast).toContainText("Lundi 16:00–18:00 retiré");
@@ -239,7 +239,7 @@ test.describe("référentiels", () => {
     await createInstructor(page, "Karim", "Benali");
     const monday = page.getByRole("group", { name: "Disponibilités du lundi" });
     const tuesday = page.getByRole("group", { name: "Disponibilités du mardi" });
-    const slots = page.getByRole("list", { name: "Plages de disponibilité" });
+    const slots = page.getByRole("list", { name: "Horaires de disponibilité" });
     const toast = page.getByTestId("toast");
     const dayList = (day: string) => slots.getByRole("listitem").filter({ hasText: day });
 
@@ -262,11 +262,11 @@ test.describe("référentiels", () => {
     await expect(toast).toHaveCount(0);
 
     // Le toast décrit ce qui a réellement été retiré, pas la plage demandée.
-    const slotForm = page.getByRole("form", { name: "Saisir une plage" });
+    const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
     await slotForm.getByLabel("Jour").selectOption({ label: "Mardi" });
     await slotForm.getByLabel("De").selectOption("10:00");
     await slotForm.getByLabel("À").selectOption("20:00");
-    await slotForm.getByRole("button", { name: "Retirer la plage" }).click();
+    await slotForm.getByRole("button", { name: "Retirer l'horaire" }).click();
     await expect(toast).toContainText("Mardi 14:00–18:00 retiré");
     await expect(dayList("Mardi")).not.toContainText("14:00–18:00");
 
@@ -287,7 +287,7 @@ test.describe("référentiels", () => {
     await dialog.getByLabel("Niveau").selectOption({ label: "Galaxie vert" });
     await dialog.getByLabel("Âge minimum").fill("8");
     await dialog.getByLabel("Âge maximum").fill("10");
-    await dialog.getByLabel("Effectif maximum").fill("2");
+    await dialog.getByLabel("Élèves au maximum").fill("2");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
     await expect(page.getByRole("heading", { name: "Galaxie vert 1" })).toBeVisible();
 

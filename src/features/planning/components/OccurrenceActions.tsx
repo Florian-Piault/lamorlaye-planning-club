@@ -20,9 +20,10 @@ interface OccurrenceActionsProps {
 }
 
 /**
- * Actions sur une séance de semaine datée (§5.5) : annuler avec motif,
- * désigner un remplaçant, rétablir l'occurrence d'origine ; pour un cours
- * ponctuel, « Dupliquer sur les jours suivants » (stage).
+ * Actions sur une séance d'une semaine précise (semaine datée, §5.5) : annuler
+ * avec motif, désigner un remplaçant, « Revenir au cours habituel » (supprime
+ * les exceptions de l'occurrence) ; pour un cours ponctuel, « Dupliquer sur
+ * les jours suivants » (stage).
  */
 export function OccurrenceActions(props: OccurrenceActionsProps) {
   const { item } = props;
@@ -56,7 +57,7 @@ function RegularActions({
         <ul aria-label="État de la séance" className="flex flex-col gap-1 text-xs">
           {occurrence.cancellation && (
             <li className="rounded-md bg-muted px-2 py-1">
-              Séance annulée :{" "}
+              Annulé cette semaine :{" "}
               {cancellationLabel(occurrence.cancellation.reason, occurrence.cancellation.note)}
             </li>
           )}
@@ -67,7 +68,7 @@ function RegularActions({
             </li>
           )}
           {occurrence.modified && (
-            <li className="rounded-md bg-muted px-2 py-1">✎ Modifiée pour cette semaine</li>
+            <li className="rounded-md bg-muted px-2 py-1">✎ Modifié cette semaine</li>
           )}
         </ul>
       )}
@@ -79,7 +80,7 @@ function RegularActions({
         <div>
           <Button type="button" variant="outline" onClick={onRestore}>
             <RotateCcw aria-hidden />
-            Rétablir l'occurrence d'origine
+            Revenir au cours habituel
           </Button>
         </div>
       )}

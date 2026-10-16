@@ -67,7 +67,13 @@ function Button({
     const plain = (
       <Comp data-slot="button" data-variant={variant ?? "default"} className={classes} {...props} />
     );
-    return tooltip ? <Tooltip content={tooltip}>{plain}</Tooltip> : plain;
+    return tooltip ? (
+      <Tooltip content={tooltip} describe={!repeatsName(props["aria-label"], tooltip)}>
+        {plain}
+      </Tooltip>
+    ) : (
+      plain
+    );
   }
 
   const { disabled, onClick, ...rest } = props;
@@ -102,12 +108,28 @@ function Button({
   return (
     <span data-slot="button-with-reason" className="inline-flex items-center gap-2">
       {reasonSide === "start" && reason}
-      <Tooltip content={blocked ? disabledReason : tooltip} describe={!blocked}>
+      <Tooltip
+        content={blocked ? disabledReason : tooltip}
+        describe={!blocked && !(tooltip && repeatsName(props["aria-label"], tooltip))}
+      >
         {button}
       </Tooltip>
       {reasonSide !== "start" && reason}
     </span>
   );
+}
+
+/**
+ * La bulle ne fait que répéter le nom accessible (« Modifier » pour « Modifier
+ * Court 1 »), éventuellement suivi d'un raccourci (« Fermer (Échap) » pour
+ * « Fermer », annoncé par `aria-keyshortcuts`) : inutile de l'annoncer une
+ * seconde fois comme description.
+ */
+function repeatsName(name: string | undefined, tooltip: string): boolean {
+  if (!name) return false;
+  const label = name.toLowerCase();
+  const bubble = tooltip.toLowerCase();
+  return label.includes(bubble) || bubble.replace(/\s*\([^)]*\)$/, "") === label;
 }
 
 export { Button, buttonVariants };

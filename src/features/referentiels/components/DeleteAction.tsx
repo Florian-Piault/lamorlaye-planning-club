@@ -89,7 +89,7 @@ export function DeleteAction({
         onClick={start}
         disabled={busy}
         aria-label={`Supprimer ${name}`}
-        title={showLabel ? undefined : "Supprimer"}
+        tooltip={showLabel ? undefined : "Supprimer"}
       >
         <Trash2 aria-hidden />
         {showLabel && "Supprimer"}

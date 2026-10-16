@@ -12,8 +12,10 @@ import {
   useState,
 } from "react";
 
+import { keyLabel } from "@/lib/keys";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
+import { Tooltip } from "./tooltip";
 
 interface DialogProps {
   open: boolean;
@@ -230,14 +232,17 @@ export function Dialog({
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => guard.requestClose()}
-                className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Fermer"
-              >
-                <XIcon className="size-4" aria-hidden />
-              </button>
+              <Tooltip content={`Fermer (${keyLabel("escape")})`} describe={false}>
+                <button
+                  type="button"
+                  onClick={() => guard.requestClose()}
+                  className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Fermer"
+                  aria-keyshortcuts="Escape"
+                >
+                  <XIcon className="size-4" aria-hidden />
+                </button>
+              </Tooltip>
             </div>
             <div data-dialog-body className="overflow-y-auto px-6 py-4">
               {children}

@@ -134,8 +134,8 @@ describe("export des données", () => {
       dateDeNaissance: "2017-01-05",
     });
     expect(document.saisons.map((s) => [s.saison.nom, s.saison.statut])).toEqual([
-      ["2026-2027", "archivée"],
-      ["2027-2028", "active"],
+      ["2026-2027", "terminée"],
+      ["2027-2028", "en cours"],
     ]);
     expect(document.saisons[0]?.fiche.responsableLégal).toBeNull();
     expect(document.saisons[1]?.fiche).toMatchObject({

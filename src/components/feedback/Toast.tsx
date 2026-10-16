@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /** Durée d'affichage d'un succès ; une erreur reste jusqu'à sa fermeture. */
@@ -182,14 +183,16 @@ function ToastView({ toast, onClose }: { toast: ToastMessage; onClose: (id: numb
           {toast.action.label}
         </button>
       )}
-      <button
-        type="button"
-        aria-label="Masquer le message"
-        className="shrink-0 rounded opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        onClick={close}
-      >
-        <X className="size-4" aria-hidden />
-      </button>
+      <Tooltip content="Masquer le message" describe={false}>
+        <button
+          type="button"
+          aria-label="Masquer le message"
+          className="shrink-0 rounded opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={close}
+        >
+          <X className="size-4" aria-hidden />
+        </button>
+      </Tooltip>
     </div>
   );
 }

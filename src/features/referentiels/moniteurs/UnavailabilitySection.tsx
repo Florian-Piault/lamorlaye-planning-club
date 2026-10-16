@@ -76,6 +76,7 @@ export function UnavailabilitySection({
                       variant="ghost"
                       size="icon"
                       aria-label={`Modifier l'indisponibilité ${period}`}
+                      tooltip="Modifier"
                       onClick={() => setEditing(u)}
                     >
                       <Pencil aria-hidden />
@@ -84,6 +85,7 @@ export function UnavailabilitySection({
                       variant="ghost"
                       size="icon"
                       aria-label={`Supprimer l'indisponibilité ${period}`}
+                      tooltip="Supprimer"
                       onClick={async () => {
                         try {
                           await onDelete(u.id);

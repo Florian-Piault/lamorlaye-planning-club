@@ -12,6 +12,7 @@ import { matchesSearch } from "@/domain/search";
 import { formatDuration, minutesToTime, weekdayLabel } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
 import { emptyGroupValues, GroupForm } from "@/features/referentiels/groupes/GroupForm";
+import { keyLabel } from "@/lib/keys";
 import type { LessonFormValues } from "../grid/actions";
 import { SNAP_MINUTES } from "../grid/geometry";
 import { type DateOfWeekday, instructorChoices, noDate } from "../grid/view";
@@ -128,7 +129,7 @@ export function LessonPanel({
     ? "Détail du cours"
     : (titleProp ?? (mode === "create" ? "Nouveau cours" : "Modifier le cours"));
   const groupLocked = groupLockedProp || readOnly;
-  const notice = readOnly ? "Saison archivée : consultation seule." : noticeProp;
+  const notice = readOnly ? "Consultation seulement (saison terminée)." : noticeProp;
   const [values, setValues] = useState(initialValues);
   const [groupQuery, setGroupQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -246,6 +247,8 @@ export function LessonPanel({
             variant="ghost"
             size="icon"
             aria-label="Fermer le panneau"
+            tooltip={`Fermer le panneau (${keyLabel("escape")})`}
+            aria-keyshortcuts="Escape"
             onClick={onClose}
           >
             <X aria-hidden />
@@ -286,7 +289,7 @@ export function LessonPanel({
                   variant="outline"
                   size="icon"
                   aria-label="Nouveau groupe"
-                  title="Créer un groupe"
+                  tooltip="Créer un groupe"
                   onClick={() => setCreatingGroup(true)}
                 >
                   <Plus aria-hidden />

@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TechnicalDetails } from "@/components/ui/technical-details";
 import {
   backupsLocation,
   chooseBackupFile,
@@ -28,6 +29,7 @@ import {
   BACKUPS_KEPT,
   backupPasswordProblem,
   describeBackupReason,
+  ENCRYPTED_EXTENSION,
   formatDateTime,
   formatFileSize,
   MIN_PASSWORD_LENGTH,
@@ -43,9 +45,9 @@ export function BackupCard() {
       <CardHeader>
         <CardTitle>Sauvegardes</CardTitle>
         <CardDescription>
-          Une copie de la base est enregistrée automatiquement à chaque fermeture de l'application ;
-          les {BACKUPS_KEPT} dernières sont conservées. Exportez régulièrement une sauvegarde vers
-          une clé USB, de préférence chiffrée par un mot de passe : elle contient les données
+          Une copie des données est enregistrée automatiquement à chaque fermeture de l'application
+          ; les {BACKUPS_KEPT} dernières sont gardées. Exportez régulièrement une sauvegarde vers
+          une clé USB, de préférence protégée par mot de passe : elle contient les données
           personnelles des élèves.
         </CardDescription>
       </CardHeader>
@@ -140,7 +142,12 @@ function DesktopBackups() {
       <div className="flex flex-col gap-2">
         <h3 className="font-medium text-sm">Sauvegardes automatiques</h3>
         {data && (
-          <p className="break-all font-mono text-muted-foreground text-xs">{data.location}</p>
+          <TechnicalDetails>
+            <p>
+              Dossier des sauvegardes automatiques :{" "}
+              <span className="break-all font-mono">{data.location}</span>
+            </p>
+          </TechnicalDetails>
         )}
         <Table>
           <TableHeader>
@@ -173,7 +180,7 @@ function DesktopBackups() {
                       variant="ghost"
                       size="icon"
                       aria-label={`Restaurer la sauvegarde du ${date}`}
-                      title="Restaurer"
+                      tooltip="Restaurer"
                       onClick={() =>
                         setRestoring({
                           path: backup.path,
@@ -206,7 +213,7 @@ function DesktopBackups() {
               const path = await exportBackup(password);
               if (!path) return null;
               return password
-                ? `Sauvegarde chiffrée exportée : ${path}`
+                ? `Sauvegarde protégée par mot de passe exportée : ${path}`
                 : `Sauvegarde exportée : ${path}`;
             });
           }}
@@ -251,7 +258,7 @@ function ExportForm({
       }}
     >
       <Checkbox
-        label="Chiffrer la sauvegarde par un mot de passe (recommandé)"
+        label="Protéger la sauvegarde par un mot de passe (recommandé)"
         checked={encrypt}
         onChange={(e) => setEncrypt(e.target.checked)}
       />
@@ -280,9 +287,12 @@ function ExportForm({
             )}
           </Field>
           <p className="text-muted-foreground text-xs">
-            Chiffrement AES-256 ; sans ce mot de passe, la sauvegarde ne pourra pas être restaurée.
-            Conservez-le en lieu sûr : il ne peut pas être retrouvé.
+            Sans ce mot de passe, la sauvegarde ne pourra pas être restaurée. Conservez-le en lieu
+            sûr : il ne peut pas être retrouvé.
           </p>
+          <TechnicalDetails>
+            <p>Sauvegarde chiffrée en AES-256 (fichier .{ENCRYPTED_EXTENSION}).</p>
+          </TechnicalDetails>
         </div>
       )}
       <ErrorAlert>{problem}</ErrorAlert>
@@ -327,7 +337,10 @@ function RestoreForm({ restoring, onCancel }: { restoring: Restoring; onCancel: 
         Une copie de l'état actuel est d'abord enregistrée dans les sauvegardes automatiques.
       </p>
       {restoring.encrypted && (
-        <Field label="Mot de passe de la sauvegarde" hint="Cette sauvegarde est chiffrée.">
+        <Field
+          label="Mot de passe de la sauvegarde"
+          hint="Cette sauvegarde est protégée par mot de passe."
+        >
           {(props) => (
             <Input
               {...props}

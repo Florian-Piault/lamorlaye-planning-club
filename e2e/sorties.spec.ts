@@ -82,6 +82,7 @@ test.describe("sorties", () => {
 
     // Export CSV du récapitulatif.
     const file = waitForFile(page, "heures-2026-10-15-2026-11-15.csv");
+    await page.getByText("Détails techniques").click();
     await page.getByRole("button", { name: "Exporter le récapitulatif (CSV)" }).click();
     const csv = (await downloaded(await file)).toString("utf8");
     expect(csv.startsWith("﻿Moniteur;Initiales;Séances;Minutes;Heures;Période\r\n")).toBe(true);
@@ -93,7 +94,7 @@ test.describe("sorties", () => {
 
     // Export Excel : récapitulatif et détail, un onglet chacun.
     const xlsx = waitForFile(page, "heures-2026-10-15-2026-11-15.xlsx");
-    await page.getByRole("button", { name: "Exporter en Excel" }).click();
+    await page.getByRole("button", { name: "Exporter vers Excel" }).click();
     expect((await downloaded(await xlsx)).subarray(0, 2).toString("latin1")).toBe("PK");
 
     // Raccourci « Saison ».
@@ -131,7 +132,7 @@ test.describe("sorties", () => {
     // Bouton « PDF » de l'en-tête, en semaine datée.
     await page
       .getByRole("group", { name: "Mode d'affichage" })
-      .getByRole("button", { name: "Semaine du 02/11" })
+      .getByRole("button", { name: "Une semaine précise" })
       .click();
     await page.getByRole("button", { name: "PDF", exact: true }).click();
     await expect(
@@ -178,6 +179,7 @@ test.describe("sorties", () => {
 
     // Exports CSV et Excel.
     const csvFile = waitForFile(page, "cours-2026-2027.csv");
+    await page.getByText("Détails techniques").first().click();
     await page.getByRole("button", { name: "Exporter cours en CSV" }).click();
     const csv = (await downloaded(await csvFile)).toString("utf8");
     expect(csv).toContain(
@@ -192,7 +194,7 @@ test.describe("sorties", () => {
     );
 
     const xlsxFile = waitForFile(page, "eleves-2026-2027.xlsx");
-    await page.getByRole("button", { name: "Exporter élèves en Excel" }).click();
+    await page.getByRole("button", { name: "Exporter vers Excel : élèves" }).click();
     expect((await downloaded(await xlsxFile)).subarray(0, 2).toString("latin1")).toBe("PK");
   });
 });

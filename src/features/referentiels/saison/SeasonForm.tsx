@@ -120,7 +120,7 @@ export function SeasonForm({ initialValues, submitLabel, onSubmit, onCancel }: S
             />
           )}
         </Field>
-        <Field label="Heure de début de la grille" error={errors.displayStartTime}>
+        <Field label="Le planning s'affiche à partir de" error={errors.displayStartTime}>
           {(props) => (
             <Select
               {...props}
@@ -135,7 +135,7 @@ export function SeasonForm({ initialValues, submitLabel, onSubmit, onCancel }: S
             </Select>
           )}
         </Field>
-        <Field label="Heure de fin de la grille" error={errors.displayEndTime}>
+        <Field label="Le planning s'affiche jusqu'à" error={errors.displayEndTime}>
           {(props) => (
             <Select
               {...props}

@@ -283,7 +283,7 @@ const StudentRow = memo(function StudentRow({
               variant="ghost"
               size="icon"
               aria-label={`Modifier ${name}`}
-              title="Modifier"
+              tooltip="Modifier"
               onClick={() => onEdit(student)}
             >
               <Pencil aria-hidden />
@@ -291,12 +291,14 @@ const StudentRow = memo(function StudentRow({
           )}
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
+            className="h-9"
             aria-label={`Données personnelles de ${name}`}
-            title="Données personnelles (RGPD)"
+            tooltip="Consulter, exporter ou effacer ses données (RGPD)"
             onClick={() => onPrivacy(student.id)}
           >
             <ShieldCheck aria-hidden />
+            Données personnelles
           </Button>
           {!readOnly && (
             <DeleteAction

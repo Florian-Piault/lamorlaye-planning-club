@@ -30,7 +30,7 @@ function position(locator: Locator): Promise<{ x: number; y: number }> {
 }
 
 function tab(page: Page, name: string) {
-  return page.getByRole("navigation", { name: "Référentiels" }).getByRole("link", { name });
+  return page.getByRole("navigation", { name: "Fiches du club" }).getByRole("link", { name });
 }
 
 async function openClub(page: Page, tabName: string) {

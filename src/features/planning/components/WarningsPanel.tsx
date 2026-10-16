@@ -49,13 +49,14 @@ export const WarningsPanel = memo(function WarningsPanel({ items, onShow }: Warn
             <Kbd>{keyLabel("delete")}</Kbd> le supprime
           </li>
           <li>
-            <b className="text-foreground">Semaine datée</b> : <Kbd>←</Kbd> / <Kbd>→</Kbd> semaine
-            précédente / suivante ; cliquer une séance pour l'annuler, la remplacer ou la rétablir
+            <b className="text-foreground">Une semaine précise</b> : <Kbd>←</Kbd> / <Kbd>→</Kbd>{" "}
+            semaine précédente / suivante ; cliquer une séance pour l'annuler, la remplacer ou
+            revenir au cours habituel
           </li>
           <li>
             <b className="text-foreground">Annuler / rétablir</b> :{" "}
             <Kbd>{shortcutLabel("mod+z")}</Kbd> · <Kbd>{shortcutLabel("mod+shift+z")}</Kbd> ·{" "}
-            <Kbd>{keyLabel("escape")}</Kbd> interrompt un glisser
+            <Kbd>{keyLabel("escape")}</Kbd> annule le déplacement
           </li>
         </ul>
       </section>

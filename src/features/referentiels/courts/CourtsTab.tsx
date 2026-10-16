@@ -97,7 +97,7 @@ export function CourtsTab() {
                     variant="ghost"
                     size="icon"
                     aria-label={`Modifier ${court.name}`}
-                    title="Modifier"
+                    tooltip="Modifier"
                     onClick={() => setEditing({ mode: "edit", court })}
                   >
                     <Pencil aria-hidden />

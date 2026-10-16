@@ -102,7 +102,7 @@ export function GroupsTab() {
               Âge
             </SortableHead>
             <SortableHead sortKey="size" sort={sort} onSort={onSort}>
-              Effectif
+              Nombre d'élèves
             </SortableHead>
             <SortableHead sortKey="active" sort={sort} onSort={onSort}>
               Statut
@@ -138,7 +138,7 @@ export function GroupsTab() {
                       over && "font-medium text-destructive",
                     )}
                   >
-                    {over && <TriangleAlert className="size-3.5" aria-label="Effectif dépassé" />}
+                    {over && <TriangleAlert className="size-3.5" aria-label="Groupe trop plein" />}
                     {group.memberCount} / {group.maxSize}
                   </span>
                 </TableCell>

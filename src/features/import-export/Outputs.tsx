@@ -5,6 +5,7 @@ import { ErrorAlert } from "@/components/form/Field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
+import { TechnicalDetails } from "@/components/ui/technical-details";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { startOfIsoWeek, todayInParis } from "@/domain/dates";
 import {
@@ -26,7 +27,7 @@ import { clampWeek, type PlanningMode, TYPE_MODE } from "@/features/planning/gri
 import { semaineTypeDate, weekLessons } from "@/features/planning/grid/view";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
 
-/** Documents PDF et exports CSV / Excel de la saison (§9.2). */
+/** Documents PDF et exports Excel (et CSV) de la saison (§9.2). */
 export function Outputs() {
   const { db } = useDatabase();
   const season = useViewedSeason();
@@ -122,8 +123,8 @@ function PdfCard({ data }: { data: OutputData }) {
               value={weekKind}
               onChange={(e) => setWeekKind(e.target.value as "type" | "dated")}
             >
-              <option value="type">Semaine type</option>
-              <option value="dated">Semaine datée</option>
+              <option value="type">Planning habituel</option>
+              <option value="dated">Une semaine précise</option>
             </Select>
           </div>
           {weekKind === "dated" && (
@@ -217,7 +218,7 @@ function PdfCard({ data }: { data: OutputData }) {
 }
 
 // ---------------------------------------------------------------------------
-// Exports CSV / Excel
+// Exports Excel (CSV dans les détails techniques)
 // ---------------------------------------------------------------------------
 
 type ExportKey = "lessons" | "groups" | "students";
@@ -226,9 +227,10 @@ const EXPORTS: { key: ExportKey; label: string; description: string }[] = [
   {
     key: "lessons",
     label: "Cours",
-    description: "Cours de la semaine type, avec leurs dates d'effet.",
+    description:
+      "Cours du planning habituel, avec leurs dates de début et de fin (colonnes « En vigueur du / au »).",
   },
-  { key: "groups", label: "Groupes", description: "Groupes, effectifs et créneaux." },
+  { key: "groups", label: "Groupes", description: "Groupes, nombre d'élèves et créneaux." },
   { key: "students", label: "Élèves", description: "Fiches des élèves et leurs groupes." },
 ];
 
@@ -265,10 +267,10 @@ function ExportCard({ data }: { data: OutputData }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Exports CSV / Excel</CardTitle>
+        <CardTitle>Exporter vers Excel</CardTitle>
         <CardDescription>
-          Fichiers CSV (séparateur « ; », UTF-8) ou classeurs Excel, de la saison {data.season.name}
-          . Les heures des moniteurs s'exportent depuis l'écran « Heures ».
+          Classeurs Excel de la saison {data.season.name}. Les heures des moniteurs s'exportent
+          depuis l'écran « Heures ».
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -281,27 +283,36 @@ function ExportCard({ data }: { data: OutputData }) {
               </div>
               <Button
                 size="sm"
-                variant="outline"
                 disabled={state.busy}
-                aria-label={`Exporter ${e.label.toLowerCase()} en CSV`}
-                onClick={() => exportAs(e.key, "csv")}
-              >
-                <FileText aria-hidden />
-                CSV
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={state.busy}
-                aria-label={`Exporter ${e.label.toLowerCase()} en Excel`}
+                aria-label={`Exporter vers Excel : ${e.label.toLowerCase()}`}
                 onClick={() => exportAs(e.key, "xlsx")}
               >
                 <FileSpreadsheet aria-hidden />
-                Excel
+                Exporter vers Excel
               </Button>
             </li>
           ))}
         </ul>
+        <TechnicalDetails>
+          <p>
+            Fichiers CSV (texte séparé par « ; », encodage UTF-8), pour un autre tableur ou logiciel
+            :
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {EXPORTS.map((e) => (
+              <Button
+                key={e.key}
+                size="sm"
+                variant="outline"
+                disabled={state.busy}
+                onClick={() => exportAs(e.key, "csv")}
+              >
+                <FileText aria-hidden />
+                Exporter {e.label.toLowerCase()} en CSV
+              </Button>
+            ))}
+          </div>
+        </TechnicalDetails>
         <SaveStatus state={state} onOpen={open} />
       </CardContent>
     </Card>

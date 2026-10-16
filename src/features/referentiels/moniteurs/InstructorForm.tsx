@@ -8,6 +8,7 @@ import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
 import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
 import { Checkbox, Input } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { Instructor } from "@/db/schema";
 import { INSTRUCTOR_PALETTE, normalizeColor } from "@/domain/colors";
 import { initialsConflict } from "@/domain/duplicates";
@@ -241,31 +242,35 @@ function ColorPicker({ value, others, error, initials, onChange }: ColorPickerPr
           const isSelected = color.value === selected;
           const ownersLabel = owners.map((o) => `${o.firstName} ${o.lastName}`).join(", ");
           return (
-            // biome-ignore lint/a11y/useSemanticElements: nuancier en boutons radio (ARIA).
-            <button
+            <Tooltip
               key={color.value}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              aria-label={
-                owners.length > 0 ? `${color.name} (utilisée par ${ownersLabel})` : color.name
-              }
-              title={owners.length > 0 ? `${color.name} — ${ownersLabel}` : color.name}
-              onClick={() => onChange(color.value)}
-              className={cn(
-                "flex size-9 items-center justify-center rounded-md font-semibold text-white text-xs ring-offset-2 ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                isSelected && "ring-2 ring-foreground",
-              )}
-              style={{ backgroundColor: color.value }}
+              content={owners.length > 0 ? `${color.name} — ${ownersLabel}` : color.name}
+              describe={false}
             >
-              {isSelected ? (
-                <Check className="size-4" aria-hidden />
-              ) : (
-                <span aria-hidden className="opacity-90">
-                  {owners[0]?.initials ?? ""}
-                </span>
-              )}
-            </button>
+              {/* biome-ignore lint/a11y/useSemanticElements: nuancier en boutons radio (ARIA). */}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                aria-label={
+                  owners.length > 0 ? `${color.name} (utilisée par ${ownersLabel})` : color.name
+                }
+                onClick={() => onChange(color.value)}
+                className={cn(
+                  "flex size-9 items-center justify-center rounded-md font-semibold text-white text-xs ring-offset-2 ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isSelected && "ring-2 ring-foreground",
+                )}
+                style={{ backgroundColor: color.value }}
+              >
+                {isSelected ? (
+                  <Check className="size-4" aria-hidden />
+                ) : (
+                  <span aria-hidden className="opacity-90">
+                    {owners[0]?.initials ?? ""}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
           );
         })}
       </div>

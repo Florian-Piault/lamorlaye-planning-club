@@ -1,5 +1,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { memo, type PointerEventHandler } from "react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { hoursLabel } from "../grid/geometry";
 import { type InteractionStore, useInteraction } from "../interaction";
@@ -71,32 +72,43 @@ function InstructorPill({
   const pointerListeners = listeners?.onPointerDown
     ? { onPointerDown: listeners.onPointerDown as PointerEventHandler<HTMLButtonElement> }
     : undefined;
+  const help = (
+    <>
+      <span className="block">
+        {entry.name}
+        {entry.noAvailability && " — aucune disponibilité saisie"}
+      </span>
+      <span className="block">Cliquer : afficher ses indisponibilités</span>
+      {!readOnly && <span className="block">Glisser sur un cours : le lui confier</span>}
+    </>
+  );
   return (
-    <button
-      type="button"
-      ref={setNodeRef}
-      {...attributes}
-      {...pointerListeners}
-      aria-pressed={pinned}
-      aria-label={`${entry.name}, ${hours} cette semaine`}
-      title={`${entry.name}${entry.noAvailability ? " — aucune disponibilité saisie" : ""}\nCliquer : afficher ses indisponibilités${readOnly ? "" : "\nGlisser sur un cours : le lui confier"}`}
-      data-testid="instructor-pill"
-      onClick={() => interaction.update({ pinnedInstructorId: pinned ? null : entry.id })}
-      className={cn(
-        "inline-flex touch-none select-none items-center gap-1.5 rounded-full border bg-card py-1 pr-2.5 pl-1.5 text-xs",
-        readOnly ? "cursor-pointer" : "cursor-grab",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        pinned && "border-primary bg-accent",
-      )}
-    >
-      <span className="size-3.5 rounded-full" style={{ backgroundColor: entry.color }} />
-      {entry.firstName}
-      {entry.noAvailability && (
-        <span className="text-destructive" aria-hidden>
-          ⚠
-        </span>
-      )}
-      <small className="text-muted-foreground">{hours}</small>
-    </button>
+    <Tooltip content={help}>
+      <button
+        type="button"
+        ref={setNodeRef}
+        {...attributes}
+        {...pointerListeners}
+        aria-pressed={pinned}
+        aria-label={`${entry.name}, ${hours} cette semaine`}
+        data-testid="instructor-pill"
+        onClick={() => interaction.update({ pinnedInstructorId: pinned ? null : entry.id })}
+        className={cn(
+          "inline-flex touch-none select-none items-center gap-1.5 rounded-full border bg-card py-1 pr-2.5 pl-1.5 text-xs",
+          readOnly ? "cursor-pointer" : "cursor-grab",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          pinned && "border-primary bg-accent",
+        )}
+      >
+        <span className="size-3.5 rounded-full" style={{ backgroundColor: entry.color }} />
+        {entry.firstName}
+        {entry.noAvailability && (
+          <span className="text-destructive" aria-hidden>
+            ⚠
+          </span>
+        )}
+        <small className="text-muted-foreground">{hours}</small>
+      </button>
+    </Tooltip>
   );
 }

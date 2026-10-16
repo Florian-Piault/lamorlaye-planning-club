@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectPlatform, keyLabel, shortcutLabel } from "./keys";
+import { ariaShortcut, detectPlatform, keyLabel, shortcutLabel } from "./keys";
 
 describe("touches selon le système", () => {
   it("reconnaît macOS d'après le navigateur", () => {
@@ -35,5 +35,12 @@ describe("touches selon le système", () => {
     expect(shortcutLabel("mod+n", "other")).toBe("Ctrl+N");
     expect(shortcutLabel("mod+shift+z", "mac")).toBe("⌘ ⇧ Z");
     expect(shortcutLabel("mod+shift+z", "other")).toBe("Ctrl+Maj+Z");
+  });
+
+  it("donne les noms de touches d'aria-keyshortcuts", () => {
+    expect(ariaShortcut("mod+n", "mac")).toBe("Meta+N");
+    expect(ariaShortcut("mod+shift+z", "other")).toBe("Control+Shift+Z");
+    expect(ariaShortcut("escape", "mac")).toBe("Escape");
+    expect(ariaShortcut("←", "other")).toBe("ArrowLeft");
   });
 });

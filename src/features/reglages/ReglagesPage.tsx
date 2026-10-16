@@ -1,5 +1,6 @@
 import { Page } from "@/components/layout/Page";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TechnicalDetails } from "@/components/ui/technical-details";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { PrivacyCard } from "@/features/rgpd/PrivacyCard";
 import { AppearanceCard } from "./AppearanceCard";
@@ -7,8 +8,7 @@ import { BackupCard } from "./BackupCard";
 
 export function ReglagesPage() {
   const { driver, appliedMigrations } = useDatabase();
-  const storage =
-    driver.kind === "tauri" ? "Fichier SQLite local" : "Base en mémoire (hors application)";
+  const desktop = driver.kind === "tauri";
 
   return (
     <Page title="Réglages" description="Paramètres de l'application.">
@@ -17,18 +17,26 @@ export function ReglagesPage() {
           <CardHeader>
             <CardTitle>Données</CardTitle>
             <CardDescription>
-              Les données restent sur ce poste : l'application ne se connecte jamais à internet.
+              Les données restent sur cet ordinateur : l'application ne se connecte jamais à
+              internet.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-              <dt className="text-muted-foreground">Stockage</dt>
-              <dd data-testid="storage-kind">{storage}</dd>
-              <dt className="text-muted-foreground">Emplacement</dt>
-              <dd className="break-all font-mono text-xs">{driver.location}</dd>
-              <dt className="text-muted-foreground">Migrations appliquées au démarrage</dt>
-              <dd>{appliedMigrations.length > 0 ? appliedMigrations.join(", ") : "aucune"}</dd>
-            </dl>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-sm" data-testid="storage-kind">
+              {desktop
+                ? "Données enregistrées sur cet ordinateur"
+                : "Données gardées en mémoire, effacées à la fermeture (hors application)"}
+            </p>
+            <TechnicalDetails>
+              <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1">
+                <dt>Stockage</dt>
+                <dd>{desktop ? "Fichier SQLite local" : "Base SQLite en mémoire (sql.js)"}</dd>
+                <dt>Emplacement</dt>
+                <dd className="break-all font-mono">{driver.location}</dd>
+                <dt>Migrations appliquées au démarrage</dt>
+                <dd>{appliedMigrations.length > 0 ? appliedMigrations.join(", ") : "aucune"}</dd>
+              </dl>
+            </TechnicalDetails>
           </CardContent>
         </Card>
         <AppearanceCard />

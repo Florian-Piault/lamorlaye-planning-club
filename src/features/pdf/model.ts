@@ -115,9 +115,9 @@ export function fullName(person: { firstName: string; lastName: string }): strin
   return `${person.firstName} ${person.lastName}`.trim();
 }
 
-/** « Semaine type — saison 2026-2027 » ou « Semaine du 02/11/2026 au 08/11/2026 ». */
+/** « Planning habituel — saison 2026-2027 » ou « Semaine du 02/11/2026 au 08/11/2026 ». */
 export function weekTitle(mode: PlanningMode, season: Pick<OutputSeason, "name">): string {
-  if (mode.kind === "type") return `Semaine type — saison ${season.name}`;
+  if (mode.kind === "type") return `Planning habituel — saison ${season.name}`;
   const sunday = dateOfMode(mode)(7) as string;
   return `Semaine du ${formatDate(mode.monday)} au ${formatDate(sunday)}`;
 }
@@ -395,7 +395,7 @@ export function buildWeekSheet(ctx: WeekContext): WeekSheet {
   const legend = legendOf(items, refs.instructors);
   const total = legend.reduce((sum, e) => sum + e.minutes, 0);
   const notes = [
-    "Chaque cours indique les initiales du moniteur, le groupe, l'horaire et l'effectif (inscrits / max).",
+    "Chaque cours indique les initiales du moniteur, le groupe, l'horaire et le nombre d'élèves (inscrits / max).",
   ];
   if (mode.kind === "dated") {
     notes.push(
@@ -403,7 +403,7 @@ export function buildWeekSheet(ctx: WeekContext): WeekSheet {
     );
   }
   return {
-    title: mode.kind === "type" ? "Planning — semaine type" : "Planning de la semaine",
+    title: mode.kind === "type" ? "Planning habituel" : "Planning de la semaine",
     subtitle: weekTitle(mode, season),
     days,
     courts: courts.map((c, i) => ({ id: c.id, label: courtHeading(c.name, i) })),

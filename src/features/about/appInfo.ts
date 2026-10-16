@@ -61,7 +61,7 @@ export const THIRD_PARTY_COMPONENTS: readonly ThirdPartyComponent[] = [
   { name: "Tauri", usage: "Conteneur de l'application de bureau", license: "Apache-2.0 ou MIT" },
   { name: "React", usage: "Interface", license: "MIT" },
   { name: "React Router", usage: "Navigation entre les écrans", license: "MIT" },
-  { name: "dnd-kit", usage: "Glisser-déposer de la grille", license: "MIT" },
+  { name: "dnd-kit", usage: "Glisser-déposer du planning", license: "MIT" },
   { name: "Drizzle ORM", usage: "Accès à la base de données", license: "Apache-2.0" },
   { name: "SQLite / sql.js", usage: "Base de données locale", license: "Domaine public / MIT" },
   { name: "Zod", usage: "Validation des données", license: "MIT" },
