@@ -1,5 +1,5 @@
 /**
- * Référentiel des niveaux (SPECS.md §3.5 bis) : liste ordonnée et modifiable,
+ * Référentiel des niveaux (docs/SPECS.md §3.5 bis) : liste ordonnée et modifiable,
  * pré-remplie à la création de la base (migration `0002_seed_levels`) avec
  * les niveaux Galaxie et des niveaux adultes.
  */

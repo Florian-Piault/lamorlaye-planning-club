@@ -1,5 +1,5 @@
 /**
- * Données personnelles des élèves (RGPD, SPECS.md §11.6) : export des données
+ * Données personnelles des élèves (RGPD, docs/SPECS.md §11.6) : export des données
  * d'un élève et préparation de son effacement définitif.
  *
  * Une même personne figure une fois par saison : la duplication d'une saison

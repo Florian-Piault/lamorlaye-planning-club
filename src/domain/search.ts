@@ -1,5 +1,5 @@
 /**
- * Recherche et tri des listes des référentiels (SPECS.md §8).
+ * Recherche et tri des listes des référentiels (docs/SPECS.md §8).
  *
  * La recherche ignore la casse et les accents ; chaque mot saisi doit
  * apparaître dans l'un des champs. Le tri suit l'ordre alphabétique français,

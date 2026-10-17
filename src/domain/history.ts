@@ -1,5 +1,5 @@
 /**
- * Pile d'annulation / rétablissement illimitée de la session (SPECS.md §5.3).
+ * Pile d'annulation / rétablissement illimitée de la session (docs/SPECS.md §5.3).
  *
  * Structure immuable : chaque opération renvoie un nouvel historique et le
  * nouvel état du planning. Exécuter une commande vide la pile de rétablissement.

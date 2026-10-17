@@ -1,5 +1,5 @@
 /**
- * Données affichées par l'écran Planning en mode « Semaine type » (SPECS.md
+ * Données affichées par l'écran Planning en mode « Semaine type » (docs/SPECS.md
  * §4.1, §4.3, §5.1, §7) : cours en vigueur, colonnes, totaux d'heures,
  * filtres et avertissements. Fonctions pures.
  */

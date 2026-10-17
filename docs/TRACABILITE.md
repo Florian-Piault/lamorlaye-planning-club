@@ -1,6 +1,6 @@
 # Traçabilité spécifications → lots → tests
 
-> Référence : `SPECS.md` v1.2 (14/10/2026), `LOTS-V1.md`. État à la version 1.0.0 (lot L8). Pour la v1.1 (spec UX, lots L9 à L16), voir [`TRACABILITE-V1.1.md`](TRACABILITE-V1.1.md).
+> Référence : `docs/SPECS.md` v1.2 (14/10/2026), `.plan/v1/lots.md`. État à la version 1.0.0 (lot L8). Pour la v1.1 (spec UX, lots L9 à L16), voir [`TRACABILITE-V1.1.md`](TRACABILITE-V1.1.md).
 >
 > Chaque section et sous-section des spécifications est rattachée au(x) lot(s) qui l'implémentent et aux tests qui la vérifient. Quand une exigence ne peut pas être vérifiée automatiquement, la justification et la vérification de remplacement (recette manuelle `docs/RECETTE.md`, relecture de configuration) sont indiquées.
 
@@ -149,7 +149,7 @@
 
 ## Exigences transverses du lot L8
 
-| Exigence (LOTS-V1 L8) | Vérification |
+| Exigence (lots V1, L8) | Vérification |
 |---|---|
 | Tests de charge sur la volumétrie cible | V: `src/domain/volumetry.perf.test.ts`, `src/db/repositories/volumetry.perf.test.ts` ; E: `charge.perf.spec.ts` |
 | Recette manuelle sur les trois moteurs web | `docs/RECETTE.md` (à dérouler avant publication de la release) |
@@ -186,7 +186,7 @@ Lenteurs corrigées en L8 : la liste des élèves redessinait ses 500 lignes à 
 
 ## Sections non couvertes
 
-Aucune section de `SPECS.md` n'est sans implémentation. Restent hors de portée des tests automatiques, et couvertes par la recette manuelle (`docs/RECETTE.md`) :
+Aucune section de `docs/SPECS.md` n'est sans implémentation. Restent hors de portée des tests automatiques, et couvertes par la recette manuelle (`docs/RECETTE.md`) :
 
 - l'installation des binaires et les alertes Gatekeeper / SmartScreen (§11.1, §12.2) ;
 - le rendu et les gestes dans WebView2 et WebKitGTK réels (§12.2) — les tests Playwright utilisent Chromium et WebKit, moteurs de référence de ces webviews ;

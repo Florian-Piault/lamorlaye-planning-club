@@ -1,7 +1,7 @@
 # Kairos
 
-- Spec fonctionnelle : `SPECS.md` (glossaire des libellés au §2). Lots et critères de fin : `LOTS-V*.md`, spec UX détaillée dans `.plan/<chantier>/`.
-- Relecture d'un diff : appliquer `CODING_STANDARDS.md`.
+- Spec fonctionnelle : `docs/SPECS.md` (glossaire des libellés au §2). Chaque chantier vit dans `.plan/<slug>/` : spec UX (`spec.md`), lots et critères de fin (`lots.md`), à créer là aussi.
+- Relecture d'un diff : appliquer `docs/CODING_STANDARDS.md`.
 - Lot terminé : `pnpm check` au vert.
 - Composants communs (toast, zone de messages, bulle d'aide, fenêtre avec garde de saisie, touches) : `src/components/feedback/`, `src/components/ui/`, `src/lib/keys.ts`.
 - Tests e2e : les aides sont dans `e2e/support/` et les données se posent par `src/test/e2e.ts` (`seedPlanning`, `seedVolume`). Pour plusieurs copies de travail en parallèle, chacune prend son `E2E_PORT`.

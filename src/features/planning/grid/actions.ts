@@ -1,6 +1,6 @@
 /**
  * Traduction des gestes et du panneau de l'écran Planning en commandes du
- * moteur (SPECS.md §5.2–5.5). La portée dépend du mode :
+ * moteur (docs/SPECS.md §5.2–5.5). La portée dépend du mode :
  * - « Semaine type » : la modification s'applique au cours, pour toute la saison ;
  * - « Semaine du JJ/MM » : elle crée ou modifie une **exception** de la séance
  *   (modification, remplacement, annulation) ou un cours ponctuel ; la semaine

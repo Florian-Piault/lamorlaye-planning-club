@@ -1,4 +1,4 @@
-//! Lecture du fichier choisi pour l'import d'élèves (SPECS.md §9.1).
+//! Lecture du fichier choisi pour l'import d'élèves (docs/SPECS.md §9.1).
 //!
 //! Plutôt que d'accorder au front un accès général au système de fichiers
 //! (`tauri-plugin-fs`), le dialogue « Ouvrir » est affiché côté Rust et le

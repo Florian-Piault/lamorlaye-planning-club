@@ -1,4 +1,4 @@
--- Saisons archivées en lecture seule (SPECS.md §3.1, §8.1) : garde-fou central, au niveau de la base.
+-- Saisons archivées en lecture seule (docs/SPECS.md §3.1, §8.1) : garde-fou central, au niveau de la base.
 -- Toute écriture (insertion, modification, suppression) touchant une saison archivée est refusée,
 -- quel que soit l'écran ou la commande qui la demande. Le message est reconnu par l'application
 -- (src/db/readOnly.ts) et traduit en SeasonReadOnlyError.

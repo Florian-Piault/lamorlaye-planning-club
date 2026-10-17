@@ -1,5 +1,5 @@
 /**
- * Initiales des moniteurs (SPECS.md §3.3, §6) : calculées à partir du prénom
+ * Initiales des moniteurs (docs/SPECS.md §3.3, §6) : calculées à partir du prénom
  * et du nom, modifiables ensuite. Elles sont toujours affichées sur les cours
  * (daltoniens, impression en noir et blanc), d'où l'intérêt qu'elles soient
  * uniques dans la saison.

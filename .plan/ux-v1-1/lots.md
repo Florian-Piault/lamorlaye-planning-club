@@ -1,13 +1,13 @@
 # Découpage de la v1.1 en lots
 
-> Référence : [spec UX v1.1](.plan/ux-v1-1/spec.md) et `SPECS.md` amendé — 16/10/2026
+> Référence : [spec UX v1.1](spec.md) et `docs/SPECS.md` amendé — 16/10/2026
 
 ## Principes
 
-- Mêmes principes que [`LOTS-V1.md`](LOTS-V1.md) : chaque lot laisse une application utilisable, règles du domaine testées (Vitest) avant l'interface qui les utilise.
+- Mêmes principes que [lots de la V1](../v1/lots.md) : chaque lot laisse une application utilisable, règles du domaine testées (Vitest) avant l'interface qui les utilise.
 - La CI automatique est suspendue : un lot est terminé quand `pnpm lint`, `pnpm typecheck`, `pnpm test` et `pnpm test:e2e` passent en local.
 - Deux points de test seulement : parcours Playwright pour ce qui se voit, fonctions pures du domaine pour les règles. Pas de tests de composants isolés. Les tests qui figent l'ancien comportement sont mis à jour, pas contournés.
-- Chaque lot amende la section de `SPECS.md` qu'il touche.
+- Chaque lot amende la section de `docs/SPECS.md` qu'il touche.
 - Chaque chantier est jugé avec les deux profils : rien de ce qui aide la débutante ne ralentit l'experte.
 - Taille relative : **S** (quelques jours), **M** (environ 1 semaine), **L** (environ 2 semaines).
 
@@ -56,14 +56,14 @@ Après L9, trois branches indépendantes : L10 → L14 → L15, L11, L12 → L13
 
 ## L10 — Vocabulaire et bulles d'aide (M)
 
-**Objectif** : l'application parle la langue du club. Spec : « Vocabulaire » ; détail dans [Vocabulaire et bulles d'aide](.plan/ux-v1-1/issues/09-vocabulaire-et-bulles.md) et l'[inventaire](.plan/ux-v1-1/issues/04-inventaire-jargon.md).
+**Objectif** : l'application parle la langue du club. Spec : « Vocabulaire » ; détail dans [Vocabulaire et bulles d'aide](issues/09-vocabulaire-et-bulles.md) et l'[inventaire](issues/04-inventaire-jargon.md).
 
 - « Planning habituel » / « Une semaine précise » (nommée par sa date), phrase de portée toujours visible dans la barre de mode.
 - Plus d'« exception » ni d'« occurrence » à l'écran ; pastille « N cours changent plus tard dans la saison ».
 - « Le club », « En cours / Terminée / Affichée », « Consultation seulement (saison terminée) », « horaire de disponibilité », et les libellés adoptés de l'inventaire.
 - Tooltip commun sur tout bouton icône, à la place des `title` natifs ; libellé visible pour « Données personnelles » et « Retirer ».
 - Section repliée « Détails techniques » sur Réglages, sauvegarde, RGPD et Import/Export ; « Exporter vers Excel » en bouton principal.
-- `SPECS.md` §2 : colonne « Libellé affiché » et termes manquants.
+- `docs/SPECS.md` §2 : colonne « Libellé affiché » et termes manquants.
 
 **Critères d'acceptation**
 - Aucun des termes retirés n'apparaît dans l'interface (recherche dans le texte rendu des écrans principaux).
@@ -71,7 +71,7 @@ Après L9, trois branches indépendantes : L10 → L14 → L15, L11, L12 → L13
 
 ## L11 — Disponibilités, moniteurs et fermetures (S)
 
-**Objectif** : corriger les bugs aux règles arbitrées. Spec : « Corrections de bugs » ; règles dans [Arbitrages métier des bugs](.plan/ux-v1-1/issues/13-arbitrages-bugs-metier.md). `SPECS.md` §3.3, §3.8, §5.1 déjà amendés.
+**Objectif** : corriger les bugs aux règles arbitrées. Spec : « Corrections de bugs » ; règles dans [Arbitrages métier des bugs](issues/13-arbitrages-bugs-metier.md). `docs/SPECS.md` §3.3, §3.8, §5.1 déjà amendés.
 
 - **B6** : fin d'une plage glissée à la limite de case la plus proche du pointeur.
 - **Frise** : seuil de glisser ; un clic simple pré-remplit le formulaire (case vide : heure + 1 h, « Ajouter » ; case disponible : plage entière, « Ajouter » et « Retirer »).
@@ -86,14 +86,14 @@ Après L9, trois branches indépendantes : L10 → L14 → L15, L11, L12 → L13
 
 ## L12 — Doublons et alerte d'âge (M)
 
-**Objectif** : signaler tôt, sans jamais bloquer. Spec : « Doublons et âge » ; détail dans [Doublons et alerte d'âge](.plan/ux-v1-1/issues/07-doublons-et-alerte-age.md).
+**Objectif** : signaler tôt, sans jamais bloquer. Spec : « Doublons et âge » ; détail dans [Doublons et alerte d'âge](issues/07-doublons-et-alerte-age.md).
 
 - Domaine : détection de doublon d'élève (nom + prénom sans casse ni accents, dates comparées si les deux sont connues, toutes saisons, fiche éditée exclue), initiales prises, nom de court pris, âge et tranche au début de saison.
 - Formulaire élève : « Ouvrir sa fiche » (saison en cours, sous la garde de modale) ou « Reprendre ses coordonnées » (saison passée) ; tranches et « hors tranche » dans la liste à cocher ; avertissement au cochage et à la saisie de la date.
 - Homonymes : date de naissance et groupes affichés dès qu'un homonyme existe, toujours dans la confirmation de suppression.
 - Moniteur (**B2**) : initiales prises, proposition appliquée en un clic. Court (**B5**) : nom déjà pris.
 - Aperçu d'import : lignes hors tranche marquées et comptées.
-- Messages dans la zone réservée de L9. `SPECS.md` §7 et §8 amendés.
+- Messages dans la zone réservée de L9. `docs/SPECS.md` §7 et §8 amendés.
 
 **Critères d'acceptation**
 - Vitest : doublons avec et sans dates, dans la saison et dans une saison passée ; tranche d'âge aux bornes.
@@ -101,9 +101,9 @@ Après L9, trois branches indépendantes : L10 → L14 → L15, L11, L12 → L13
 
 ## L13 — Saisie des élèves en volume (M)
 
-**Objectif** : saisir 60 élèves sans corvée. Spec : « Saisie en volume » ; détail dans [Saisie des élèves en volume](.plan/ux-v1-1/issues/11-saisie-eleves-volume.md).
+**Objectif** : saisir 60 élèves sans corvée. Spec : « Saisie en volume » ; détail dans [Saisie des élèves en volume](issues/11-saisie-eleves-volume.md).
 
-- **Migration** : téléphone de l'élève facultatif ; règle « élève ou responsable » dans la fiche et l'import ; affichage « (resp.) » ; exports à deux colonnes. `SPECS.md` §3.5 amendé.
+- **Migration** : téléphone de l'élève facultatif ; règle « élève ou responsable » dans la fiche et l'import ; affichage « (resp.) » ; exports à deux colonnes. `docs/SPECS.md` §3.5 amendé.
 - Formulaire élève : « Enregistrer et ajouter un autre » (groupes et niveau gardés), Prénom avant Nom (aussi moniteur), niveau proposé depuis le premier groupe coché.
 - Import : « Coller depuis Excel » à l'étape 1, détection de l'absence d'en-têtes (« Colonne A, B… »), même correspondance, aperçu et annulation ; niveau proposé depuis le groupe si la colonne est vide.
 - Liens « Importer ou coller une liste » depuis l'onglet Élèves et la fiche groupe (groupe pré-affecté).
@@ -118,7 +118,7 @@ Après L9, trois branches indépendantes : L10 → L14 → L15, L11, L12 → L13
 
 ## L14 — Lisibilité de la grille (L)
 
-**Objectif** : une grille lisible à 960 px sur un club dense. Spec : « Grille » ; détail dans [Lisibilité de la grille](.plan/ux-v1-1/issues/12-lisibilite-grille.md), prototype (variante G) dans `.plan/ux-v1-1/prototypes/lisibilite-grille/`.
+**Objectif** : une grille lisible à 960 px sur un club dense. Spec : « Grille » ; détail dans [Lisibilité de la grille](issues/12-lisibilite-grille.md), prototype (variante G) dans `.plan/ux-v1-1/prototypes/lisibilite-grille/`.
 
 - Vue « Semaine / Jour », barre des jours (compte de cours, flèches) avec la navigation des semaines en semaine précise ; clic sur l'en-tête d'un jour.
 - Panneau latéral repliable sans rail, rouvert à l'ouverture ou la création d'un cours.
@@ -127,7 +127,7 @@ Après L9, trois branches indépendantes : L10 → L14 → L15, L11, L12 → L13
 - Bandeau de mode sur une ligne fine (phrase de portée de L10 gardée).
 - En-têtes de courts : vrai nom abrégé, icône soleil / maison, légende ; fiche du cours au survol.
 - Régler l'en-tête qui tient encore sur deux lignes à 960 px.
-- `SPECS.md` §4.1 amendé.
+- `docs/SPECS.md` §4.1 amendé.
 
 **Critères d'acceptation**
 - Playwright à 960 px sur le jeu de données de charge : en vue Jour, les noms des groupes ne sont pas tronqués sur une carte d'une heure ; l'en-tête tient sur une ligne.

@@ -1,5 +1,5 @@
 /**
- * Validation des fiches des référentiels (SPECS.md §3, §8).
+ * Validation des fiches des référentiels (docs/SPECS.md §3, §8).
  *
  * Les schémas Zod prennent les valeurs brutes des formulaires (chaînes,
  * booléens) et produisent les valeurs à enregistrer : textes nettoyés, champs

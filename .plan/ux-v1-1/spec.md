@@ -204,7 +204,7 @@ Causes et points de correction : [Causes des bugs mécaniques](issues/02-causes-
 - **B11** : plus de « Modifications enregistrées. » à la création, rechargement attendu, toast « Saison « X » créée » (et toast d'étape du guidage).
 - **B3, B4, B7, B10, B12** : couverts par les composants communs et le mode d'emploi ci-dessus.
 
-### Amendements de `SPECS.md`
+### Amendements de `docs/SPECS.md`
 
 - Déjà faits (ticket des arbitrages) : §3.3 (frise, clic, annulation), §3.8 (ponts et jours fériés), §5.1 (trois groupes de moniteurs).
 - À faire avec les lots concernés : §2 (colonne « Libellé affiché » et termes manquants), §3.5 (téléphone élève ou responsable), §4.1 (vue Jour, vrais noms de courts), §7 (doublons d'élève, d'initiales et de court), §8 (alerte d'âge dans le formulaire et l'import, reprise des coordonnées).
@@ -231,7 +231,7 @@ Causes et points de correction : [Causes des bugs mécaniques](issues/02-causes-
 - B13 (aperçu PDF noir) : ne se reproduit pas dans l'application de bureau ([Vérifier l'aperçu PDF dans l'application de bureau](issues/05-verifier-apercu-pdf.md)).
 - Lexique affiché dans l'application ; historique Annuler / Rétablir complet dans l'éditeur des disponibilités ; hachures sur les cours déjà affectés.
 - Variantes de prototypes non retenues (carte et bandeau de guidage masquables, aide flottante, grille tenant en largeur, loupe, plein écran…).
-- Le découpage en lots (`LOTS-V1.1.md`) : fait à partir de cette spec, pas dedans.
+- Le découpage en lots (`.plan/ux-v1-1/lots.md`) : fait à partir de cette spec, pas dedans.
 
 ## Further Notes
 

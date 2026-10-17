@@ -8,7 +8,7 @@ Blocked by: 04
 
 Quels termes remplace-t-on, lesquels garde-t-on en les expliquant, et quelle politique pour les bulles d'aide et les écrans techniques ?
 
-À partir de l'inventaire : glossaire des remplacements (en priorité « semaine type » / « semaine datée » et « exceptions », avec une phrase simple qui lève la peur de modifier une semaine au lieu de l'année), règle pour les icônes (bulle d'aide systématique ? libellé visible ?), et sort des informations techniques de Réglages et d'Import/Export (masquées, repliées dans une zone « avancé », reformulées). Le glossaire de `SPECS.md` §2 est à garder cohérent.
+À partir de l'inventaire : glossaire des remplacements (en priorité « semaine type » / « semaine datée » et « exceptions », avec une phrase simple qui lève la peur de modifier une semaine au lieu de l'année), règle pour les icônes (bulle d'aide systématique ? libellé visible ?), et sort des informations techniques de Réglages et d'Import/Export (masquées, repliées dans une zone « avancé », reformulées). Le glossaire de `docs/SPECS.md` §2 est à garder cohérent.
 
 ## Answer
 
@@ -48,4 +48,4 @@ Les pistes de l'inventaire sont adoptées par défaut (« Élèves du groupe »,
 
 ### Glossaire
 
-`SPECS.md` §2 garde les termes métier (utilisés par le code et les lots V1) et gagne une colonne **« Libellé affiché »**, plus les termes manquants (semaine datée, cours ponctuel, plage, composition, référentiels, amplitude). Pas de lexique dans l'application.
+`docs/SPECS.md` §2 garde les termes métier (utilisés par le code et les lots V1) et gagne une colonne **« Libellé affiché »**, plus les termes manquants (semaine datée, cours ponctuel, plage, composition, référentiels, amplitude). Pas de lexique dans l'application.

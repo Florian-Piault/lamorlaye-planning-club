@@ -39,8 +39,8 @@ jobs:
             echo "::error::Le tag ${GITHUB_REF_NAME} ne correspond pas à la version ${version} de package.json."
             exit 1
           fi
-          if ! grep -q "## \[${version}\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md ne contient pas de section [${version}]."
+          if ! grep -q "## \[${version}\]" docs/CHANGELOG.md; then
+            echo "::error::docs/CHANGELOG.md ne contient pas de section [${version}]."
             exit 1
           fi
 
@@ -70,7 +70,7 @@ jobs:
             const tag = context.ref.replace("refs/tags/", "");
             const version = tag.replace(/^v/, "");
             // Notes de version : section du CHANGELOG correspondant au tag.
-            const changelog = fs.readFileSync("CHANGELOG.md", "utf8");
+            const changelog = fs.readFileSync("docs/CHANGELOG.md", "utf8");
             const start = changelog.indexOf(`## [${version}]`);
             const next = changelog.indexOf("\n## [", start + 1);
             const notes = changelog.slice(start, next < 0 ? undefined : next).trim();

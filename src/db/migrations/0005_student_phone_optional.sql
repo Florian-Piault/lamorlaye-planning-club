@@ -1,4 +1,4 @@
--- Téléphone de l'élève facultatif (SPECS.md §3.5, v1.1) : règle « élève ou responsable légal »,
+-- Téléphone de l'élève facultatif (docs/SPECS.md §3.5, v1.1) : règle « élève ou responsable légal »,
 -- vérifiée par l'application (fiche et import). SQLite ne sait pas retirer un NOT NULL : la table
 -- `students` est reconstruite, sans aucune perte.
 --

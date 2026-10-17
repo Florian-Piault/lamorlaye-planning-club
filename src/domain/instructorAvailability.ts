@@ -1,5 +1,5 @@
 /**
- * Disponibilité d'un moniteur sur un créneau (SPECS.md §3.3, §4.4, §5.1, §7) :
+ * Disponibilité d'un moniteur sur un créneau (docs/SPECS.md §3.3, §4.4, §5.1, §7) :
  * combinaison des plages hebdomadaires récurrentes (`availability.ts`) et des
  * indisponibilités datées (`unavailability.ts`).
  *

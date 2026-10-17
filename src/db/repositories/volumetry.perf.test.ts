@@ -1,6 +1,6 @@
 /**
  * Tests de charge de l'accès aux données (sql.js) sur la volumétrie cible
- * (SPECS.md §11.5) : chargement de l'écran Planning et des référentiels,
+ * (docs/SPECS.md §11.5) : chargement de l'écran Planning et des référentiels,
  * écriture d'une commande, duplication de saison.
  *
  * sql.js (WebAssembly) est plus lent que SQLite natif via `tauri-plugin-sql` :

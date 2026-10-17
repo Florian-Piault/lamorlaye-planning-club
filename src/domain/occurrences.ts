@@ -1,5 +1,5 @@
 /**
- * Occurrences datées des cours (SPECS.md §3.6–3.8, §4.2).
+ * Occurrences datées des cours (docs/SPECS.md §3.6–3.8, §4.2).
  *
  * Une occurrence est l'instance d'un cours de la semaine type à une date
  * précise, ou un cours ponctuel. Elle est calculée à partir :

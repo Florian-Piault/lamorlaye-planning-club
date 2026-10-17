@@ -1,5 +1,5 @@
 /**
- * Tests de charge du moteur métier sur la volumétrie cible (SPECS.md §11.5) :
+ * Tests de charge du moteur métier sur la volumétrie cible (docs/SPECS.md §11.5) :
  * 10 courts, 20 moniteurs, 60 groupes, 500 élèves, 150 cours, plus des
  * exceptions et les vacances d'une saison complète.
  *

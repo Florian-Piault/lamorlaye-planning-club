@@ -13,11 +13,11 @@ Quand et comment l'application signale-t-elle un doublon ou une incohérence d'�
 - Court (B5) : nom déjà pris.
 - Tranche d'âge : alerte dans le formulaire élève dès qu'un groupe hors tranche est coché, au lieu de la seule fiche groupe.
 
-Cohérence attendue avec la philosophie actuelle des conflits (signalés tôt, jamais bloquants, en phrases claires ; `SPECS.md` §7). Amende `SPECS.md` si une règle métier change.
+Cohérence attendue avec la philosophie actuelle des conflits (signalés tôt, jamais bloquants, en phrases claires ; `docs/SPECS.md` §7). Amende `docs/SPECS.md` si une règle métier change.
 
 ## Answer
 
-Grilling du 16/10/2026. Faits d'appui : [État de la saisie des élèves et de l'import](03-saisie-eleves-et-import.md) ; élèves rattachés à une saison (`students.seasonId`, `src/db/schema.ts:229-253`) ; âge calculé au début de saison (`groupAlerts(group, members, season.startDate)`, `GroupPage.tsx:170`). Tous les messages ci-dessous vont dans la zone réservée de [Principe anti-décalage et règles des modales](06-stabilite-et-modales.md). Aucun contrôle n'est bloquant (`SPECS.md` §7 maintenu).
+Grilling du 16/10/2026. Faits d'appui : [État de la saisie des élèves et de l'import](03-saisie-eleves-et-import.md) ; élèves rattachés à une saison (`students.seasonId`, `src/db/schema.ts:229-253`) ; âge calculé au début de saison (`groupAlerts(group, members, season.startDate)`, `GroupPage.tsx:170`). Tous les messages ci-dessous vont dans la zone réservée de [Principe anti-décalage et règles des modales](06-stabilite-et-modales.md). Aucun contrôle n'est bloquant (`docs/SPECS.md` §7 maintenu).
 
 ### Élève (B1)
 
@@ -41,7 +41,7 @@ Nom déjà pris (sans casse ni accents) : « Un court « Court 2 » existe déj�
 - Groupe coché hors tranche, ou date saisie qui met hors tranche un groupe déjà coché : « Léa aura 11 ans, Galaxie vert est pour les 6–8 ans ».
 - **Import** (et futur collage tableur) : l'aperçu marque les lignes dont un groupe affecté est hors tranche, avec un compteur en tête ; import non bloqué. Clé de doublon de l'import inchangée (nom + prénom + naissance, saison).
 
-### Amendements de `SPECS.md`
+### Amendements de `docs/SPECS.md`
 
 - §7 : ajouter au tableau les doublons d'élève, d'initiales et de nom de court avec leurs messages types ; la règle « aucun conflit bloquant » reste entière.
 - §8 : alerte d'âge dans le formulaire élève (liste et cochage) et dans l'aperçu d'import ; reprise des coordonnées d'un élève d'une saison passée.

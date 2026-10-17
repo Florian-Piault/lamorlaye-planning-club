@@ -6,7 +6,7 @@ Toutes les évolutions notables de Kairos sont consignées ici. Le format suit [
 
 ## [1.1.0] - 2026-10-17
 
-Corrections UX issues du test d'utilisabilité à deux personas (spec `.plan/ux-v1-1/spec.md`, lots L9 à L16 de `LOTS-V1.1.md`). Le modèle métier ne change pas, à une exception près : le téléphone de l'élève devient facultatif (migration automatique, précédée d'une sauvegarde « Avant mise à jour »).
+Corrections UX issues du test d'utilisabilité à deux personas (spec `.plan/ux-v1-1/spec.md`, lots L9 à L16 de `.plan/ux-v1-1/lots.md`). Le modèle métier ne change pas, à une exception près : le téléphone de l'élève devient facultatif (migration automatique, précédée d'une sauvegarde « Avant mise à jour »).
 
 ### Ajouté
 
@@ -54,7 +54,7 @@ Corrections UX issues du test d'utilisabilité à deux personas (spec `.plan/ux-
 
 ## [1.0.0] - 2026-10-15
 
-Première version, conforme à `SPECS.md` v1.2 (lots L0 à L8 de `LOTS-V1.md`).
+Première version, conforme à `docs/SPECS.md` v1.2 (lots L0 à L8 de `.plan/v1/lots.md`).
 
 ### Planning
 

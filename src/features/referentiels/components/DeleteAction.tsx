@@ -30,7 +30,7 @@ interface DeleteActionProps {
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
- * Suppression avec confirmation (SPECS.md §8). Si l'élément est utilisé, on
+ * Suppression avec confirmation (docs/SPECS.md §8). Si l'élément est utilisé, on
  * propose de l'archiver (inactif) plutôt que de le supprimer.
  */
 export function DeleteAction({

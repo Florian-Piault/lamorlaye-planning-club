@@ -17,7 +17,7 @@ interface PlanningHelpProps {
 }
 
 /**
- * Mode d'emploi du planning (spec UX v1.1, SPECS.md §4.5) : une astuce d'une
+ * Mode d'emploi du planning (spec UX v1.1, docs/SPECS.md §4.5) : une astuce d'une
  * phrase en tête du panneau latéral, selon la situation (aucun cours placé,
  * cours sélectionné, sinon), et le texte complet sur demande, « Les bases »
  * puis « Pour aller plus vite ». Touches selon le système ; pour créer un

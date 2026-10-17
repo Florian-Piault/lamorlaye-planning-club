@@ -1,5 +1,5 @@
 /**
- * Géométrie de la grille semaine (SPECS.md §4.1, §5.1–5.2) : conversion entre
+ * Géométrie de la grille semaine (docs/SPECS.md §4.1, §5.1–5.2) : conversion entre
  * pixels et minutes, magnétisme au pas de 15 min, colonnes jour × court,
  * placement des cours et des hachures.
  *

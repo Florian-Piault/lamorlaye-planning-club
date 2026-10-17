@@ -1,4 +1,4 @@
-//! Chiffrement des sauvegardes exportées par mot de passe (SPECS.md §11.6).
+//! Chiffrement des sauvegardes exportées par mot de passe (docs/SPECS.md §11.6).
 //!
 //! Format de fichier (version 1), toutes les valeurs entières en petit-boutiste :
 //!

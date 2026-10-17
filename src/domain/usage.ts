@@ -1,6 +1,6 @@
 /**
  * Utilisation d'un élément des référentiels, pour décider entre suppression
- * et archivage (SPECS.md §8).
+ * et archivage (docs/SPECS.md §8).
  */
 
 export interface UsageCount {

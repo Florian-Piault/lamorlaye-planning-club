@@ -1,6 +1,6 @@
 /**
  * Documents PDF (@react-pdf/renderer) : planning de la semaine, planning par
- * moniteur, feuilles d'appel (SPECS.md §9.2).
+ * moniteur, feuilles d'appel (docs/SPECS.md §9.2).
  *
  * Ce module n'est chargé qu'à la demande (`render.ts`, import dynamique) pour
  * ne pas alourdir l'application. La police Inter est embarquée dans le module

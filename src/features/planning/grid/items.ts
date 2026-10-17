@@ -1,5 +1,5 @@
 /**
- * Modes de l'écran Planning et éléments affichés sur la grille (SPECS.md
+ * Modes de l'écran Planning et éléments affichés sur la grille (docs/SPECS.md
  * §4.2, §5.4, §5.5) : en semaine type (« Planning habituel » à l'écran), les
  * cours en vigueur ; en semaine datée (« Une semaine précise », nommée
  * « Semaine du 2 novembre »), les séances de la semaine (occurrences avec

@@ -1,5 +1,5 @@
 /**
- * État du planning de la saison ouverte (SPECS.md §5.3, §11.3, §12.1).
+ * État du planning de la saison ouverte (docs/SPECS.md §5.3, §11.3, §12.1).
  *
  * Chaque modification est une commande inversible du moteur
  * (`domain/commands.ts`) : elle est appliquée immédiatement en mémoire (retour

@@ -1,5 +1,5 @@
 /**
- * Import d'élèves (SPECS.md §9.1) : correspondance colonnes ↔ champs,
+ * Import d'élèves (docs/SPECS.md §9.1) : correspondance colonnes ↔ champs,
  * validation ligne par ligne, détection des doublons et construction de la
  * commande inversible qui réalise l'import.
  *

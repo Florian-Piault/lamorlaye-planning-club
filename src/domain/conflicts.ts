@@ -1,5 +1,5 @@
 /**
- * Conflits et avertissements (SPECS.md §7). Aucun conflit n'est bloquant :
+ * Conflits et avertissements (docs/SPECS.md §7). Aucun conflit n'est bloquant :
  * chacun produit un message affiché sur le cours et dans le panneau
  * « Avertissements ».
  *

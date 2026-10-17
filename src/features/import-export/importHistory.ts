@@ -1,5 +1,5 @@
 /**
- * Historique des imports d'élèves de la session (SPECS.md §9.1, §12.1).
+ * Historique des imports d'élèves de la session (docs/SPECS.md §9.1, §12.1).
  *
  * Chaque import est une seule commande inversible (`domain/studentImport.ts`),
  * écrite en base dans une transaction. La pile du planning

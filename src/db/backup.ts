@@ -3,7 +3,7 @@ import type { BackupInfo } from "@/domain/backup";
 import { ENCRYPTED_EXTENSION, encryptedExportFileName, exportFileName } from "@/domain/backup";
 
 /**
- * Sauvegardes de la base (SPECS.md §11.3), disponibles uniquement dans
+ * Sauvegardes de la base (docs/SPECS.md §11.3), disponibles uniquement dans
  * l'application de bureau : les copies, le chiffrement et le déchiffrement
  * sont faits côté Rust (`src-tauri/src/backup.rs`, `src-tauri/src/crypto.rs`).
  */

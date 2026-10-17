@@ -4,7 +4,7 @@ import { createSeason, goToPlanning } from "./support/planning";
 
 /**
  * Tests de charge de l'interface (lot L8) sur la volumétrie cible
- * (SPECS.md §11.5) : 10 courts, 20 moniteurs, 60 groupes, 500 élèves,
+ * (docs/SPECS.md §11.5) : 10 courts, 20 moniteurs, 60 groupes, 500 élèves,
  * 150 cours dans la semaine type, avec exceptions et vacances.
  *
  * Les durées sont mesurées depuis le processus de test (aller-retour

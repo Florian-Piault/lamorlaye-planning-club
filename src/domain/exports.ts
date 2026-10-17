@@ -1,5 +1,5 @@
 /**
- * Exports CSV et Excel (SPECS.md §9.2, §10) : cours, groupes, élèves et heures
+ * Exports CSV et Excel (docs/SPECS.md §9.2, §10) : cours, groupes, élèves et heures
  * des moniteurs. Les tableaux sont préparés ici (fonctions pures), puis
  * sérialisés en CSV (séparateur « ; », UTF-8 avec BOM, comme l'attend Excel
  * en français) ou en classeur Excel (SheetJS, chargé à la demande).

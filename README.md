@@ -7,7 +7,7 @@ Application de bureau pour construire et tenir à jour le **planning des cours c
 - Grille **jours × courts** avec glisser-déposer (souris et clavier), avertissements de conflits non bloquants, semaine type et semaines datées, stages pendant les vacances.
 - Import d'élèves (CSV, Excel), PDF (semaine, planning par moniteur, feuilles d'appel), exports CSV / Excel, récapitulatif des heures des moniteurs.
 
-Spécifications : [`SPECS.md`](SPECS.md) · découpage en lots : [`LOTS-V1.md`](LOTS-V1.md), [`LOTS-V1.1.md`](LOTS-V1.1.md) · nouveautés : [`CHANGELOG.md`](CHANGELOG.md).
+Spécifications : [`docs/SPECS.md`](docs/SPECS.md) · découpage en lots : [`.plan/v1/lots.md`](.plan/v1/lots.md), [`.plan/ux-v1-1/lots.md`](.plan/ux-v1-1/lots.md) · nouveautés : [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ## Installation
 
@@ -68,7 +68,7 @@ e2e/             scénarios Playwright
 docs/            installation, démarrage rapide, recette manuelle, traçabilité
 ```
 
-Les choix techniques sont décrits au §12 de `SPECS.md`. La correspondance entre chaque section des spécifications, les lots et les tests est tenue dans [`docs/TRACABILITE.md`](docs/TRACABILITE.md).
+Les choix techniques sont décrits au §12 de `docs/SPECS.md`. La correspondance entre chaque section des spécifications, les lots et les tests est tenue dans [`docs/TRACABILITE.md`](docs/TRACABILITE.md).
 
 ### Modifier le schéma de la base
 
@@ -77,6 +77,6 @@ Les choix techniques sont décrits au §12 de `SPECS.md`. La correspondance entr
 
 ### Publier une version
 
-1. Mettre à jour la version dans `package.json`, `src-tauri/Cargo.toml` et `src-tauri/tauri.conf.json` (un test Vitest vérifie qu'elles sont identiques), ainsi que `CHANGELOG.md`, et le calendrier scolaire embarqué (`src/data/school-calendar.json`) si nécessaire.
+1. Mettre à jour la version dans `package.json`, `src-tauri/Cargo.toml` et `src-tauri/tauri.conf.json` (un test Vitest vérifie qu'elles sont identiques), ainsi que `docs/CHANGELOG.md`, et le calendrier scolaire embarqué (`src/data/school-calendar.json`) si nécessaire.
 2. Dérouler la [recette manuelle](docs/RECETTE.md) sur les installateurs produits par la CI.
 3. Pousser un tag `vX.Y.Z` : le workflow `release.yml` vérifie la version, construit les installateurs des trois OS et les joint à une **release GitHub en brouillon**, à relire puis publier à la main.

@@ -1,5 +1,5 @@
 /**
- * Nouvelle saison par duplication (SPECS.md §8.1).
+ * Nouvelle saison par duplication (docs/SPECS.md §8.1).
  *
  * Sont copiés : courts, moniteurs (avec leurs disponibilités récurrentes),
  * groupes (avec leur composition), élèves et semaine type. Ne sont **pas**

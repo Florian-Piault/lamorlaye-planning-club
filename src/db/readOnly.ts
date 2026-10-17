@@ -4,7 +4,7 @@ import type { Db } from "./client";
 import { closures, groups, lessonExceptions, lessons, seasons, students } from "./schema";
 
 /**
- * Saisons archivées en lecture seule (SPECS.md §3.1, §8.1).
+ * Saisons archivées en lecture seule (docs/SPECS.md §3.1, §8.1).
  *
  * Le garde-fou est à trois niveaux :
  * 1. **la base** : des déclencheurs SQLite (migration

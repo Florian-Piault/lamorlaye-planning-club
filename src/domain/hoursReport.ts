@@ -1,5 +1,5 @@
 /**
- * Écran « Récapitulatif des heures » (SPECS.md §10) : heures par moniteur sur
+ * Écran « Récapitulatif des heures » (docs/SPECS.md §10) : heures par moniteur sur
  * une période choisie, avec le détail des séances. Le calcul lui-même est
  * celui du moteur (`hours.ts`) : séances suspendues par une fermeture et
  * séances annulées exclues, remplaçant crédité, cours ponctuels inclus.

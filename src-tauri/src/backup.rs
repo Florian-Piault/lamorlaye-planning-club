@@ -1,4 +1,4 @@
-//! Sauvegardes de la base (SPECS.md §11.3, §12.2).
+//! Sauvegardes de la base (docs/SPECS.md §11.3, §12.2).
 //!
 //! - copie automatique horodatée à chaque fermeture de l'application, par
 //!   `VACUUM INTO` (copie cohérente même si la base est ouverte), avec
