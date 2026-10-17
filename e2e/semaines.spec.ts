@@ -74,16 +74,16 @@ test.describe("semaines datées", () => {
     await page.getByRole("button", { name: "Semaine précédente" }).click();
     await expect(modeBar(page)).toContainText("Semaine du 2 novembre");
 
-    await page.getByLabel("Aller à la date").fill("2026-12-16");
+    await page.getByLabel("Aller à la date", { exact: true }).fill("2026-12-16");
     await expect(modeBar(page)).toContainText("Semaine du 14 décembre");
     await page.getByRole("button", { name: "Aujourd'hui" }).click();
     await expect(modeBar(page)).toContainText("Semaine du 2 novembre");
 
     // Début de saison : pas de semaine précédente.
-    await page.getByLabel("Aller à la date").fill("2026-09-01");
+    await page.getByLabel("Aller à la date", { exact: true }).fill("2026-09-01");
     await expect(modeBar(page)).toContainText("Semaine du 31 août");
     await expect(page.getByRole("button", { name: "Semaine précédente" })).toBeDisabled();
-    await page.getByLabel("Aller à la date").blur();
+    await page.getByLabel("Aller à la date", { exact: true }).blur();
     await page.keyboard.press("ArrowLeft");
     await expect(modeBar(page)).toContainText("Semaine du 31 août");
 
@@ -146,8 +146,10 @@ test.describe("semaines datées", () => {
     const ados = lesson(page, "Ados perfectionnement");
     await ados.click();
     const form = panel(page, "Modifier pour cette semaine");
-    await expect(form.getByLabel("Jour").locator("option:checked")).toHaveText("Mercredi 04/11");
-    await form.getByLabel("Début").selectOption(String(14 * 60));
+    await expect(form.getByLabel("Jour", { exact: false }).locator("option:checked")).toHaveText(
+      "Mercredi 04/11",
+    );
+    await form.getByLabel("Début", { exact: true }).selectOption(String(14 * 60));
     await form.getByRole("button", { name: "Appliquer à partir de cette semaine" }).click();
     await expect(page.getByTestId("toast")).toContainText(
       "Modification à partir de la semaine du 02/11/2026",
@@ -174,7 +176,7 @@ test.describe("semaines datées", () => {
     await page.keyboard.press("ArrowLeft");
     await expect(modeBar(page)).toContainText("Semaine du 26 octobre");
     await expect(ados).toContainText("10h00–11h30");
-    await page.getByLabel("Aller à la date").fill("2027-03-17");
+    await page.getByLabel("Aller à la date", { exact: true }).fill("2027-03-17");
     await expect(ados).toContainText("14h00–15h30");
     // Semaine type : versions en vigueur aujourd'hui.
     await page.getByRole("button", { name: "Planning habituel" }).click();
@@ -192,10 +194,10 @@ test.describe("semaines datées", () => {
 
     // Motif « Autre » sans précision : refusé.
     const cancel = page.getByRole("form", { name: "Annuler cette séance" });
-    await cancel.getByLabel("Motif").selectOption({ label: "Autre" });
+    await cancel.getByLabel("Motif", { exact: true }).selectOption({ label: "Autre" });
     await cancel.getByRole("button", { name: "Annuler la séance" }).click();
     await expect(cancel.getByRole("alert")).toHaveText("Précisez le motif de l'annulation.");
-    await cancel.getByLabel("Motif").selectOption({ label: "Pluie" });
+    await cancel.getByLabel("Motif", { exact: true }).selectOption({ label: "Pluie" });
     await cancel.getByRole("button", { name: "Annuler la séance" }).click();
 
     await expect(galaxie).toHaveAttribute("data-cancelled", "true");
@@ -216,7 +218,9 @@ test.describe("semaines datées", () => {
     // Remplaçant : Julie (indisponible le lundi matin, signalé).
     await galaxie.click();
     const replace = page.getByRole("form", { name: "Désigner un remplaçant" });
-    await replace.getByLabel("Remplaçant").selectOption({ label: "○ Julie Martin (indisponible)" });
+    await replace
+      .getByLabel("Remplaçant", { exact: true })
+      .selectOption({ label: "○ Julie Martin (indisponible)" });
     await replace.getByRole("button", { name: "Désigner le remplaçant" }).click();
     await expect(galaxie).toHaveAttribute("data-replaced", "true");
     await expect(galaxie).toContainText("JM · 3/8");
@@ -278,8 +282,12 @@ test.describe("semaines datées", () => {
     const to = await slotPoint(page, MON, C1, "12:00");
     await dragMouse(page, { x: from.x, y: from.y + 2 }, { x: to.x, y: to.y - 2 });
     const form = panel(page, "Nouveau cours ponctuel");
-    await expect(form.getByLabel("Jour").locator("option:checked")).toHaveText("Lundi 26/10");
-    await form.getByLabel("Groupe (facultatif)").selectOption({ label: "Mini-tennis (1/6)" });
+    await expect(form.getByLabel("Jour", { exact: false }).locator("option:checked")).toHaveText(
+      "Lundi 26/10",
+    );
+    await form
+      .getByLabel("Groupe (facultatif)", { exact: true })
+      .selectOption({ label: "Mini-tennis (1/6)" });
     await form.getByLabel("Moniteur", { exact: true }).selectOption({ label: "● Karim Benali" });
     await form.getByRole("button", { name: "Créer le cours ponctuel" }).click();
 
@@ -290,7 +298,7 @@ test.describe("semaines datées", () => {
 
     await stage.click();
     const duplicate = page.getByRole("form", { name: "Dupliquer sur les jours suivants" });
-    await duplicate.getByLabel("Nombre de jours").fill("4");
+    await duplicate.getByLabel("Nombre de jours", { exact: true }).fill("4");
     await duplicate.getByRole("button", { name: "Dupliquer" }).click();
     await expect(stage).toHaveCount(5);
     await expect(page.getByTestId("toast")).toContainText("Duplication sur les 4 jours suivants");
@@ -405,7 +413,7 @@ test.describe("périodes de fermeture", () => {
     ).toContainText("hors saison");
 
     // Les dates restent modifiables avant l'ajout.
-    await dialog.getByLabel("Fin — Pont de l'Ascension").fill("2027-05-08");
+    await dialog.getByLabel("Fin — Pont de l'Ascension", { exact: true }).fill("2027-05-08");
     await dialog.getByRole("button", { name: "Ajouter 8 fermetures" }).click();
     await expect(dialog).toBeHidden();
 
@@ -430,12 +438,12 @@ test.describe("périodes de fermeture", () => {
     // Saisie manuelle, modification et suppression.
     await page.getByRole("button", { name: "Nouvelle fermeture" }).click();
     const form = page.getByRole("form", { name: "Période de fermeture" });
-    await form.getByLabel("Libellé").fill("Tournoi du club");
-    await form.getByLabel("Du").fill("2027-06-12");
+    await form.getByLabel("Libellé", { exact: true }).fill("Tournoi du club");
+    await form.getByLabel("Du", { exact: true }).fill("2027-06-12");
     await form.getByRole("button", { name: "Enregistrer" }).click();
     await expect(list).toContainText("Tournoi du club le 12/06/2027");
     await page.getByRole("button", { name: "Modifier Tournoi du club" }).click();
-    await form.getByLabel("Au").fill("2027-06-13");
+    await form.getByLabel("Au", { exact: true }).fill("2027-06-13");
     await form.getByRole("button", { name: "Enregistrer" }).click();
     await expect(list).toContainText("Tournoi du club du 12/06/2027 au 13/06/2027");
     await page.getByRole("button", { name: "Supprimer Tournoi du club" }).click();
@@ -450,7 +458,7 @@ test.describe("périodes de fermeture", () => {
       .getByRole("link", { name: "Planning" })
       .click();
     await page.getByRole("button", { name: "Une semaine précise" }).click();
-    await page.getByLabel("Aller à la date").fill("2027-02-24");
+    await page.getByLabel("Aller à la date", { exact: true }).fill("2027-02-24");
     await expect(page.getByTestId("closure-band")).toHaveCount(6);
     await expect(page.getByTestId("closure-band").first()).toHaveText("Fermé — Vacances d'hiver");
     await expect(page.getByTestId("lesson")).toHaveCount(0);

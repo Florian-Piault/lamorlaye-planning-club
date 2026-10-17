@@ -1,0 +1,6 @@
+language js
+
+`$page.waitForTimeout($delay)` where {
+  $filename <: r".*/e2e/.*",
+  register_diagnostic(span=$delay, message="Attente fixe dans un test e2e : attendre une condition (expect, waitFor) ou avancer l'horloge (page.clock).")
+}

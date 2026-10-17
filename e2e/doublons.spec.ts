@@ -45,7 +45,8 @@ async function createStudent(page: Page, fields: Record<string, string>) {
   const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
   for (const [label, value] of Object.entries(fields)) {
     if (label === "group") await dialog.getByLabel(value, { exact: false }).last().check();
-    else if (label === "Niveau") await dialog.getByLabel("Niveau").selectOption({ label: value });
+    else if (label === "Niveau")
+      await dialog.getByLabel("Niveau", { exact: true }).selectOption({ label: value });
     else await dialog.getByLabel(label, { exact: true }).fill(value);
   }
   await dialog.getByRole("button", { name: "Créer l'élève" }).click();
@@ -64,7 +65,7 @@ test.describe("doublons et alerte d'âge", () => {
 
     // Sans casse ni accents.
     await dialog.getByLabel("Nom", { exact: true }).fill("TEST");
-    await dialog.getByLabel("Prénom").fill("lea");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("lea");
     const messages = dialog.getByRole("list", { name: "Messages" });
     await expect(messages).toContainText("Un élève Test Léa (Galaxie vert) existe déjà");
     await expect(messages.getByRole("button", { name: "Ouvrir sa fiche" })).toBeVisible();
@@ -72,7 +73,7 @@ test.describe("doublons et alerte d'âge", () => {
 
     // Vrai homonyme : l'enregistrement reste possible.
     await dialog.getByLabel("Téléphone", { exact: true }).fill("0611223344");
-    await dialog.getByLabel("Date de naissance").fill("2018-02-01");
+    await dialog.getByLabel("Date de naissance", { exact: true }).fill("2018-02-01");
     await expect(messages).toContainText("Un élève Test Léa (Galaxie vert) existe déjà");
     await create.click();
     await expect(dialog).toBeHidden();
@@ -81,7 +82,7 @@ test.describe("doublons et alerte d'âge", () => {
     // Recherche de la fiche groupe : les homonymes sont désignés avec naissance et groupes.
     await tab(page, "Groupes").click();
     await page.getByRole("link", { name: "Ados perfectionnement" }).click();
-    await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("léa");
+    await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true }).fill("léa");
     const found = page.getByRole("listbox", { name: "Élèves trouvés" });
     await expect(found).toContainText("Galaxie vert");
     await expect(found).toContainText("né(e) le 01/02/2018");
@@ -90,7 +91,7 @@ test.describe("doublons et alerte d'âge", () => {
       found.getByRole("option", { name: "TEST lea (né(e) le 01/02/2018)" }),
     ).toBeVisible();
     // Sans homonyme, le nom suffit.
-    await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("zoé");
+    await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true }).fill("zoé");
     await expect(found.getByRole("option", { name: "Test Zoé", exact: true })).toBeVisible();
     await tab(page, "Élèves").click();
 
@@ -106,19 +107,19 @@ test.describe("doublons et alerte d'âge", () => {
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
     await dialog.getByLabel("Nom", { exact: true }).fill("Test");
-    await dialog.getByLabel("Prénom").fill("Hugo");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("Hugo");
     await dialog.getByRole("button", { name: "Ouvrir sa fiche" }).click();
     await page
       .getByRole("dialog", { name: "Abandonner les modifications ?" })
       .getByRole("button", { name: "Abandonner" })
       .click();
     const edit = page.getByRole("dialog", { name: "Modifier l'élève" });
-    await expect(edit.getByLabel("Prénom")).toHaveValue("Hugo");
-    await expect(edit.getByLabel("Ados perfectionnement")).toBeChecked();
+    await expect(edit.getByLabel("Prénom", { exact: true })).toHaveValue("Hugo");
+    await expect(edit.getByLabel("Ados perfectionnement", { exact: false })).toBeChecked();
     // La fiche ouverte n'est pas son propre doublon.
     await expect(edit.getByRole("list", { name: "Messages" })).toBeEmpty();
     // Le focus revient dans la fenêtre (premier champ, Prénom) : Échap la ferme (rien n'a changé).
-    await expect(edit.getByLabel("Prénom")).toBeFocused();
+    await expect(edit.getByLabel("Prénom", { exact: true })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(edit).toBeHidden();
   });
@@ -154,10 +155,10 @@ test.describe("doublons et alerte d'âge", () => {
     await tab(page, "Saison").click();
     await page.getByRole("button", { name: "Nouvelle saison" }).click();
     const season = page.getByRole("dialog", { name: "Nouvelle saison" });
-    await season.getByLabel("Saison vierge").check();
+    await season.getByLabel("Saison vierge", { exact: true }).check();
     await season.getByLabel("Nom", { exact: true }).fill("2027-2028");
-    await season.getByLabel("Date de début").fill("2027-09-01");
-    await season.getByLabel("Date de fin").fill("2028-06-30");
+    await season.getByLabel("Date de début", { exact: true }).fill("2027-09-01");
+    await season.getByLabel("Date de fin", { exact: true }).fill("2028-06-30");
     await season.getByRole("button", { name: "Créer la saison" }).click();
     await expect(season).toBeHidden();
     // Un groupe du même nom dans la nouvelle saison : il ne doit pas être coché.
@@ -173,35 +174,41 @@ test.describe("doublons et alerte d'âge", () => {
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
     await dialog.getByLabel("Nom", { exact: true }).fill("Martin");
-    await dialog.getByLabel("Prénom").fill("Léa");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("Léa");
     const messages = dialog.getByRole("list", { name: "Messages" });
     await expect(messages).toContainText("Léa Martin était inscrit(e) en 2026-2027.");
     // Fiche d'une autre saison : pas de « Ouvrir sa fiche ».
     await expect(messages.getByRole("button", { name: "Ouvrir sa fiche" })).toHaveCount(0);
     await messages.getByRole("button", { name: "Reprendre ses coordonnées" }).click();
     await expect(dialog.getByLabel("Téléphone", { exact: true })).toHaveValue("0611223344");
-    await expect(dialog.getByLabel("E-mail")).toHaveValue("lea@exemple.fr");
-    await expect(dialog.getByLabel("Date de naissance")).toHaveValue("2015-05-03");
-    await expect(dialog.getByLabel("Classement FFT")).toHaveValue("30/2");
-    await expect(dialog.getByLabel("Nom du responsable")).toHaveValue("Paul Martin");
-    await expect(dialog.getByLabel("Téléphone du responsable")).toHaveValue("0622334455");
-    await expect(dialog.getByLabel("Niveau").locator("option:checked")).toHaveText("Galaxie vert");
-    await expect(dialog.getByLabel("Galaxie vert")).not.toBeChecked();
+    await expect(dialog.getByLabel("E-mail", { exact: true })).toHaveValue("lea@exemple.fr");
+    await expect(dialog.getByLabel("Date de naissance", { exact: true })).toHaveValue("2015-05-03");
+    await expect(dialog.getByLabel("Classement FFT", { exact: true })).toHaveValue("30/2");
+    await expect(dialog.getByLabel("Nom du responsable", { exact: true })).toHaveValue(
+      "Paul Martin",
+    );
+    await expect(dialog.getByLabel("Téléphone du responsable", { exact: true })).toHaveValue(
+      "0622334455",
+    );
+    await expect(dialog.getByLabel("Niveau", { exact: true }).locator("option:checked")).toHaveText(
+      "Galaxie vert",
+    );
+    await expect(dialog.getByLabel("Galaxie vert", { exact: false })).not.toBeChecked();
     await expect(messages).toContainText("Coordonnées reprises de 2026-2027.");
     // Un autre prénom : la reprise ne vaut plus pour cette saisie.
-    await dialog.getByLabel("Prénom").fill("Léo");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("Léo");
     await expect(messages).not.toContainText("Coordonnées reprises");
-    await dialog.getByLabel("Prénom").fill("Léa");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("Léa");
     await dialog.getByRole("button", { name: "Créer l'élève" }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByTestId("student-count")).toHaveText("1 élève");
 
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     await dialog.getByLabel("Nom", { exact: true }).fill("Durand");
-    await dialog.getByLabel("Prénom").fill("Tom");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("Tom");
     await messages.getByRole("button", { name: "Reprendre ses coordonnées" }).click();
     await expect(dialog.getByLabel("Téléphone", { exact: true })).toHaveValue("0633445566");
-    await expect(dialog.getByLabel("Niveau")).toHaveValue("");
+    await expect(dialog.getByLabel("Niveau", { exact: true })).toHaveValue("");
     await dialog.getByRole("button", { name: "Annuler" }).click();
     await page.getByRole("button", { name: "Abandonner" }).click();
     await expect(dialog).toBeHidden();
@@ -209,29 +216,31 @@ test.describe("doublons et alerte d'âge", () => {
     // Même contrôle sur « Créer « Prénom Nom » » de la fiche groupe (champs pré-remplis).
     await tab(page, "Groupes").click();
     await page.getByRole("link", { name: "Galaxie vert" }).click();
-    await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("Tom Durand");
+    await page
+      .getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true })
+      .fill("Tom Durand");
     await page.getByRole("option", { name: "Créer « Tom Durand »" }).click();
-    await expect(dialog.getByLabel("Prénom")).toHaveValue("Tom");
+    await expect(dialog.getByLabel("Prénom", { exact: true })).toHaveValue("Tom");
     await expect(messages).toContainText("Tom Durand était inscrit(e) en 2026-2027.");
     await messages.getByRole("button", { name: "Reprendre ses coordonnées" }).click();
     await expect(dialog.getByLabel("Téléphone", { exact: true })).toHaveValue("0633445566");
     // Le groupe d'où vient la création reste coché ; ceux de la saison passée ne sont pas repris.
-    await expect(dialog.getByLabel("Galaxie vert")).toBeChecked();
+    await expect(dialog.getByLabel("Galaxie vert", { exact: false })).toBeChecked();
   });
 
   test("affiche les tranches et avertit d'un groupe hors tranche", async ({ page }) => {
     await openClub(page, "Élèves");
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
-    const group = dialog.getByLabel("Galaxie vert");
+    const group = dialog.getByLabel("Galaxie vert", { exact: false });
     await expect(group).toHaveAccessibleName(/Galaxie vert · 6–8 ans/);
     await expect(group).not.toHaveAccessibleName(/hors tranche/);
 
     await dialog.getByLabel("Nom", { exact: true }).fill("Durand");
-    await dialog.getByLabel("Prénom").fill("Léa");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("Léa");
     await dialog.getByLabel("Téléphone", { exact: true }).fill("0611223344");
     // 11 ans au 1er septembre 2026.
-    await dialog.getByLabel("Date de naissance").fill("2015-05-03");
+    await dialog.getByLabel("Date de naissance", { exact: true }).fill("2015-05-03");
     await expect(group).toHaveAccessibleName(/hors tranche/);
     const messages = dialog.getByRole("list", { name: "Messages" });
     await expect(messages).not.toContainText("Galaxie vert est pour");
@@ -239,10 +248,10 @@ test.describe("doublons et alerte d'âge", () => {
     await expect(messages).toContainText("Léa aura 11 ans, Galaxie vert est pour les 6–8 ans");
 
     // Une date qui remet l'élève dans la tranche efface l'avertissement.
-    await dialog.getByLabel("Date de naissance").fill("2019-05-03");
+    await dialog.getByLabel("Date de naissance", { exact: true }).fill("2019-05-03");
     await expect(messages).not.toContainText("Galaxie vert est pour");
     // Une date qui met hors tranche le groupe déjà coché l'avertit aussitôt.
-    await dialog.getByLabel("Date de naissance").fill("2015-05-03");
+    await dialog.getByLabel("Date de naissance", { exact: true }).fill("2015-05-03");
     await expect(messages).toContainText("Léa aura 11 ans, Galaxie vert est pour les 6–8 ans");
     await dialog.getByRole("button", { name: "Créer l'élève" }).click();
     await expect(dialog).toBeHidden();
@@ -253,9 +262,9 @@ test.describe("doublons et alerte d'âge", () => {
     await openClub(page, "Moniteurs");
     await page.getByRole("button", { name: "Nouveau moniteur" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau moniteur" });
-    await dialog.getByLabel("Prénom").fill("Jean");
+    await dialog.getByLabel("Prénom", { exact: true }).fill("Jean");
     await dialog.getByLabel("Nom", { exact: true }).fill("Morel");
-    const initials = dialog.getByLabel("Initiales");
+    const initials = dialog.getByLabel("Initiales", { exact: true });
     await expect(initials).toHaveValue("JMo");
     await initials.fill("jm");
     const messages = dialog.getByRole("list", { name: "Messages" });
@@ -278,7 +287,7 @@ test.describe("doublons et alerte d'âge", () => {
     const messages = dialog.getByRole("list", { name: "Messages" });
     // Nom proposé : « Court 3 », libre.
     await expect(messages).toBeEmpty();
-    await dialog.getByLabel("Nom").fill("court 1");
+    await dialog.getByLabel("Nom", { exact: true }).fill("court 1");
     await expect(messages).toContainText("Un court « Court 1 » existe déjà");
     await dialog.getByRole("button", { name: "Enregistrer" }).click();
     await expect(dialog).toBeHidden();

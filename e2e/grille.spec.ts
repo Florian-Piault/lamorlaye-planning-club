@@ -79,7 +79,7 @@ async function expectToolbarOnOneLine(page: Page, { readOnly = false, pills = 2 
         ]),
     toolbar(page).getByRole("button", { name: "PDF", exact: true }),
     toolbar(page).getByRole("button", { name: /^Filtres/ }),
-    toolbar(page).getByLabel("Saison affichée"),
+    toolbar(page).getByLabel("Saison affichée", { exact: true }),
   ];
   for (const control of controls) {
     const box = await control.boundingBox();
@@ -114,7 +114,9 @@ async function showFinishedSeason(page: Page) {
   const dialog = page.getByRole("dialog", { name: "Nouvelle saison" });
   await dialog.getByRole("button", { name: "Dupliquer la saison" }).click();
   await expect(dialog).toBeHidden();
-  await page.getByLabel("Saison affichée").selectOption({ label: "2026-2027 (terminée)" });
+  await page
+    .getByLabel("Saison affichée", { exact: true })
+    .selectOption({ label: "2026-2027 (terminée)" });
   await expect(page.getByTestId("read-only-banner")).toBeVisible();
 }
 
@@ -135,7 +137,7 @@ test.describe("à 960 px, sur le jeu de données de charge", () => {
     // Une seule barre d'outils : plus de barre haute, titre réservé aux lecteurs d'écran.
     await expect(page.getByRole("heading", { level: 1, name: "Planning" })).toHaveClass(/sr-only/);
     // Le sélecteur de saison est repris dans la barre d'outils, il n'y en a qu'un.
-    await expect(page.getByLabel("Saison affichée")).toHaveCount(1);
+    await expect(page.getByLabel("Saison affichée", { exact: true })).toHaveCount(1);
     // Menu déplié : barre étroite, pastilles réduites à la couleur et aux initiales.
     await expectToolbarOnOneLine(page, { pills: 3 });
     const pills = page.getByTestId("instructor-pill");
@@ -380,6 +382,7 @@ test.describe("en-têtes de courts et fiche du cours", () => {
     await ados.click();
     await expect(card).toBeHidden();
     await expect(page.getByRole("form", { name: "Modifier le cours" })).toBeVisible();
+    // biome-ignore lint/plugin: prouve une absence après le délai réel de l'interface.
     await page.waitForTimeout(600);
     await expect(card).toBeHidden();
 
@@ -511,9 +514,13 @@ for (const view of ["Semaine", "Jour"] as const) {
       await expect(page.getByTestId("selection-box")).toHaveText("17h00–18h30");
       await page.mouse.up();
       const form = page.getByRole("form", { name: "Nouveau cours" });
-      await expect(form.getByLabel("Jour")).toHaveValue("1");
-      await expect(form.getByLabel("Court").locator("option:checked")).toHaveText("Court 2");
-      await expect(form.getByLabel("Durée").locator("option:checked")).toHaveText("1 h 30");
+      await expect(form.getByLabel("Jour", { exact: false })).toHaveValue("1");
+      await expect(form.getByLabel("Court", { exact: true }).locator("option:checked")).toHaveText(
+        "Court 2",
+      );
+      await expect(form.getByLabel("Durée", { exact: true }).locator("option:checked")).toHaveText(
+        "1 h 30",
+      );
       await form.getByLabel("Groupe", { exact: true }).selectOption({ label: "Mini-tennis (1/6)" });
       await form.getByLabel("Moniteur", { exact: true }).selectOption({ label: "● Karim Benali" });
       await form.getByRole("button", { name: "Créer le cours" }).click();

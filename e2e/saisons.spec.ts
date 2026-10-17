@@ -48,9 +48,9 @@ async function duplicateClub(page: Page) {
   await seedPlanning(page, club);
   await page.getByRole("button", { name: "Nouvelle saison" }).click();
   const dialog = page.getByRole("dialog", { name: "Nouvelle saison" });
-  await expect(dialog.getByLabel("Dupliquer la saison 2026-2027")).toBeChecked();
+  await expect(dialog.getByLabel("Dupliquer la saison 2026-2027", { exact: false })).toBeChecked();
   await expect(dialog.getByLabel("Nom", { exact: true })).toHaveValue("2027-2028");
-  await expect(dialog.getByLabel("Date de début")).toHaveValue("2027-09-01");
+  await expect(dialog.getByLabel("Date de début", { exact: true })).toHaveValue("2027-09-01");
   await dialog.getByRole("button", { name: "Dupliquer la saison" }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId("toast")).toHaveText(
@@ -59,7 +59,7 @@ async function duplicateClub(page: Page) {
 }
 
 async function viewSeason(page: Page, label: string) {
-  await page.getByLabel("Saison affichée").selectOption({ label });
+  await page.getByLabel("Saison affichée", { exact: true }).selectOption({ label });
 }
 
 function waitForFile(page: Page, name: string): Promise<Download> {
@@ -85,7 +85,7 @@ test.describe("saisons", () => {
     await expect(
       seasons.getByRole("button", { name: "Afficher la saison 2026-2027" }),
     ).toBeVisible();
-    await expect(page.getByLabel("Saison affichée")).toHaveValue(/.+/);
+    await expect(page.getByLabel("Saison affichée", { exact: true })).toHaveValue(/.+/);
     await expect(page.getByTestId("read-only-banner")).toHaveCount(0);
 
     // La semaine type est reprise ; ni fermetures ni indisponibilités datées.
@@ -103,7 +103,7 @@ test.describe("saisons", () => {
     await tab(page, "Courts").click();
     await page.getByRole("button", { name: "Modifier Court 1" }).click();
     const courtDialog = page.getByRole("dialog", { name: "Modifier le court" });
-    await courtDialog.getByLabel("Nom").fill("Court central");
+    await courtDialog.getByLabel("Nom", { exact: true }).fill("Court central");
     await courtDialog.getByRole("button", { name: "Enregistrer" }).click();
     await expect(page.getByText("Court central")).toBeVisible();
     await tab(page, "Élèves").click();
@@ -176,7 +176,7 @@ test.describe("saisons", () => {
     await page.getByRole("link", { name: "Martin Julie" }).click();
     await expect(page.getByRole("heading", { name: "Julie Martin" })).toBeVisible();
     const fiche = page.getByRole("form", { name: "Fiche moniteur" });
-    await expect(fiche.getByLabel("Prénom")).toBeDisabled();
+    await expect(fiche.getByLabel("Prénom", { exact: true })).toBeDisabled();
     await expect(fiche.getByRole("button", { name: "Enregistrer" })).toHaveCount(0);
     await expect(page.getByText(/Tournoi/)).toBeVisible();
     for (const name of [
@@ -208,7 +208,9 @@ test.describe("saisons", () => {
     await expect(page.getByRole("button", { name: /^Supprimer/ })).toHaveCount(0);
     await page.getByRole("link", { name: "Galaxie vert" }).click();
     await expect(page.getByTestId("group-size")).toHaveText("3 / 8");
-    await expect(page.getByRole("form", { name: "Fiche groupe" }).getByLabel("Nom")).toBeDisabled();
+    await expect(
+      page.getByRole("form", { name: "Fiche groupe" }).getByLabel("Nom", { exact: true }),
+    ).toBeDisabled();
     await expect(page.getByRole("button", { name: "Enregistrer" })).toHaveCount(0);
     await expect(page.getByRole("searchbox")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Retirer/ })).toHaveCount(0);
@@ -259,7 +261,7 @@ test.describe("saisons", () => {
     await lesson(page, "Galaxie vert").click();
     const detail = page.getByRole("form", { name: "Détail du cours" });
     await expect(detail).toBeVisible();
-    await expect(detail.getByLabel("Moniteur")).toBeDisabled();
+    await expect(detail.getByLabel("Moniteur", { exact: true })).toBeDisabled();
     await expect(
       detail.getByRole("button", { name: /Enregistrer|Supprimer|Appliquer/ }),
     ).toHaveCount(0);

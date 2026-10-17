@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { perfLimit } from "../src/test/perf";
 import { createSeason, goToPlanning } from "./support/planning";
 
 /**
@@ -12,9 +13,6 @@ import { createSeason, goToPlanning } from "./support/planning";
  */
 
 const E2E_MODULE = "/src/test/e2e.ts";
-
-/** Seuil (ms) d'une mesure, doublé sur les machines partagées de la CI. */
-const limit = (ms: number) => (process.env.CI ? 2 * ms : ms);
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -56,7 +54,7 @@ test.describe("volumétrie cible (§11.5)", () => {
       await expect(lessons).toHaveCount(150);
     });
     expect(report("affichage de la semaine type (150 cours)", [display])).toBeLessThan(
-      limit(3_000),
+      perfLimit(3_000),
     );
     await expect(page.getByTestId("instructor-pill")).toHaveCount(20);
 
@@ -88,7 +86,7 @@ test.describe("volumétrie cible (§11.5)", () => {
       if (label === "28 décembre") await expect(page.getByTestId("closure-band")).toHaveCount(6);
     }
     // §11.5 : affichage d'une semaine perçu comme instantané.
-    expect(report("navigation entre semaines datées", steps)).toBeLessThan(limit(500));
+    expect(report("navigation entre semaines datées", steps)).toBeLessThan(perfLimit(500));
   });
 
   test("garde un glisser-déposer fluide", async ({ page }) => {
@@ -117,7 +115,7 @@ test.describe("volumétrie cible (§11.5)", () => {
     await page.keyboard.press("Escape");
     await page.mouse.up();
     await expect(page.getByTestId("lesson-ghost")).toHaveCount(0);
-    expect(report("retour visuel du glisser", moves)).toBeLessThan(100);
+    expect(report("retour visuel du glisser", moves)).toBeLessThan(perfLimit(100));
   });
 
   test("ouvre les référentiels avec 500 élèves", async ({ page }) => {
@@ -130,20 +128,20 @@ test.describe("volumétrie cible (§11.5)", () => {
       await expect(page.getByTestId("student-count")).toHaveText("500 élèves");
       await expect(students).toHaveCount(500);
     });
-    expect(report("liste des 500 élèves", [list])).toBeLessThan(limit(3_000));
+    expect(report("liste des 500 élèves", [list])).toBeLessThan(perfLimit(3_000));
 
     const search = await timed(async () => {
       await page.getByRole("searchbox", { name: "Rechercher un élève" }).fill("0700000123");
       await expect(page.getByTestId("student-count")).toHaveText("1 sur 500");
     });
-    expect(report("recherche parmi 500 élèves", [search])).toBeLessThan(limit(1_000));
+    expect(report("recherche parmi 500 élèves", [search])).toBeLessThan(perfLimit(1_000));
     await expect(students.first()).toContainText("Côme 124");
 
     const clear = await timed(async () => {
       await page.getByRole("searchbox", { name: "Rechercher un élève" }).fill("");
       await expect(students).toHaveCount(500);
     });
-    expect(report("retour à la liste complète", [clear])).toBeLessThan(limit(1_500));
+    expect(report("retour à la liste complète", [clear])).toBeLessThan(perfLimit(1_500));
 
     const groupsHeader = page.getByRole("columnheader", { name: "Groupes" });
     const sort = await timed(async () => {
@@ -151,27 +149,27 @@ test.describe("volumétrie cible (§11.5)", () => {
       await expect(groupsHeader).toHaveAttribute("aria-sort", "ascending");
       await expect(students.first()).toContainText("Adultes 1");
     });
-    expect(report("tri de 500 élèves", [sort])).toBeLessThan(limit(1_500));
+    expect(report("tri de 500 élèves", [sort])).toBeLessThan(perfLimit(1_500));
 
     const groups = page.getByRole("table", { name: "Groupes" }).locator("tbody tr");
     const groupList = await timed(async () => {
       await tabs.getByRole("link", { name: "Groupes" }).click();
       await expect(groups).toHaveCount(60);
     });
-    expect(report("liste des 60 groupes", [groupList])).toBeLessThan(limit(2_000));
+    expect(report("liste des 60 groupes", [groupList])).toBeLessThan(perfLimit(2_000));
 
     const detail = await timed(async () => {
       await page.getByRole("link", { name: "Galaxie 1", exact: true }).click();
       await expect(page.getByRole("heading", { level: 2, name: "Galaxie 1" })).toBeVisible();
       await expect(page.getByRole("table", { name: "Élèves du groupe" })).toBeVisible();
     });
-    expect(report("fiche et composition d'un groupe", [detail])).toBeLessThan(limit(2_000));
+    expect(report("fiche et composition d'un groupe", [detail])).toBeLessThan(perfLimit(2_000));
 
     const instructors = page.getByRole("table", { name: "Moniteurs" }).locator("tbody tr");
     const instructorList = await timed(async () => {
       await tabs.getByRole("link", { name: "Moniteurs" }).click();
       await expect(instructors).toHaveCount(20);
     });
-    expect(report("liste des 20 moniteurs", [instructorList])).toBeLessThan(limit(2_000));
+    expect(report("liste des 20 moniteurs", [instructorList])).toBeLessThan(perfLimit(2_000));
   });
 });

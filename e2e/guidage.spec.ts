@@ -68,8 +68,8 @@ test.describe("guidage de la première utilisation", () => {
     // 1. Saison : la confirmation (B11) reçoit « Étape suivante ».
     const season = page.getByRole("form", { name: "Saison" });
     await season.getByLabel("Nom", { exact: true }).fill("2026-2027");
-    await season.getByLabel("Date de début").fill("2026-09-01");
-    await season.getByLabel("Date de fin").fill("2027-06-30");
+    await season.getByLabel("Date de début", { exact: true }).fill("2026-09-01");
+    await season.getByLabel("Date de fin", { exact: true }).fill("2027-06-30");
     await season.getByRole("button", { name: "Créer la saison" }).click();
     await expect(toast(page)).toContainText("Saison « 2026-2027 » créée");
     await expectMark(tab(page, "Saison"), "Étape 1, faite");
@@ -84,7 +84,7 @@ test.describe("guidage de la première utilisation", () => {
     // 2. Courts.
     await page.getByRole("button", { name: "Nouveau court" }).click();
     const court = page.getByRole("dialog", { name: "Nouveau court" });
-    await court.getByLabel("Nom").fill("Court 1");
+    await court.getByLabel("Nom", { exact: true }).fill("Court 1");
     await court.getByRole("button", { name: "Enregistrer" }).click();
     await expect(toast(page)).toContainText("Premier court ajouté");
     await nextStep(page, "Moniteurs", "/referentiels/moniteurs");
@@ -92,7 +92,7 @@ test.describe("guidage de la première utilisation", () => {
     // 3. Moniteurs.
     await page.getByRole("button", { name: "Nouveau moniteur" }).click();
     const instructor = page.getByRole("dialog", { name: "Nouveau moniteur" });
-    await instructor.getByLabel("Prénom").fill("Julie");
+    await instructor.getByLabel("Prénom", { exact: true }).fill("Julie");
     await instructor.getByLabel("Nom", { exact: true }).fill("Martin");
     await instructor.getByRole("button", { name: "Créer le moniteur" }).click();
     await expect(toast(page)).toContainText("Premier moniteur ajouté");
@@ -101,15 +101,15 @@ test.describe("guidage de la première utilisation", () => {
     // 4. Groupes : le toast garde « Ajouter des élèves », qui mène à l'étape suivante.
     await page.getByRole("button", { name: "Nouveau groupe" }).click();
     const group = page.getByRole("dialog", { name: "Nouveau groupe" });
-    await group.getByLabel("Nom").fill("Galaxie vert");
-    await group.getByLabel("Élèves au maximum").fill("8");
+    await group.getByLabel("Nom", { exact: true }).fill("Galaxie vert");
+    await group.getByLabel("Élèves au maximum", { exact: true }).fill("8");
     await group.getByRole("button", { name: "Créer le groupe" }).click();
     await expect(toast(page)).toContainText("Groupe « Galaxie vert » créé");
     await expectMark(tab(page, "Élèves"), "Étape 5, la suivante");
     await toast(page).getByRole("button", { name: "Ajouter des élèves" }).click();
 
     // 5. Élèves, depuis la fiche du groupe.
-    const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)");
+    const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true });
     await expect(search).toBeFocused();
     await search.fill("Léa Petit");
     await page.getByRole("option", { name: "Créer « Léa Petit »" }).click();
@@ -148,10 +148,15 @@ test.describe("guidage de la première utilisation", () => {
     // Le guidage reprend pour la nouvelle saison, sans toast.
     await expect(tab(page, "Courts")).toHaveAccessibleDescription("Étape 2, la suivante");
     // Retour à la saison terminée, puis à la saison en cours : rien n'est annoncé.
-    await page.getByLabel("Saison affichée").selectOption({ label: "2026-2027 (terminée)" });
+    await page
+      .getByLabel("Saison affichée", { exact: true })
+      .selectOption({ label: "2026-2027 (terminée)" });
     await expect(tabs(page).getByTestId("step-mark")).toHaveCount(0);
-    await page.getByLabel("Saison affichée").selectOption({ label: "2027-2028 (en cours)" });
+    await page
+      .getByLabel("Saison affichée", { exact: true })
+      .selectOption({ label: "2027-2028 (en cours)" });
     await expect(tab(page, "Courts")).toHaveAccessibleDescription("Étape 2, la suivante");
+    // biome-ignore lint/plugin: prouve une absence après le délai réel de l'interface.
     await page.waitForTimeout(500);
     await expect(page.getByRole("button", { name: /^Étape suivante/ })).toHaveCount(0);
   });
@@ -166,11 +171,12 @@ test.describe("guidage de la première utilisation", () => {
     await page.goto("/#/referentiels/eleves");
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     const student = page.getByRole("dialog", { name: "Nouvel élève" });
-    await student.getByLabel("Prénom").fill("Léa");
+    await student.getByLabel("Prénom", { exact: true }).fill("Léa");
     await student.getByLabel("Nom", { exact: true }).fill("Petit");
     await student.getByLabel("Téléphone", { exact: true }).fill("0611223344");
     await student.getByRole("button", { name: "Enregistrer et ajouter un autre" }).click();
     await expect(toast(page)).toContainText("Léa Petit ajouté(e)");
+    // biome-ignore lint/plugin: prouve une absence après le délai réel de l'interface.
     await page.waitForTimeout(500);
     await expect(page.getByRole("button", { name: /^Étape suivante/ })).toHaveCount(0);
     await expect(student).toBeVisible();
@@ -263,7 +269,9 @@ test.describe("mode d'emploi du planning", () => {
   test("saison terminée : astuce de consultation", async ({ page }) => {
     await openPlanning(page);
     await createBlankSeason(page, "2027-2028");
-    await page.getByLabel("Saison affichée").selectOption({ label: "2026-2027 (terminée)" });
+    await page
+      .getByLabel("Saison affichée", { exact: true })
+      .selectOption({ label: "2026-2027 (terminée)" });
     await mainNav(page, "Planning").click();
     await expect(tip(page)).toHaveAttribute("data-context", "read-only");
     await expect(tip(page)).toContainText(
@@ -309,7 +317,7 @@ async function createBlankSeason(page: Page, name: string) {
   await page.goto("/#/referentiels/saison");
   await page.getByRole("button", { name: "Nouvelle saison" }).click();
   const dialog = page.getByRole("dialog", { name: "Nouvelle saison" });
-  await dialog.getByLabel("Saison vierge").check();
+  await dialog.getByLabel("Saison vierge", { exact: true }).check();
   await dialog.getByLabel("Nom", { exact: true }).fill(name);
   await dialog.getByRole("button", { name: "Créer la saison" }).click();
   await expect(dialog).toBeHidden();

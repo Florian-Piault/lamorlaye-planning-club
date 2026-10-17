@@ -35,16 +35,22 @@ pnpm tauri build             # installateurs pour le système courant
 ### Vérifications (identiques à la CI)
 
 ```sh
-pnpm run lint                # Biome : vérification et formatage
+pnpm check                   # les quatre suivantes, à lancer avant chaque commit de lot
+pnpm run lint                # Biome : vérification, formatage et règles de biome-plugins/
 pnpm typecheck               # TypeScript strict
-pnpm test                    # Vitest : domaine, base sql.js, composants, tests de charge
+pnpm test                    # Vitest : domaine, base sql.js, composants
+pnpm test:e2e                # Playwright (Chromium et WebKit), dont accessibilité
+pnpm test:perf               # tests de charge (*.perf.test.ts, e2e/*.perf.spec.ts)
 pnpm run test:coverage       # couverture ≥ 90 % (domaine, grille, mise en forme des PDF)
-pnpm test:e2e                # Playwright (Chromium et WebKit), dont accessibilité et charge
 pnpm exec drizzle-kit generate   # ne doit rien produire : schéma et migrations à jour
 cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
 
-Les tests de charge affichent leurs mesures avec `CHARGE_VERBOSE=1 pnpm test` (Vitest) ou dans le rapport Playwright (annotations « performance »).
+`pnpm install` active le hook `.githooks/pre-commit` (lint, typecheck, Vitest).
+
+Les tests de charge affichent leurs mesures avec `CHARGE_VERBOSE=1 pnpm test:perf` (Vitest) ou dans le rapport Playwright (annotations « performance »). Sur une machine chargée, `PERF_FACTOR=3 pnpm test:perf` multiplie les seuils (×2 quand `CI` est défini).
+
+`E2E_PORT=1437 pnpm test:e2e` lance la suite sur un autre port, pour plusieurs copies de travail en parallèle. Le serveur lancé par Playwright ne recharge pas la page quand un fichier change.
 
 ### Organisation du code
 

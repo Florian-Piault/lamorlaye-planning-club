@@ -234,10 +234,10 @@ for (const colorScheme of ["light", "dark"] as const) {
       await clubTab(page, "Élèves").click();
       await page.getByRole("button", { name: "Nouvel élève" }).click();
       const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
-      await dialog.getByLabel("Prénom").fill("Léa");
+      await dialog.getByLabel("Prénom", { exact: true }).fill("Léa");
       await dialog.getByLabel("Nom", { exact: true }).fill("Test");
-      await dialog.getByLabel("Date de naissance").fill("2015-05-03");
-      await dialog.getByLabel("Galaxie vert").check();
+      await dialog.getByLabel("Date de naissance", { exact: true }).fill("2015-05-03");
+      await dialog.getByLabel("Galaxie vert", { exact: false }).check();
       const messages = dialog.getByRole("list", { name: "Messages" });
       await expect(messages).toContainText("existe déjà");
       await dialog.getByRole("button", { name: "Créer l'élève" }).click();
@@ -307,7 +307,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         .locator('[data-time="10:00"]')
         .click();
       await expect(
-        page.getByRole("form", { name: "Saisir un horaire" }).getByLabel("De"),
+        page.getByRole("form", { name: "Saisir un horaire" }).getByLabel("De", { exact: false }),
       ).toBeFocused();
       await audit(page, "frise des disponibilités");
 
@@ -317,7 +317,9 @@ for (const colorScheme of ["light", "dark"] as const) {
         .getByRole("table", { name: "Groupes" })
         .getByRole("link", { name: "Galaxie vert" })
         .click();
-      await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("test");
+      await page
+        .getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true })
+        .fill("test");
       await expect(page.getByRole("listbox", { name: "Élèves trouvés" })).toBeVisible();
       await audit(page, "fiche groupe, élèves trouvés");
 
@@ -325,7 +327,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.goto("/#/import-export");
       await page.getByRole("button", { name: "Coller depuis Excel" }).click();
       await page
-        .getByLabel("Tableau à coller")
+        .getByLabel("Tableau à coller", { exact: true })
         .fill(
           "Nom\tPrénom\tTél. portable\tDate de naissance\tGroupe\n" +
             "Durand\tMaël\t0611223344\t05/01/2012\tGalaxie vert\n",
@@ -344,9 +346,9 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.goto("/#/referentiels/moniteurs");
       await page.getByRole("button", { name: "Nouveau moniteur" }).click();
       const instructor = page.getByRole("dialog", { name: "Nouveau moniteur" });
-      await instructor.getByLabel("Prénom").fill("Jean");
+      await instructor.getByLabel("Prénom", { exact: true }).fill("Jean");
       await instructor.getByLabel("Nom", { exact: true }).fill("Morel");
-      await instructor.getByLabel("Initiales").fill("JM");
+      await instructor.getByLabel("Initiales", { exact: true }).fill("JM");
       await expect(instructor.getByRole("list", { name: "Messages" })).toContainText(
         "déjà utilisé",
       );
@@ -409,7 +411,10 @@ for (const colorScheme of ["light", "dark"] as const) {
       // Enregistrement refusé : les champs en erreur gardent un anneau contrasté au focus.
       const student = page.getByRole("dialog", { name: "Nouvel élève" });
       await student.getByRole("button", { name: "Créer l'élève" }).click();
-      await expect(student.getByLabel("Prénom")).toHaveAttribute("aria-invalid", "true");
+      await expect(student.getByLabel("Prénom", { exact: true })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
       await expectStrongFocus(page, "fiche élève en erreur", 25);
     });
 

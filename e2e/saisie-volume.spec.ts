@@ -44,13 +44,13 @@ test.describe("saisie des élèves en volume", () => {
     await page.goto("/#/referentiels/eleves");
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
-    const firstName = dialog.getByLabel("Prénom");
-    const level = dialog.getByLabel("Niveau");
+    const firstName = dialog.getByLabel("Prénom", { exact: true });
+    const level = dialog.getByLabel("Niveau", { exact: true });
 
     // Prénom avant Nom ; le niveau est proposé depuis le premier groupe coché.
     await expect(firstName).toBeFocused();
     await expect(dialog.getByRole("textbox").first()).toHaveAccessibleName("Prénom");
-    await dialog.getByLabel("Galaxie vert").check();
+    await dialog.getByLabel("Galaxie vert", { exact: false }).check();
     await expect(level.locator("option:checked")).toHaveText("Galaxie vert");
 
     const names = ["Léa", "Tom", "Zoé", "Hugo", "Lina", "Anne", "Paul", "Rémi", "Inès", "Noé"];
@@ -59,8 +59,8 @@ test.describe("saisie des élèves en volume", () => {
       await dialog.getByLabel("Nom", { exact: true }).fill(`Martin${i}`);
       if (i === 0) {
         // Téléphone du responsable seul : la fiche est acceptée.
-        await dialog.getByLabel("Nom du responsable").fill("Paul Martin");
-        await dialog.getByLabel("Téléphone du responsable").fill("06 99 88 77 66");
+        await dialog.getByLabel("Nom du responsable", { exact: true }).fill("Paul Martin");
+        await dialog.getByLabel("Téléphone du responsable", { exact: true }).fill("06 99 88 77 66");
       } else {
         await dialog.getByLabel("Téléphone", { exact: true }).fill(`06 11 22 33 ${10 + i}`);
       }
@@ -69,7 +69,7 @@ test.describe("saisie des élèves en volume", () => {
       // Fiche suivante : vide, groupe et niveau gardés, curseur dans Prénom.
       await expect(firstName).toHaveValue("");
       await expect(firstName).toBeFocused();
-      await expect(dialog.getByLabel("Galaxie vert")).toBeChecked();
+      await expect(dialog.getByLabel("Galaxie vert", { exact: false })).toBeChecked();
       await expect(level.locator("option:checked")).toHaveText("Galaxie vert");
     }
     await expect(dialog.locator("label", { hasText: "Galaxie vert" })).toContainText("10/12");
@@ -90,24 +90,26 @@ test.describe("saisie des élèves en volume", () => {
     // En modification, le niveau est celui de la fiche : décocher le groupe ne l'efface pas.
     await page.getByRole("button", { name: "Modifier Martin0 Léa" }).click();
     const edit = page.getByRole("dialog", { name: "Modifier l'élève" });
-    await edit.getByLabel("Galaxie vert").uncheck();
-    await expect(edit.getByLabel("Niveau").locator("option:checked")).toHaveText("Galaxie vert");
+    await edit.getByLabel("Galaxie vert", { exact: false }).uncheck();
+    await expect(edit.getByLabel("Niveau", { exact: true }).locator("option:checked")).toHaveText(
+      "Galaxie vert",
+    );
     await edit.getByRole("button", { name: "Annuler" }).click();
     await page.getByRole("button", { name: "Abandonner" }).click();
 
     // « — Aucun — » choisi reste choisi d'une fiche à la suivante de la série.
     await page.getByRole("button", { name: "Nouvel élève" }).click();
-    await dialog.getByLabel("Galaxie vert").check();
+    await dialog.getByLabel("Galaxie vert", { exact: false }).check();
     await level.selectOption({ label: "— Aucun —" });
     await firstName.fill("Inès");
     await dialog.getByLabel("Nom", { exact: true }).fill("Durand");
     await dialog.getByLabel("Téléphone", { exact: true }).fill("0611223399");
     await dialog.getByRole("button", { name: "Enregistrer et ajouter un autre" }).click();
     await expect(toast(page)).toContainText("Inès Durand ajouté(e)");
-    await expect(dialog.getByLabel("Galaxie vert")).toBeChecked();
+    await expect(dialog.getByLabel("Galaxie vert", { exact: false })).toBeChecked();
     await expect(level).toHaveValue("");
-    await dialog.getByLabel("Galaxie vert").uncheck();
-    await dialog.getByLabel("Galaxie vert").check();
+    await dialog.getByLabel("Galaxie vert", { exact: false }).uncheck();
+    await dialog.getByLabel("Galaxie vert", { exact: false }).check();
     await expect(level).toHaveValue("");
 
     // Sans aucun téléphone, la fiche est refusée.
@@ -136,7 +138,7 @@ test.describe("saisie des élèves en volume", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Import/Export" })).toBeVisible();
 
     await page.getByRole("button", { name: "Coller depuis Excel" }).click();
-    const pasted = page.getByLabel("Tableau à coller");
+    const pasted = page.getByLabel("Tableau à coller", { exact: true });
     await expect(pasted).toBeFocused();
     // Collage d'Excel sous Windows : tabulations, CRLF, cellule multiligne entre guillemets.
     await pasted.fill(
@@ -150,10 +152,12 @@ test.describe("saisie des élèves en volume", () => {
     await expect(page.getByTestId("import-file-info")).toContainText(
       "tableau collé — Tableau collé, séparateur tabulation, 3 lignes de données.",
     );
-    await expect(page.getByLabel("La première ligne contient des élèves")).not.toBeChecked();
+    await expect(
+      page.getByLabel("La première ligne contient des élèves", { exact: true }),
+    ).not.toBeChecked();
     const mapping = page.getByRole("table", { name: "Associer les colonnes de votre fichier" });
     await expect(mapping.getByLabel("Nom", { exact: true })).toHaveValue("0");
-    await expect(mapping.getByLabel("Groupe(s)")).toHaveValue("5");
+    await expect(mapping.getByLabel("Groupe(s)", { exact: true })).toHaveValue("5");
     await page.getByRole("button", { name: "Afficher l'aperçu" }).click();
 
     // Même aperçu qu'un fichier : téléphone de l'élève ou du responsable.
@@ -197,12 +201,12 @@ test.describe("saisie des élèves en volume", () => {
 
     await page.getByRole("button", { name: "Coller depuis Excel" }).click();
     await page
-      .getByLabel("Tableau à coller")
+      .getByLabel("Tableau à coller", { exact: true })
       .fill("Martin\tLéo\t0611223344\nPetit\tJade\t0622334455\n");
     await page.getByRole("button", { name: "Lire le tableau" }).click();
 
     // Pas d'en-têtes connus : colonnes A, B… montrées avec une valeur, première ligne gardée.
-    const firstRow = page.getByLabel("La première ligne contient des élèves");
+    const firstRow = page.getByLabel("La première ligne contient des élèves", { exact: true });
     await expect(firstRow).toBeChecked();
     await expect(page.getByTestId("import-file-info")).toContainText("2 lignes de données.");
     // La case est modifiable : décochée, la première ligne devient celle des en-têtes.
@@ -219,7 +223,7 @@ test.describe("saisie des élèves en volume", () => {
       page.getByRole("list", { name: "Il manque des colonnes obligatoires" }),
     ).toBeVisible();
     await mapping.getByLabel("Nom", { exact: true }).selectOption({ label: "Colonne A — Martin" });
-    await mapping.getByLabel("Prénom").selectOption({ label: "Colonne B — Léo" });
+    await mapping.getByLabel("Prénom", { exact: true }).selectOption({ label: "Colonne B — Léo" });
     await mapping
       .getByLabel("Téléphone", { exact: true })
       .selectOption({ label: "Colonne C — 0611223344" });
@@ -247,7 +251,7 @@ test.describe("saisie des élèves en volume", () => {
   test("ajoute des élèves en chaîne au clavier dans la fiche groupe", async ({ page }) => {
     await seedGroups(page);
     await openGroup(page, "Galaxie vert");
-    const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)");
+    const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true });
     const members = page.getByRole("table", { name: "Élèves du groupe" });
 
     // Résultat unique : Entrée l'ajoute, le champ est vidé et garde le focus.
@@ -293,12 +297,14 @@ test.describe("saisie des élèves en volume", () => {
     await expect(results.getByRole("option", { name: "Créer « Léna Petit »" })).toBeVisible();
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
-    await expect(dialog.getByLabel("Prénom")).toHaveValue("Léna");
+    await expect(dialog.getByLabel("Prénom", { exact: true })).toHaveValue("Léna");
     await expect(dialog.getByLabel("Nom", { exact: true })).toHaveValue("Petit");
-    await expect(dialog.getByLabel("Galaxie vert")).toBeChecked();
-    await expect(dialog.getByLabel("Niveau").locator("option:checked")).toHaveText("Galaxie vert");
+    await expect(dialog.getByLabel("Galaxie vert", { exact: false })).toBeChecked();
+    await expect(dialog.getByLabel("Niveau", { exact: true }).locator("option:checked")).toHaveText(
+      "Galaxie vert",
+    );
     // Contrôles de L12 sur la fiche pré-remplie : alerte d'âge du groupe coché.
-    await dialog.getByLabel("Date de naissance").fill("2015-03-12");
+    await dialog.getByLabel("Date de naissance", { exact: true }).fill("2015-03-12");
     await expect(dialog.getByRole("list", { name: "Messages" })).toContainText(
       "Léna aura 11 ans, Galaxie vert est pour les 6–8 ans",
     );
@@ -319,8 +325,8 @@ test.describe("saisie des élèves en volume", () => {
     await page.goto("/#/referentiels/groupes");
     await page.getByRole("button", { name: "Nouveau groupe" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau groupe" });
-    await dialog.getByLabel("Nom").fill("Galaxie orange");
-    await dialog.getByLabel("Élèves au maximum").fill("6");
+    await dialog.getByLabel("Nom", { exact: true }).fill("Galaxie orange");
+    await dialog.getByLabel("Élèves au maximum", { exact: true }).fill("6");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
 
     await expect(dialog).toBeHidden();
@@ -330,6 +336,8 @@ test.describe("saisie des élèves en volume", () => {
     // « Ajouter des élèves » mène à la fiche, curseur dans le champ d'ajout.
     await toast(page).getByRole("button", { name: "Ajouter des élèves" }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Galaxie orange" })).toBeVisible();
-    await expect(page.getByLabel("Ajouter un élève (nom, prénom, téléphone)")).toBeFocused();
+    await expect(
+      page.getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true }),
+    ).toBeFocused();
   });
 });

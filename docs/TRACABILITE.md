@@ -47,8 +47,8 @@
 
 | Section | Exigence | Lots | Tests |
 |---|---|---|---|
-| §4.1 | Variante A : heures en lignes, jours × courts en colonnes, séparateur de jours, bloc coloré (groupe, horaire, initiales, effectif), infobulle, défilement avec en-têtes et axe figés | L3 | V: `src/features/planning/grid/geometry.test.ts` (colonnes jour × court, placement, conversion), `grid/items.test.ts`, `grid/view.test.ts` ; E: `planning.spec.ts` « affiche les jours, les courts et les cours colorés du moniteur », « affiche en entier un cours qui déborde de l'amplitude » ; E: `charge.spec.ts` (150 cours, 10 courts) |
-| §4.2 | Sélecteur de mode avec bandeau, semaine datée, navigation précédente / suivante / aujourd'hui / date ; annulées grisées et barrées, remplacements signalés, bande « Fermé » | L4 | V: `grid/items.test.ts` (modes de l'écran Planning) ; E: `semaines.spec.ts` « passe de la semaine type à la semaine datée et navigue… », « annule une séance… », « crée un stage… pendant une fermeture » ; E: `charge.spec.ts` (navigation sur 12 semaines dont les vacances de Noël) |
+| §4.1 | Variante A : heures en lignes, jours × courts en colonnes, séparateur de jours, bloc coloré (groupe, horaire, initiales, effectif), infobulle, défilement avec en-têtes et axe figés | L3 | V: `src/features/planning/grid/geometry.test.ts` (colonnes jour × court, placement, conversion), `grid/items.test.ts`, `grid/view.test.ts` ; E: `planning.spec.ts` « affiche les jours, les courts et les cours colorés du moniteur », « affiche en entier un cours qui déborde de l'amplitude » ; E: `charge.perf.spec.ts` (150 cours, 10 courts) |
+| §4.2 | Sélecteur de mode avec bandeau, semaine datée, navigation précédente / suivante / aujourd'hui / date ; annulées grisées et barrées, remplacements signalés, bande « Fermé » | L4 | V: `grid/items.test.ts` (modes de l'écran Planning) ; E: `semaines.spec.ts` « passe de la semaine type à la semaine datée et navigue… », « annule une séance… », « crée un stage… pendant une fermeture » ; E: `charge.perf.spec.ts` (navigation sur 12 semaines dont les vacances de Noël) |
 | §4.3 | Filtres moniteur / court / groupe (estompage) ; légende avec total d'heures de la semaine | L3 | V: `grid/view.test.ts` (filtres, semaine type) ; E: `planning.spec.ts` « filtre par moniteur, court et groupe », « affiche les jours… » (légende) |
 | §4.4 | Hachures des indisponibilités au survol, pendant un glisser, au clic sur une pastille | L3, L4 | V: `geometry.test.ts` (hachures), `src/features/planning/interaction.test.ts` ; E: `planning.spec.ts` « hachure les indisponibilités… », `semaines.spec.ts` (indisponibilités datées), `accessibilite.spec.ts` (pastille activée au clavier) |
 
@@ -76,7 +76,7 @@
 |---|---|---|---|
 | §7 | Six contrôles non bloquants (court, moniteur occupé, hors disponibilités, élève en double, effectif, âge), bordure rouge + ⚠, infobulle | L2, L3 | V: `src/domain/conflicts.test.ts` (les six contrôles, chevauchements, semaine datée, aperçu pendant un glisser, cas limites), `grid/view.test.ts` (avertissements) ; E: `planning.spec.ts` « avertit en temps réel dans le panneau… » |
 | §7 | Panneau « Avertissements » avec navigation vers le cours | L3 | E: `planning.spec.ts` « liste les avertissements et navigue vers le cours concerné » |
-| §7 | Calcul des conflits d'une semaine de 150 cours < 10 ms (L2) | L2, L8 | V: `conflicts.test.ts` (performance), `src/domain/volumetry.test.ts` |
+| §7 | Calcul des conflits d'une semaine de 150 cours < 10 ms (L2) | L2, L8 | V: `conflicts.test.ts` (performance), `src/domain/volumetry.perf.test.ts` |
 
 ## 8. Gestion des référentiels
 
@@ -85,7 +85,7 @@
 | §8 | Listes + fiches pour courts, moniteurs, groupes, élèves, fermetures, saisons, niveaux ; création, modification, recherche, suppression avec confirmation | L1, L4, L7 | V: `referentiels.test.ts`, `src/domain/search.test.ts` (recherche sans accents, tri) ; E: `referentiels.spec.ts` « trie les listes et propose l'archivage d'un élément utilisé » |
 | §8 | Composition d'un groupe : ajout par recherche **ou glisser-déposer**, effectif et alertes | L1, L8 | V: `groups.test.ts` (alertes de composition) ; E: `referentiels.spec.ts` « compose un groupe par recherche d'élèves et signale les dépassements » (recherche, puis glisser-déposer d'un élève sur la composition, ajouté en L8) |
 | §8 | Archivage proposé à la suppression d'un élément utilisé | L1 | V: `referentiels.test.ts` « signale l'utilisation par des cours… permet l'archivage », `usage.test.ts` ; E: `referentiels.spec.ts` |
-| §8.1 | Saison vierge ou par duplication (sans exceptions, indisponibilités datées ni fermetures) ; saisons passées en lecture seule | L7 | V: `src/domain/seasonDuplication.test.ts`, `src/db/repositories/seasonDuplication.test.ts`, `readOnly.test.ts` (déclencheurs SQLite) ; E: `saisons.spec.ts` « duplique la saison, puis modifie la nouvelle sans effet sur l'ancienne », « une saison archivée n'est modifiable par aucun écran » ; V: `src/db/repositories/volumetry.test.ts` (duplication à la volumétrie cible) |
+| §8.1 | Saison vierge ou par duplication (sans exceptions, indisponibilités datées ni fermetures) ; saisons passées en lecture seule | L7 | V: `src/domain/seasonDuplication.test.ts`, `src/db/repositories/seasonDuplication.test.ts`, `readOnly.test.ts` (déclencheurs SQLite) ; E: `saisons.spec.ts` « duplique la saison, puis modifie la nouvelle sans effet sur l'ancienne », « une saison archivée n'est modifiable par aucun écran » ; V: `src/db/repositories/volumetry.perf.test.ts` (duplication à la volumétrie cible) |
 
 ## 9. Import / export
 
@@ -116,8 +116,8 @@
 | §11.3 | Exporter / restaurer une sauvegarde (confirmation, copie préalable de l'état courant) | L1, L7 | R: `backup.rs` (export, validation, restauration, refus des fichiers invalides) ; M: 6.3, 6.6 |
 | §11.3 | Enregistrement immédiat de chaque modification | L1, L3 | V: `store.test.ts`, `src/db/repositories/planning.test.ts` ; E: `planning.spec.ts` « enregistre chaque modification en base immédiatement » ; M: 6.7 |
 | §11.4 | UUID et horodatages (synchronisation future) | L0 | V: `db.test.ts` |
-| §11.5 | Volumétrie cible : 10 courts, 20 moniteurs, 60 groupes, 500 élèves, 150 cours | L8 | V: `src/domain/volumetry.test.ts`, `src/db/repositories/volumetry.test.ts` ; E: `charge.spec.ts` (mesures ci-dessous) |
-| §11.5 | Affichage d'une semaine et retour du glisser-déposer < 100 ms perçus | L3, L8 | E: `planning.spec.ts` « reste fluide… 150 cours » (aucun cours redessiné pendant le glisser), `charge.spec.ts` ; M: 3.12 |
+| §11.5 | Volumétrie cible : 10 courts, 20 moniteurs, 60 groupes, 500 élèves, 150 cours | L8 | V: `src/domain/volumetry.perf.test.ts`, `src/db/repositories/volumetry.perf.test.ts` ; E: `charge.perf.spec.ts` (mesures ci-dessous) |
+| §11.5 | Affichage d'une semaine et retour du glisser-déposer < 100 ms perçus | L3, L8 | E: `planning.spec.ts` « reste fluide… 150 cours » (aucun cours redessiné pendant le glisser), `charge.perf.spec.ts` ; M: 3.12 |
 | §11.5 | Résolution minimale 1366 × 768 | L0 | C: `tauri.conf.json` (`minWidth` / `minHeight`) ; E: tous les scénarios s'exécutent en 1366 × 768 (`playwright.config.ts`) ; M: 2.4 |
 | §11.5 | Thèmes clair et sombre suivant le système | L0, L8 | E: `accessibilite.spec.ts` (contrastes en thème clair **et** sombre) ; M: 2.3 |
 | §11.5 | Raccourcis : Suppr, Ctrl/Cmd+Z / Maj+Z, Ctrl/Cmd+N, ← / →, Ctrl/Cmd+P | L3, L4, L6, L8 | E: `planning.spec.ts` (Suppr, Ctrl/Cmd+Z, Ctrl/Cmd+N), `semaines.spec.ts` (← / →), `sorties.spec.ts` (Ctrl/Cmd+P) ; M: 3.10. N seul a été retiré en L8 (conformité au §11.5 et WCAG 2.1.4) |
@@ -151,7 +151,7 @@
 
 | Exigence (LOTS-V1 L8) | Vérification |
 |---|---|
-| Tests de charge sur la volumétrie cible | V: `src/domain/volumetry.test.ts`, `src/db/repositories/volumetry.test.ts` ; E: `charge.spec.ts` |
+| Tests de charge sur la volumétrie cible | V: `src/domain/volumetry.perf.test.ts`, `src/db/repositories/volumetry.perf.test.ts` ; E: `charge.perf.spec.ts` |
 | Recette manuelle sur les trois moteurs web | `docs/RECETTE.md` (à dérouler avant publication de la release) |
 | Accessibilité : clavier dans la grille, contrastes, focus visibles | E: `accessibilite.spec.ts` (déplacement au clavier avec annonces en français, contrastes et noms accessibles de 12 écrans en thèmes clair et sombre, focus visible sur 30 arrêts de tabulation de 4 écrans) ; V: `geometry.test.ts` (déplacement au clavier), `colors.test.ts` |
 | Écran « À propos » | V: `src/App.test.tsx`, `src/app/version.test.ts` ; R: `about.rs` ; E: `navigation.spec.ts` ; M: 1.5 |
@@ -160,7 +160,7 @@
 
 ## Mesures des tests de charge (poste de développement, macOS Apple Silicon)
 
-Médianes Vitest (`CHARGE_VERBOSE=1 pnpm test`) et moyennes Playwright (annotations « performance », Chromium / WebKit). Les seuils des tests sont des majorants larges pour la CI (doublés quand `CI` est défini côté Playwright).
+Médianes Vitest (`CHARGE_VERBOSE=1 pnpm test:perf`) et moyennes Playwright (annotations « performance », Chromium / WebKit). Les seuils des tests sont des majorants larges pour la CI (multipliés par `PERF_FACTOR`, ou doublés quand `CI` est défini).
 
 | Mesure | Résultat | Seuil du test |
 |---|---|---|

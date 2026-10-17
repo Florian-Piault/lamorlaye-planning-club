@@ -17,8 +17,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:perf": "PERF=1 vitest run && PERF=1 playwright test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e",
     "db:generate": "drizzle-kit generate",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
