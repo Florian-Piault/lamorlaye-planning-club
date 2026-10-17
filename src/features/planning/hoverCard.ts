@@ -1,5 +1,5 @@
 /**
- * Fiche du cours au survol (SPECS.md §4.1) : contenu, description pour les
+ * Fiche du cours au survol (docs/SPECS.md §4.1) : contenu, description pour les
  * lecteurs d'écran, et cours survolé, affiché après un court délai.
  */
 

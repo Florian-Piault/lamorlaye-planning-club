@@ -1,5 +1,5 @@
 /**
- * Lisibilité de la grille (SPECS.md §4.1, spec UX v1.1 « Grille ») : vue
+ * Lisibilité de la grille (docs/SPECS.md §4.1, spec UX v1.1 « Grille ») : vue
  * « Semaine / Jour », barre des jours, en-têtes de courts et de jours abrégés
  * selon la largeur, nombre de lignes du nom d'un cours.
  *

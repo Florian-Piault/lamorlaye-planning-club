@@ -1,6 +1,6 @@
 /**
  * Calendrier du club : semaines ISO, fuseau Europe/Paris et changements d'heure
- * (SPECS.md §3.6–3.8, §10).
+ * (docs/SPECS.md §3.6–3.8, §10).
  *
  * Les dates du planning sont des dates civiles `AAAA-MM-JJ` et les heures des
  * heures locales du club `HH:MM` (heure murale de Paris, sans fuseau). Les

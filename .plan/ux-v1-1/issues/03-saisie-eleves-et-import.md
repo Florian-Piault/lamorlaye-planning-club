@@ -18,7 +18,7 @@ Recherche dans le code (lecture seule), 16/10/2026.
 ### Formulaire élève
 
 - Champs (`src/features/referentiels/eleves/StudentForm.tsx:116-151`) : Nom*, Prénom*, Téléphone*, E-mail, Date de naissance, Niveau, Classement FFT, bloc « Responsable légal » (nom, téléphone), groupes en cases à cocher (l.152-190, filtre au-delà de 6 groupes).
-- `studentSchema` (`src/domain/validation.ts:143-153`) : nom, prénom, téléphone (≥ 6 chiffres, `requiredPhone` l.37-41) obligatoires **sans condition**, même avec un responsable légal ; responsable optionnel même pour un mineur (simple texte d'aide, `StudentForm.tsx:142-146`). En base `phone notNull` (`src/db/schema.ts:239`). `SPECS.md:66-68` impose le téléphone et prévoit le responsable pour les mineurs : assouplir l'un ou l'autre est une règle métier.
+- `studentSchema` (`src/domain/validation.ts:143-153`) : nom, prénom, téléphone (≥ 6 chiffres, `requiredPhone` l.37-41) obligatoires **sans condition**, même avec un responsable légal ; responsable optionnel même pour un mineur (simple texte d'aide, `StudentForm.tsx:142-146`). En base `phone notNull` (`src/db/schema.ts:239`). `docs/SPECS.md:66-68` impose le téléphone et prévoit le responsable pour les mineurs : assouplir l'un ou l'autre est une règle métier.
 - Après création : dialogue fermé, retour à la liste (`StudentsTab.tsx:194-200`) ; pas de « Créer et ajouter un autre », pas de toast, formulaire repart de zéro (`emptyStudentValues`, `StudentForm.tsx:19-29`).
 - Niveau **non déduit** du groupe coché (`StudentForm.tsx:173-179`, `src/db/repositories/students.ts:59-89`), alors que le groupe porte un `levelId`.
 - Ordre : élève Nom puis Prénom, moniteur Prénom puis Nom (`InstructorForm.tsx:106,115`) ; les listes affichent « Nom Prénom ».

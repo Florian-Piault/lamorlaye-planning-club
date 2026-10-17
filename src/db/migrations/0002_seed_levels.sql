@@ -1,4 +1,4 @@
--- Référentiel des niveaux pré-rempli (SPECS.md §3.5 bis) : niveaux Galaxie puis niveaux adultes.
+-- Référentiel des niveaux pré-rempli (docs/SPECS.md §3.5 bis) : niveaux Galaxie puis niveaux adultes.
 -- Liste identique à DEFAULT_LEVELS (src/domain/levels.ts). Les UUID sont fixes pour que toutes
 -- les bases partagent les mêmes identifiants de niveaux par défaut.
 INSERT INTO `levels` (`id`, `label`, `sort_order`) VALUES

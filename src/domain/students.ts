@@ -1,6 +1,6 @@
 /**
  * Règles de la fiche élève communes à la saisie, à l'import et aux listes
- * (SPECS.md §3.5 ; spec UX v1.1 « Saisie en volume ») :
+ * (docs/SPECS.md §3.5 ; spec UX v1.1 « Saisie en volume ») :
  *
  * - téléphone : au moins un des deux, celui de l'élève **ou** celui du
  *   responsable légal ; les listes affichent celui de l'élève, sinon celui du

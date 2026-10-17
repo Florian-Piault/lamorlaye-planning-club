@@ -1,5 +1,5 @@
 /**
- * Récapitulatif des heures par moniteur (SPECS.md §10).
+ * Récapitulatif des heures par moniteur (docs/SPECS.md §10).
  *
  * Le calcul repose sur les occurrences réelles : les séances suspendues par
  * une fermeture et les séances annulées sont exclues, une séance remplacée

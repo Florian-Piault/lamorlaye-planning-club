@@ -25,6 +25,6 @@ Grilling du 16/10/2026, sur les faits d'[État de la saisie des élèves et de l
 
 ### Finitions rattachées
 
-- **Téléphone** : au moins un des deux, élève **ou** responsable légal (même règle à l'import). Amende `SPECS.md` (fiche élève) ; colonne `students.phone` rendue nullable (migration). Affichage (liste, fiche groupe) : téléphone de l'élève, sinon celui du responsable suivi de « (resp.) » ; les exports gardent deux colonnes.
+- **Téléphone** : au moins un des deux, élève **ou** responsable légal (même règle à l'import). Amende `docs/SPECS.md` (fiche élève) ; colonne `students.phone` rendue nullable (migration). Affichage (liste, fiche groupe) : téléphone de l'élève, sinon celui du responsable suivi de « (resp.) » ; les exports gardent deux colonnes.
 - **Niveau** : proposé depuis le premier groupe coché tant que l'utilisatrice ne l'a pas choisi (modèle de `suggestInitials`) ; l'import fait de même quand la colonne Niveau est vide.
 - **Ordre Prénom / Nom** : Prénom puis Nom dans les formulaires élève et moniteur ; les listes triées affichent « Martin Léa ».

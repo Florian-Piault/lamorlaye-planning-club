@@ -1,5 +1,5 @@
 /**
- * Âge des élèves et alertes de composition des groupes (SPECS.md §3.4, §7, §8).
+ * Âge des élèves et alertes de composition des groupes (docs/SPECS.md §3.4, §7, §8).
  */
 
 /** Âge en années révolues à la date de référence (`AAAA-MM-JJ`). */

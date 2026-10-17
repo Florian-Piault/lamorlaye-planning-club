@@ -1,5 +1,5 @@
 /**
- * Commandes inversibles du planning (SPECS.md §5.3–5.5, §12.1).
+ * Commandes inversibles du planning (docs/SPECS.md §5.3–5.5, §12.1).
  *
  * Une commande décrit une modification sous forme de **mutations** (insertion,
  * mise à jour, suppression de lignes des tables `lessons`, `lesson_exceptions`

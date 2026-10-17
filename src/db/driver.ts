@@ -1,5 +1,5 @@
 /**
- * Interface unique d'accès à SQLite (SPECS.md §12.2).
+ * Interface unique d'accès à SQLite (docs/SPECS.md §12.2).
  *
  * Deux implémentations :
  * - `tauri` : fichier SQLite local via `tauri-plugin-sql` (application de bureau) ;

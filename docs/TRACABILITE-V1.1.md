@@ -1,6 +1,6 @@
 # Traçabilité spec UX v1.1 → lots → tests
 
-> Référence : [spec UX v1.1](../.plan/ux-v1-1/spec.md) (89 user stories, bugs B1 à B12), [`LOTS-V1.1.md`](../LOTS-V1.1.md). État à la version 1.1.0 (lot L16, 17/10/2026). La traçabilité de la v1.0 (`SPECS.md` → lots L0 à L8) reste dans [`TRACABILITE.md`](TRACABILITE.md).
+> Référence : [spec UX v1.1](../.plan/ux-v1-1/spec.md) (89 user stories, bugs B1 à B12), [`.plan/ux-v1-1/lots.md`](../.plan/ux-v1-1/lots.md). État à la version 1.1.0 (lot L16, 17/10/2026). La traçabilité de la v1.0 (`docs/SPECS.md` → lots L0 à L8) reste dans [`TRACABILITE.md`](TRACABILITE.md).
 >
 > Chaque user story et chaque bug est rattaché au lot qui l'implémente et aux tests qui le vérifient. Ce qui ne peut pas être vérifié automatiquement renvoie à la recette manuelle ([`RECETTE.md`](RECETTE.md), sections 8 et 9).
 
@@ -163,7 +163,7 @@ Tous vérifiés corrigés : chaque bug a au moins un test Playwright qui échoue
 
 ## Exigences transverses du lot L16
 
-| Exigence (LOTS-V1.1 L16) | Vérification |
+| Exigence (lots v1.1, L16) | Vérification |
 |---|---|
 | Passe d'accessibilité : contrastes clair et sombre | E: `accessibilite.spec.ts` « écrans principaux, thème clair / sombre › contrastes suffisants et contrôles nommés » (textes et, depuis L16, icônes à 3:1) ; « écrans de la v1.1, thème clair / sombre › guidage, toasts, zone de message, bulle et garde des modales », « … › planning : barre des jours, Filtres, fiche au survol, mode d'emploi, menu réduit », « … › frise, fiche groupe, collage et initiales déjà prises » (accueil du guidage, pastilles d'étape, toasts de succès et d'erreur, bulle, zone de message dépliée, garde de modale, vue Jour, menu Filtres, fiche au survol, mode d'emploi, menu réduit, semaine précise, frise, combobox de la fiche groupe, collage, correspondance, aperçu d'import, initiales) |
 | Arrêts de tabulation, focus visibles et contrastés | E: `accessibilite.spec.ts` « focus visible › thème clair / sombre › chaque arrêt de tabulation est visible (…) » (4 écrans, contraste ≥ 3:1 depuis L16, ⌥ Tab sous WebKit) ; « focus sur les écrans de la v1.1, thème clair / sombre › indicateurs de focus visibles et contrastés » (accueil du guidage, vue Jour, fiche groupe, fiche moniteur, collage, fiche élève, fiche élève après un enregistrement refusé) |
@@ -172,7 +172,7 @@ Tous vérifiés corrigés : chaque bug a au moins un test Playwright qui échoue
 | Lecteur d'écran (VoiceOver sous WebKit pour B12) | E: régions `aria-live`, noms des cases (voir B12) ; M: 8.9 |
 | Recette sur WebKit, WebView2, WebKitGTK | M: `RECETTE.md` §8 (grille en vue Jour, collage depuis Excel, toasts, modales, Échap dans les champs date et heure, sauvegarde avant migration) |
 | Rejeu des deux personas | M: `RECETTE.md` §9 (Monique 9.1–9.7, Alex 9.8–9.12) |
-| Version 1.1.0 | V: `src/app/version.test.ts` (versions de `package.json`, `tauri.conf.json` et `Cargo.toml` alignées) ; `CHANGELOG.md` |
+| Version 1.1.0 | V: `src/app/version.test.ts` (versions de `package.json`, `tauri.conf.json` et `Cargo.toml` alignées) ; `docs/CHANGELOG.md` |
 
 ### Défauts d'accessibilité corrigés par L16
 

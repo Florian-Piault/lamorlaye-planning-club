@@ -12,11 +12,11 @@ Trois bugs cachent une règle métier floue (détail dans [Causes des bugs méca
 - **Moniteur déjà occupé** dans « Nouveau cours » : reste-t-il « disponible », passe-t-il dans un groupe « Occupés sur ce créneau » (avec le cours), ou parmi les indisponibles ? Hachures pour ses cours affectés ? (SPECS §5.1, §4.4, §7)
 - **Pont de l'Ascension** dans l'assistant des fermetures : compte-t-il comme des vacances pour le classement et le décochage par défaut des jours fériés ?
 
-Amende `SPECS.md` là où la règle change.
+Amende `docs/SPECS.md` là où la règle change.
 
 ## Answer
 
-Discussion du 16/10/2026. `SPECS.md` amendé en §3.3, §3.8 et §5.1 ; §4.4 inchangé.
+Discussion du 16/10/2026. `docs/SPECS.md` amendé en §3.3, §3.8 et §5.1 ; §4.4 inchangé.
 
 **Clic simple dans la frise des disponibilités**
 

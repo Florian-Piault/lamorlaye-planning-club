@@ -17,7 +17,7 @@ Quelle est la cause racine de chacun de ces bugs, et sa correction est-elle évi
 - B11 : pas de confirmation de création de saison (ni toast, état transitoire trompeur).
 - B12 : cases à cocher nommées « on » au lecteur d'écran.
 
-Une réponse complète donne, par bug : fichier:ligne, cause, correction proposée, et le drapeau « arbitrage nécessaire » avec la question à poser quand la correction touche une règle métier (voir `SPECS.md`).
+Une réponse complète donne, par bug : fichier:ligne, cause, correction proposée, et le drapeau « arbitrage nécessaire » avec la question à poser quand la correction touche une règle métier (voir `docs/SPECS.md`).
 
 ## Answer
 

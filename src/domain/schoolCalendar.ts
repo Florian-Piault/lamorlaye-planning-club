@@ -1,5 +1,5 @@
 /**
- * Calendrier embarqué pour l'assistant des périodes de fermeture (SPECS.md
+ * Calendrier embarqué pour l'assistant des périodes de fermeture (docs/SPECS.md
  * §3.8) : vacances scolaires de la zone B (fichier de données versionné
  * `src/data/school-calendar.json`, mis à jour à chaque version) et jours
  * fériés français (calculés, y compris Pâques, l'Ascension et la Pentecôte).

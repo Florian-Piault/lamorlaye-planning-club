@@ -1,5 +1,5 @@
 /**
- * Jeu de données à la volumétrie cible de la V1 (SPECS.md §11.5) : 10 courts,
+ * Jeu de données à la volumétrie cible de la V1 (docs/SPECS.md §11.5) : 10 courts,
  * 20 moniteurs, 60 groupes, 500 élèves et 150 cours dans la semaine type,
  * plus des exceptions et les vacances de la saison 2026-2027.
  *

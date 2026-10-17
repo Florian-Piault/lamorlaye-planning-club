@@ -149,5 +149,5 @@ Club de démonstration minimal : saison 2026-2027 (lundi → samedi, 8h–22h), 
 ## Critères de sortie
 
 - Aucune anomalie **bloquante** (perte de données, application qui ne démarre pas, sauvegarde ou restauration impossible) ni **majeure** (geste principal du planning inutilisable sur un moteur, PDF faux) ouverte.
-- Les anomalies mineures sont consignées dans les tickets et, le cas échéant, dans les notes de version (`CHANGELOG.md`).
+- Les anomalies mineures sont consignées dans les tickets et, le cas échéant, dans les notes de version (`docs/CHANGELOG.md`).
 - Le procès-verbal (tableau des environnements ci-dessus complété) est joint à la release.

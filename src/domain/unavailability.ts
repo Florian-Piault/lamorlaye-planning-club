@@ -1,5 +1,5 @@
 /**
- * Indisponibilités datées des moniteurs (SPECS.md §3.3) : congé, maladie, tournoi…
+ * Indisponibilités datées des moniteurs (docs/SPECS.md §3.3) : congé, maladie, tournoi…
  *
  * Stockage : date-heures locales du club (`AAAA-MM-JJTHH:MM`, sans fuseau),
  * fin exclue. Une indisponibilité « journées entières » va de `J1T00:00` au

@@ -1,5 +1,5 @@
 /**
- * Plages hebdomadaires récurrentes de disponibilité des moniteurs (SPECS.md §3.3).
+ * Plages hebdomadaires récurrentes de disponibilité des moniteurs (docs/SPECS.md §3.3).
  *
  * Les plages sont manipulées comme des intervalles semi-ouverts
  * `[début, fin[` en minutes depuis minuit. Après chaque modification, les

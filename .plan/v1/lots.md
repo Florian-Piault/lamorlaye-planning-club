@@ -1,6 +1,6 @@
 # Découpage de la V1 en lots
 
-> Référence : `SPECS.md` v1.2 — 14/10/2026
+> Référence : `docs/SPECS.md` v1.2 — 14/10/2026
 
 ## Principes
 
@@ -183,7 +183,7 @@ L5 peut démarrer dès la fin de L1. L6 et L7 sont indépendants entre eux.
 
 **Critères d'acceptation**
 - Aucun bug bloquant ou majeur ouvert.
-- Toutes les sections de `SPECS.md` sont couvertes (tableau de traçabilité spec → lot → tests).
+- Toutes les sections de `docs/SPECS.md` sont couvertes (tableau de traçabilité spec → lot → tests).
 
 ---
 

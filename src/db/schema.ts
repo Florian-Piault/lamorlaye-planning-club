@@ -1,5 +1,5 @@
 /**
- * Schéma de la base SQLite (SPECS.md §3).
+ * Schéma de la base SQLite (docs/SPECS.md §3).
  *
  * Conventions :
  * - chaque table porte un identifiant UUID (`id`) et les horodatages

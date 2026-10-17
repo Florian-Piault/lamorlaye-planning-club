@@ -19,7 +19,7 @@ Recherche dans le code (lecture seule), 16/10/2026. Chemins relatifs à `src/fea
 
 - **Aucun composant Tooltip partagé** (`src/components/ui/` : badge, button, card, dialog, input, table). Les aides passent par l'attribut `title` natif : ~1 s de survol, jamais au clavier. La bulle de `planning/components/DragFeedback.tsx:66` n'est pas réutilisable.
 - `Field` accepte déjà une prop `hint` sous le champ (`components/form/Field.tsx:8,43`), inutilisée par `SeasonForm`.
-- Glossaire `SPECS.md` §2 (l.26-39) : Saison, Court, Moniteur, Groupe, Élève, Cours, Semaine type, Occurrence, Exception, Période de fermeture. Manquent semaine datée, cours ponctuel, plage, composition, référentiels, amplitude. Non affiché dans l'application.
+- Glossaire `docs/SPECS.md` §2 (l.26-39) : Saison, Court, Moniteur, Groupe, Élève, Cours, Semaine type, Occurrence, Exception, Période de fermeture. Manquent semaine datée, cours ponctuel, plage, composition, référentiels, amplitude. Non affiché dans l'application.
 
 ### Libellés
 

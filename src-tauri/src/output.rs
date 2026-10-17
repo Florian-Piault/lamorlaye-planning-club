@@ -1,5 +1,5 @@
 //! Enregistrement et ouverture des documents produits par l'application :
-//! PDF (planning, feuilles d'appel), exports CSV et Excel (SPECS.md §9.2, §10).
+//! PDF (planning, feuilles d'appel), exports CSV et Excel (docs/SPECS.md §9.2, §10).
 //!
 //! Comme pour l'import (`import.rs`), le front n'a aucun accès général au
 //! système de fichiers : il envoie le contenu du document (corps binaire de la

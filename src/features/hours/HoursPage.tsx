@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 const DESCRIPTION =
   "Heures assurées par chaque moniteur sur une période : fermetures et annulations exclues, remplacements attribués au remplaçant, cours ponctuels inclus.";
 
-/** Écran « Récapitulatif des heures » (SPECS.md §10). */
+/** Écran « Récapitulatif des heures » (docs/SPECS.md §10). */
 export function HoursPage() {
   return (
     <Page title="Récapitulatif des heures" description={DESCRIPTION}>

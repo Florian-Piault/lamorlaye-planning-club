@@ -1,5 +1,5 @@
 /**
- * Doublons et alerte d'âge (SPECS.md §7, §8 ; spec UX v1.1 « Doublons et
+ * Doublons et alerte d'âge (docs/SPECS.md §7, §8 ; spec UX v1.1 « Doublons et
  * âge ») : signaler tôt, sans jamais bloquer l'enregistrement.
  *
  * - Élève : même nom + prénom (sans casse ni accents) ; si les deux dates de

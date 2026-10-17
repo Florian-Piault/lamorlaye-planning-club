@@ -1,5 +1,5 @@
 /**
- * Sauvegardes (SPECS.md §11.3, §12.2).
+ * Sauvegardes (docs/SPECS.md §11.3, §12.2).
  *
  * La copie elle-même (`VACUUM INTO`) et la rotation des 30 dernières copies
  * automatiques sont faites côté Rust (`src-tauri/src/backup.rs`), afin de

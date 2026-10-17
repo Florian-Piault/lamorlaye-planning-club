@@ -1,5 +1,5 @@
 /**
- * Guidage de la première utilisation (spec UX v1.1, SPECS.md §4.5) : état des
+ * Guidage de la première utilisation (spec UX v1.1, docs/SPECS.md §4.5) : état des
  * étapes Saison, Courts, Moniteurs, Groupes, Élèves, puis premier cours,
  * calculé à partir des comptes de la saison consultée. Rien n'est mémorisé :
  * une étape est faite dès que la saison compte au moins un enregistrement, et

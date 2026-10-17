@@ -1,5 +1,5 @@
 /**
- * Mise en forme des documents PDF (SPECS.md §9.2) : planning de la semaine
+ * Mise en forme des documents PDF (docs/SPECS.md §9.2) : planning de la semaine
  * (type ou datée), planning par moniteur et feuilles d'appel par groupe.
  *
  * Fonctions pures : elles préparent tout ce qui est affiché (libellés,

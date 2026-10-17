@@ -1,5 +1,5 @@
 /**
- * Lecture des fichiers d'import d'élèves (SPECS.md §9.1) : CSV et classeurs
+ * Lecture des fichiers d'import d'élèves (docs/SPECS.md §9.1) : CSV et classeurs
  * Excel (.xlsx, .xls), transformés en un tableau de cellules texte.
  *
  * - CSV : détection de l'encodage (UTF-8 avec ou sans BOM, UTF-16 avec BOM,

@@ -1,5 +1,5 @@
 /**
- * Couleurs des moniteurs (SPECS.md §6).
+ * Couleurs des moniteurs (docs/SPECS.md §6).
  *
  * Palette de 16 couleurs nettement distinctes, toutes lisibles avec un texte
  * blanc (contraste ≥ 4,5:1, vérifié par les tests).
