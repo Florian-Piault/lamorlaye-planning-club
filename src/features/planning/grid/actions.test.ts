@@ -216,7 +216,7 @@ describe("semaine datée : la modification crée une exception pour cette seule 
 
   it("refuse de supprimer une séance de la semaine type", () => {
     const state = initial();
-    expect(() => removeItem(state, item(state, REGULAR))).toThrow("annulez-la");
+    expect(() => removeItem(state, item(state, REGULAR))).toThrow("annulez-le");
   });
 });
 
@@ -475,9 +475,11 @@ describe("« Appliquer à partir de cette semaine »", () => {
     ).toThrow("Choisissez un groupe");
     expect(() =>
       applyItemFromWeek(state, typeCtx, item(state, REGULAR), values({ start: 600 })),
-    ).toThrow("Aucune semaine datée affichée.");
+    ).toThrow("Aucune semaine précise affichée.");
     const base = lessonItem(state.lessons[0] as never);
-    expect(() => applyItemFromWeek(state, dated, base, values())).toThrow("Seule une séance");
+    expect(() => applyItemFromWeek(state, dated, base, values())).toThrow(
+      "Seul un cours du planning habituel",
+    );
   });
 });
 

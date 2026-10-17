@@ -1,11 +1,15 @@
 import { Pencil, Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useReadOnly, useViewedSeason } from "@/app/season";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages, warnings } from "@/components/feedback/messages";
 import { ErrorAlert, Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
-import { Checkbox, Input, Label, Select } from "@/components/ui/input";
+import { Dialog, useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
+import { Checkbox, Input, Select } from "@/components/ui/input";
 import { useDatabase } from "@/db/DatabaseProvider";
 import {
   createCourt,
@@ -17,13 +21,8 @@ import {
   updateCourt,
 } from "@/db/repositories/courts";
 import type { Court } from "@/db/schema";
-import {
-  type CourtFormValues,
-  type CourtInput,
-  courtSchema,
-  type FieldErrors,
-  validate,
-} from "@/domain/validation";
+import { courtNameMessage, courtWithSameName } from "@/domain/duplicates";
+import { type CourtFormValues, type CourtInput, courtSchema, validate } from "@/domain/validation";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
 import { DeleteAction } from "../components/DeleteAction";
 import { SortableList } from "../components/SortableList";
@@ -98,7 +97,7 @@ export function CourtsTab() {
                     variant="ghost"
                     size="icon"
                     aria-label={`Modifier ${court.name}`}
-                    title="Modifier"
+                    tooltip="Modifier"
                     onClick={() => setEditing({ mode: "edit", court })}
                   >
                     <Pencil aria-hidden />
@@ -125,6 +124,8 @@ export function CourtsTab() {
       >
         {editing && (
           <CourtForm
+            courts={courts}
+            courtId={editing.mode === "edit" ? editing.court.id : null}
             initialValues={
               editing.mode === "edit"
                 ? {
@@ -149,15 +150,26 @@ export function CourtsTab() {
 }
 
 interface CourtFormProps {
+  /** Courts de la saison : un nom déjà pris est signalé (B5), sans bloquer. */
+  courts: readonly Court[];
+  /** Court modifié (exclu de la comparaison). */
+  courtId: string | null;
   initialValues: CourtFormValues;
   onSubmit: (input: CourtInput) => Promise<void>;
   onCancel: () => void;
 }
 
-function CourtForm({ initialValues, onSubmit, onCancel }: CourtFormProps) {
+function CourtForm({ courts, courtId, initialValues, onSubmit, onCancel }: CourtFormProps) {
   const [values, setValues] = useState(initialValues);
-  const [errors, setErrors] = useState<FieldErrors<CourtFormValues>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { errors, setErrors, error, setError, changed } = useFormErrors<CourtFormValues>();
+  useDirtyGuard(!sameValues(values, initialValues));
+  const cancel = useGuardedCancel(onCancel);
+  const set = (patch: Partial<CourtFormValues>) => {
+    changed(patch);
+    setValues((v) => ({ ...v, ...patch }));
+  };
+
+  const sameName = courtWithSameName(values.name, courts, courtId);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -174,12 +186,7 @@ function CourtForm({ initialValues, onSubmit, onCancel }: CourtFormProps) {
     <form onSubmit={submit} noValidate className="grid gap-4">
       <Field label="Nom" required error={errors.name}>
         {(props) => (
-          <Input
-            {...props}
-            autoFocus
-            value={values.name}
-            onChange={(e) => setValues({ ...values, name: e.target.value })}
-          />
+          <Input {...props} value={values.name} onChange={(e) => set({ name: e.target.value })} />
         )}
       </Field>
       <Field label="Type" error={errors.kind}>
@@ -187,25 +194,27 @@ function CourtForm({ initialValues, onSubmit, onCancel }: CourtFormProps) {
           <Select
             {...props}
             value={values.kind}
-            onChange={(e) =>
-              setValues({ ...values, kind: e.target.value as CourtFormValues["kind"] })
-            }
+            onChange={(e) => set({ kind: e.target.value as CourtFormValues["kind"] })}
           >
             <option value="outdoor">Extérieur</option>
             <option value="indoor">Couvert</option>
           </Select>
         )}
       </Field>
-      <Label className="font-normal">
-        <Checkbox
-          checked={values.active}
-          onChange={(e) => setValues({ ...values, active: e.target.checked })}
-        />
-        Actif (proposé dans le planning)
-      </Label>
-      <ErrorAlert>{error}</ErrorAlert>
+      <Checkbox
+        label="Actif (proposé dans le planning)"
+        checked={values.active}
+        onChange={(e) => set({ active: e.target.checked })}
+      />
+      <MessageZone
+        label="Messages"
+        messages={[
+          ...errorMessages(error),
+          ...warnings(sameName ? [courtNameMessage(sameName)] : []),
+        ]}
+      />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={cancel}>
           Annuler
         </Button>
         <Button type="submit">Enregistrer</Button>

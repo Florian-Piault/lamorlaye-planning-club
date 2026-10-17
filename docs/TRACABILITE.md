@@ -1,6 +1,6 @@
 # Traçabilité spécifications → lots → tests
 
-> Référence : `SPECS.md` v1.2 (14/10/2026), `LOTS-V1.md`. État à la version 1.0.0 (lot L8).
+> Référence : `SPECS.md` v1.2 (14/10/2026), `LOTS-V1.md`. État à la version 1.0.0 (lot L8). Pour la v1.1 (spec UX, lots L9 à L16), voir [`TRACABILITE-V1.1.md`](TRACABILITE-V1.1.md).
 >
 > Chaque section et sous-section des spécifications est rattachée au(x) lot(s) qui l'implémentent et aux tests qui la vérifient. Quand une exigence ne peut pas être vérifiée automatiquement, la justification et la vérification de remplacement (recette manuelle `docs/RECETTE.md`, relecture de configuration) sont indiquées.
 

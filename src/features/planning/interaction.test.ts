@@ -44,4 +44,25 @@ describe("état des interactions", () => {
     });
     expect(hatchedInstructorId(store.get())).toBe("survolé");
   });
+
+  it("hachure le moniteur du panneau avant le survol, après le glisser (B8)", () => {
+    const store = new InteractionStore();
+    store.update({ pinnedInstructorId: "épinglé", hoverInstructorId: "survolé" });
+    store.update({ panelInstructorId: "panneau" });
+    expect(hatchedInstructorId(store.get())).toBe("panneau");
+    store.update({
+      drag: {
+        kind: "move",
+        lessonId: "l1",
+        instructorId: "glissé",
+        grabOffset: 0,
+        duplicate: false,
+        candidate: null,
+        warnings: [],
+      },
+    });
+    expect(hatchedInstructorId(store.get())).toBe("glissé");
+    store.update({ drag: null, panelInstructorId: null });
+    expect(hatchedInstructorId(store.get())).toBe("survolé");
+  });
 });

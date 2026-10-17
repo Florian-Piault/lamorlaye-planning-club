@@ -1,16 +1,19 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages } from "@/components/feedback/messages";
 import { ErrorAlert, Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
-import { Checkbox, Input, Label } from "@/components/ui/input";
+import { Dialog, useDirtyGuard } from "@/components/ui/dialog";
+import { Checkbox, Input } from "@/components/ui/input";
 import type { UnavailabilityInput } from "@/db/repositories/instructors";
 import type { InstructorUnavailability } from "@/db/schema";
 import {
   describeUnavailability,
   parseUnavailabilityForm,
   toUnavailabilityForm,
-  type UnavailabilityErrors,
   type UnavailabilityForm,
 } from "@/domain/unavailability";
 import { errorMessage } from "@/hooks/useLoader";
@@ -73,6 +76,7 @@ export function UnavailabilitySection({
                       variant="ghost"
                       size="icon"
                       aria-label={`Modifier l'indisponibilité ${period}`}
+                      tooltip="Modifier"
                       onClick={() => setEditing(u)}
                     >
                       <Pencil aria-hidden />
@@ -81,6 +85,7 @@ export function UnavailabilitySection({
                       variant="ghost"
                       size="icon"
                       aria-label={`Supprimer l'indisponibilité ${period}`}
+                      tooltip="Supprimer"
                       onClick={async () => {
                         try {
                           await onDelete(u.id);
@@ -137,9 +142,12 @@ function UnavailabilityFormView({
   onSubmit: (input: UnavailabilityInput) => Promise<void>;
 }) {
   const [values, setValues] = useState(initialValues);
-  const [errors, setErrors] = useState<UnavailabilityErrors>({});
-  const [error, setError] = useState<string | null>(null);
-  const set = (patch: Partial<UnavailabilityForm>) => setValues((v) => ({ ...v, ...patch }));
+  const { errors, setErrors, error, setError, changed } = useFormErrors<UnavailabilityForm>();
+  useDirtyGuard(!sameValues(values, initialValues));
+  const set = (patch: Partial<UnavailabilityForm>) => {
+    changed(patch);
+    setValues((v) => ({ ...v, ...patch }));
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -161,10 +169,11 @@ function UnavailabilityFormView({
       aria-label={submitLabel}
       className="grid gap-3 rounded-lg border border-dashed p-3"
     >
-      <Label className="font-normal">
-        <Checkbox checked={values.allDay} onChange={(e) => set({ allDay: e.target.checked })} />
-        Journées entières
-      </Label>
+      <Checkbox
+        label="Journées entières"
+        checked={values.allDay}
+        onChange={(e) => set({ allDay: e.target.checked })}
+      />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Field label="Du" required error={errors.startDate}>
           {(props) => (
@@ -226,7 +235,7 @@ function UnavailabilityFormView({
           />
         )}
       </Field>
-      <ErrorAlert>{error}</ErrorAlert>
+      <MessageZone label="Messages" messages={errorMessages(error)} />
       <div>
         <Button type="submit" variant="outline">
           <Plus aria-hidden />

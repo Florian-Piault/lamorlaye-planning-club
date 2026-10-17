@@ -1,9 +1,11 @@
 import { type ComponentType, type LazyExoticComponent, lazy, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router";
 import { SeasonProvider } from "@/app/season";
+import { ToastProvider } from "@/components/feedback/Toast";
 import { AppShell } from "@/components/layout/AppShell";
 import { type AppDatabase, openAppDatabase } from "@/db";
 import { DatabaseProvider } from "@/db/DatabaseProvider";
+import { GuidanceProvider } from "@/features/guidance/GuidanceProvider";
 import { ReferentielsPage, RequireSeason } from "@/features/referentiels/ReferentielsPage";
 
 /**
@@ -61,7 +63,14 @@ const withSeason = (element: ReactNode) => <RequireSeason>{element}</RequireSeas
 export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
+      <Route
+        element={
+          // Guidage de la première utilisation : suit la saison sur tous les écrans.
+          <GuidanceProvider>
+            <AppShell />
+          </GuidanceProvider>
+        }
+      >
         <Route index element={<Navigate to="/planning" replace />} />
         <Route path="planning" element={<PlanningPage />} />
         <Route path="referentiels" element={<ReferentielsPage />}>
@@ -94,9 +103,11 @@ export function App({ openDatabase = openAppDatabase }: AppProps) {
   return (
     <DatabaseProvider open={openDatabase}>
       <SeasonProvider>
-        <HashRouter>
-          <AppRoutes />
-        </HashRouter>
+        <ToastProvider>
+          <HashRouter>
+            <AppRoutes />
+          </HashRouter>
+        </ToastProvider>
       </SeasonProvider>
     </DatabaseProvider>
   );

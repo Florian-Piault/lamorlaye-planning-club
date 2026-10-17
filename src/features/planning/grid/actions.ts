@@ -79,7 +79,7 @@ export function cancellationLabel(reason: CancellationReason | null, note: strin
 /** Date d'un jour de la semaine affichée, qui doit appartenir à la saison. */
 function dateOf(ctx: ActionContext, weekday: number): string {
   const date = dateOfMode(ctx.mode)(weekday);
-  if (!date) throw new PlanningError("Aucune semaine datée affichée.");
+  if (!date) throw new PlanningError("Aucune semaine précise affichée.");
   checkInSeason(ctx, date);
   return date;
 }
@@ -93,7 +93,7 @@ function checkInSeason(ctx: ActionContext, date: string): void {
 }
 
 function mondayOf(ctx: ActionContext): string {
-  if (ctx.mode.kind !== "dated") throw new PlanningError("Aucune semaine datée affichée.");
+  if (ctx.mode.kind !== "dated") throw new PlanningError("Aucune semaine précise affichée.");
   return ctx.mode.monday;
 }
 
@@ -333,7 +333,7 @@ export function removeItem(state: PlanningState, item: GridItem): Command {
   if (item.kind === "lesson") return deleteLesson(state, item.id);
   if (item.kind === "one_off") return deleteOneOff(state, oneOffIdOf(item));
   throw new PlanningError(
-    "Une séance de la semaine type ne se supprime pas ici : annulez-la pour cette semaine.",
+    "Un cours du planning habituel ne se supprime pas ici : annulez-le pour cette semaine.",
   );
 }
 
@@ -401,7 +401,7 @@ export function applyItemFromWeek(
   const monday = mondayOf(ctx);
   if (item.kind !== "regular") {
     throw new PlanningError(
-      "Seule une séance de la semaine type peut s'appliquer aux semaines suivantes.",
+      "Seul un cours du planning habituel peut s'appliquer aux semaines suivantes.",
     );
   }
   if (!values.groupId || !values.instructorId || !values.courtId) {

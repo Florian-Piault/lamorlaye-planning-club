@@ -1,14 +1,18 @@
 import { Plus, Trash2, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useEffect, useId, useMemo, useState } from "react";
-import { ErrorAlert } from "@/components/form/Field";
+import { type FormEvent, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages, warnings as warningMessages } from "@/components/feedback/messages";
+import { sameValues } from "@/components/form/formState";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
 import type { Court, Level } from "@/db/schema";
+import type { BusySlot } from "@/domain/instructorAvailability";
 import { matchesSearch } from "@/domain/search";
 import { formatDuration, minutesToTime, weekdayLabel } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
 import { emptyGroupValues, GroupForm } from "@/features/referentiels/groupes/GroupForm";
+import { keyLabel } from "@/lib/keys";
 import type { LessonFormValues } from "../grid/actions";
 import { SNAP_MINUTES } from "../grid/geometry";
 import { type DateOfWeekday, instructorChoices, noDate } from "../grid/view";
@@ -47,6 +51,20 @@ interface LessonPanelProps {
   onDelete?: () => void;
   /** Brouillon du nouveau cours, dessiné sur la grille. */
   onDraftChange?: (values: LessonFormValues) => void;
+  /**
+   * Moniteur choisi dans le panneau (nul à la fermeture) : ses indisponibilités
+   * sont hachurées, avant celles du moniteur survolé (B8).
+   */
+  onInstructorChange?: (instructorId: string | null) => void;
+  /** Cours placés, pour ranger à part les moniteurs déjà occupés sur le créneau (§5.1). */
+  busySlots?: readonly BusySlot[];
+  /** Cours en cours d'édition, exclu de ce calcul. */
+  excludedId?: string | null;
+  /**
+   * Saisie modifiée (différente des valeurs à l'ouverture) : l'écran demande
+   * alors confirmation avant de fermer le panneau ou d'en ouvrir un autre.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   /** Création rapide d'un groupe ; renvoie son identifiant. */
   onCreateGroup: (input: GroupInput) => Promise<string>;
   /** Titre (et nom accessible) du formulaire. */
@@ -90,6 +108,10 @@ export function LessonPanel({
   onClose,
   onDelete,
   onDraftChange,
+  onInstructorChange,
+  busySlots = noBusySlots,
+  excludedId = null,
+  onDirtyChange,
   onCreateGroup,
   title: titleProp,
   submitLabel = mode === "create" ? "Créer le cours" : "Enregistrer",
@@ -107,12 +129,13 @@ export function LessonPanel({
     ? "Détail du cours"
     : (titleProp ?? (mode === "create" ? "Nouveau cours" : "Modifier le cours"));
   const groupLocked = groupLockedProp || readOnly;
-  const notice = readOnly ? "Saison archivée : consultation seule." : noticeProp;
+  const notice = readOnly ? "Consultation seulement (saison terminée)." : noticeProp;
   const [values, setValues] = useState(initialValues);
   const [groupQuery, setGroupQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const id = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const set = (patch: Partial<LessonFormValues>) => {
     setError(null);
     setValues((v) => ({ ...v, ...patch }));
@@ -121,6 +144,23 @@ export function LessonPanel({
   useEffect(() => {
     onDraftChange?.(values);
   }, [values, onDraftChange]);
+  useEffect(() => {
+    onInstructorChange?.(values.instructorId || null);
+  }, [values.instructorId, onInstructorChange]);
+  useEffect(() => () => onInstructorChange?.(null), [onInstructorChange]);
+
+  const dirty = !readOnly && !sameValues(values, initialValues);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+
+  // Garde de modale (B3) : à la création, le curseur est dans le premier champ.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seulement à l'ouverture du panneau.
+  useEffect(() => {
+    if (mode !== "create" || readOnly) return;
+    formRef.current?.querySelector<HTMLElement>("input:enabled, select:enabled")?.focus();
+  }, []);
 
   const groupOptions = useMemo(
     () =>
@@ -140,6 +180,8 @@ export function LessonPanel({
           start: values.start,
           end: values.start + values.durationMinutes,
         },
+        busySlots,
+        excludedId,
       ),
     [
       instructors,
@@ -148,10 +190,13 @@ export function LessonPanel({
       values.start,
       values.durationMinutes,
       dateOf,
+      busySlots,
+      excludedId,
     ],
   );
-  const available = choices.filter((c) => c.available);
-  const unavailable = choices.filter((c) => !c.available);
+  const available = choices.filter((c) => c.status === "available");
+  const busy = choices.filter((c) => c.status === "busy");
+  const unavailable = choices.filter((c) => c.status === "unavailable");
 
   const startOptions = steps(dayStart, dayEnd - SNAP_MINUTES, values.start);
   const durationOptions = steps(
@@ -188,7 +233,13 @@ export function LessonPanel({
 
   return (
     <>
-      <form onSubmit={submit} aria-label={title} className="flex flex-col gap-3" noValidate>
+      <form
+        ref={formRef}
+        onSubmit={submit}
+        aria-label={title}
+        className="flex flex-col gap-3"
+        noValidate
+      >
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-sm">{title}</h2>
           <Button
@@ -196,6 +247,8 @@ export function LessonPanel({
             variant="ghost"
             size="icon"
             aria-label="Fermer le panneau"
+            tooltip={`Fermer le panneau (${keyLabel("escape")})`}
+            aria-keyshortcuts="Escape"
             onClick={onClose}
           >
             <X aria-hidden />
@@ -236,7 +289,7 @@ export function LessonPanel({
                   variant="outline"
                   size="icon"
                   aria-label="Nouveau groupe"
-                  title="Créer un groupe"
+                  tooltip="Créer un groupe"
                   onClick={() => setCreatingGroup(true)}
                 >
                   <Plus aria-hidden />
@@ -258,6 +311,15 @@ export function LessonPanel({
                   {available.map(({ instructor }) => (
                     <option key={instructor.id} value={instructor.id}>
                       ● {instructor.firstName} {instructor.lastName}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {busy.length > 0 && (
+                <optgroup label="Occupés sur ce créneau">
+                  {busy.map(({ instructor, note }) => (
+                    <option key={instructor.id} value={instructor.id}>
+                      ◐ {instructor.firstName} {instructor.lastName} ({note})
                     </option>
                   ))}
                 </optgroup>
@@ -347,24 +409,15 @@ export function LessonPanel({
               rows={2}
               value={values.note}
               onChange={(e) => set({ note: e.target.value })}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/75"
             />
           </div>
         </fieldset>
 
-        {warnings.length > 0 && (
-          <ul aria-label="Avertissements du créneau" className="flex flex-col gap-1">
-            {warnings.map((w) => (
-              <li
-                key={w}
-                className="rounded-md bg-destructive/10 px-2 py-1 text-destructive text-xs"
-              >
-                ⚠ {w}
-              </li>
-            ))}
-          </ul>
-        )}
-        <ErrorAlert>{error}</ErrorAlert>
+        <MessageZone
+          label="Avertissements du créneau"
+          messages={[...errorMessages(error), ...warningMessages(warnings)]}
+        />
 
         <div className="flex flex-wrap gap-2">
           {!readOnly && <Button type="submit">{submitLabel}</Button>}
@@ -403,6 +456,8 @@ export function LessonPanel({
     </>
   );
 }
+
+const noBusySlots: readonly BusySlot[] = [];
 
 /** Valeurs de `from` à `to` au pas de 15 min, en incluant `current`. */
 function steps(from: number, to: number, current: number): number[] {

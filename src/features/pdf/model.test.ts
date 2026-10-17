@@ -27,7 +27,7 @@ const context = (overrides: Partial<WeekContext> = {}): WeekContext => ({
 describe("libellés des documents", () => {
   it("met en forme les titres et les noms de fichiers", () => {
     expect(fullName({ firstName: "Julie", lastName: "Martin" })).toBe("Julie Martin");
-    expect(weekTitle({ kind: "type" }, OUTPUT_SEASON)).toBe("Semaine type — saison 2026-2027");
+    expect(weekTitle({ kind: "type" }, OUTPUT_SEASON)).toBe("Planning habituel — saison 2026-2027");
     expect(weekTitle({ kind: "dated", monday: "2026-11-02" }, OUTPUT_SEASON)).toBe(
       "Semaine du 02/11/2026 au 08/11/2026",
     );
@@ -65,8 +65,8 @@ describe("libellés des documents", () => {
 describe("planning de la semaine", () => {
   it("dessine la semaine type : cours en vigueur, légende des heures", () => {
     const sheet = buildWeekSheet(context({ mode: { kind: "type" } }));
-    expect(sheet.title).toBe("Planning — semaine type");
-    expect(sheet.subtitle).toBe("Semaine type — saison 2026-2027");
+    expect(sheet.title).toBe("Planning habituel");
+    expect(sheet.subtitle).toBe("Planning habituel — saison 2026-2027");
     expect(sheet.days.map((d) => d.label)).toEqual([
       "Lundi",
       "Mardi",
@@ -240,7 +240,7 @@ describe("planning par moniteur", () => {
 
     const type = buildInstructorSheets(context({ mode: { kind: "type" } }), ["m1"]);
     expect(type[0]).toMatchObject({
-      subtitle: "Semaine type — saison 2026-2027",
+      subtitle: "Planning habituel — saison 2026-2027",
       totalHours: "1 h 30",
     });
     expect(type[0]?.sessions[0]?.day).toBe("Mercredi");

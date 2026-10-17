@@ -31,7 +31,7 @@ export const navigationSections: readonly NavigationSection[] = [
   {
     label: "Gérer",
     items: [
-      { path: "/referentiels", label: "Référentiels", icon: Users },
+      { path: "/referentiels", label: "Le club", icon: Users },
       { path: "/import-export", label: "Import/Export", icon: ArrowLeftRight },
     ],
   },

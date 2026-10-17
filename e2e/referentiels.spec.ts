@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 /**
  * Saisie des référentiels (lot L1). Hors de Tauri, la base est une base sql.js
@@ -13,11 +13,11 @@ async function createSeason(page: Page) {
   await form.getByLabel("Date de fin").fill("2027-06-30");
   await form.getByLabel("Dimanche").uncheck();
   await form.getByRole("button", { name: "Créer la saison" }).click();
-  await expect(page.getByText("Saison active")).toBeVisible();
+  await expect(page.getByText("Saison en cours", { exact: true })).toBeVisible();
 }
 
 function tab(page: Page, name: string) {
-  return page.getByRole("navigation", { name: "Référentiels" }).getByRole("link", { name });
+  return page.getByRole("navigation", { name: "Fiches du club" }).getByRole("link", { name });
 }
 
 async function createCourt(page: Page, name: string, kind: "Couvert" | "Extérieur") {
@@ -53,6 +53,32 @@ async function createStudent(
   for (const group of groups) await dialog.getByLabel(group).check();
   await dialog.getByRole("button", { name: "Créer l'élève" }).click();
   await expect(dialog).toBeHidden();
+}
+
+/**
+ * Glisse dans une rangée de la frise du bord gauche d'une case (repère
+ * horaire) à celui d'une autre ; les décalages (pixels) permettent d'appuyer
+ * ou de relâcher juste avant ou après le repère.
+ */
+async function dragAlong(
+  page: Page,
+  row: Locator,
+  from: string,
+  to: string,
+  offsets: { from?: number; to?: number } = {},
+) {
+  const start = await row.locator(`[data-time="${from}"]`).boundingBox();
+  const end = await row.locator(`[data-time="${to}"]`).boundingBox();
+  if (!start || !end) throw new Error("cases introuvables");
+  await page.mouse.move(start.x + (offsets.from ?? 1), start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(end.x + (offsets.to ?? 1), end.y + end.height / 2, { steps: 12 });
+  await page.mouse.up();
+}
+
+/** Clic simple au milieu d'une case de la frise. */
+async function clickCell(row: Locator, time: string) {
+  await row.locator(`[data-time="${time}"]`).click();
 }
 
 test.describe("référentiels", () => {
@@ -92,31 +118,30 @@ test.describe("référentiels", () => {
     await createSeason(page);
     await createInstructor(page, "Karim", "Benali");
 
-    // Plage du lundi peinte à la souris de 09:00 à 11:45 (fin incluse → 12:00).
+    // Plage du lundi glissée du repère « 14h » au repère « 18h » : 14:00–18:00 (B6).
     const monday = page.getByRole("group", { name: "Disponibilités du lundi" });
-    const start = await monday.locator('[data-time="09:00"]').boundingBox();
-    const end = await monday.locator('[data-time="11:45"]').boundingBox();
-    if (!start || !end) throw new Error("cases introuvables");
-    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(end.x + end.width / 2, end.y + end.height / 2, { steps: 12 });
-    await page.mouse.up();
-    const slots = page.getByRole("list", { name: "Plages de disponibilité" });
-    await expect(slots).toContainText("09:00–12:00");
-    await expect(monday.locator('[data-time="10:00"]')).toHaveAttribute("data-available", "true");
+    await dragAlong(page, monday, "14:00", "18:00");
+    const slots = page.getByRole("list", { name: "Horaires de disponibilité" });
+    await expect(slots).toContainText("14:00–18:00");
+    await expect(monday.locator('[data-time="17:45"]')).toHaveAttribute("data-available", "true");
+    await expect(monday.locator('[data-time="18:00"]')).toHaveAttribute("data-available", "false");
+    const toast = page.getByTestId("toast");
+    await expect(toast).toContainText("Lundi 14:00–18:00 ajouté");
+    await expect(page.getByText("Total : 4 h par semaine")).toBeVisible();
 
     // Saisie précise au clavier.
-    const addSlot = page.getByRole("form", { name: "Ajouter une plage" });
-    await addSlot.getByLabel("Jour").selectOption({ label: "Mercredi" });
-    await addSlot.getByLabel("De").selectOption("14:00");
-    await addSlot.getByLabel("À").selectOption("18:30");
-    await addSlot.getByRole("button", { name: "Ajouter la plage" }).click();
+    const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
+    await slotForm.getByLabel("Jour").selectOption({ label: "Mercredi" });
+    await slotForm.getByLabel("De").selectOption("14:00");
+    await slotForm.getByLabel("À").selectOption("18:30");
+    await slotForm.getByRole("button", { name: "Ajouter un horaire" }).click();
     await expect(slots).toContainText("14:00–18:30");
-    await expect(page.getByText("Total : 7 h 30 par semaine")).toBeVisible();
+    await expect(page.getByText("Total : 8 h 30 par semaine")).toBeVisible();
 
     // Effacer une plage.
-    await page.getByRole("button", { name: "Retirer lundi 09:00–12:00" }).click();
-    await expect(slots).not.toContainText("09:00–12:00");
+    await page.getByRole("button", { name: "Retirer mercredi 14:00–18:30" }).click();
+    await expect(slots).not.toContainText("14:00–18:30");
+    await expect(toast).toContainText("Mercredi 14:00–18:30 retiré");
 
     // Indisponibilité datée.
     const unavailability = page.getByRole("form", { name: "Ajouter l'indisponibilité" });
@@ -138,7 +163,119 @@ test.describe("référentiels", () => {
       els.map((el) => getComputedStyle(el).backgroundColor),
     );
     expect(new Set(colors).size).toBe(2);
-    await expect(table).toContainText("4 h 30 / sem.");
+    await expect(table).toContainText("4 h / sem.");
+  });
+
+  test("un clic simple dans la frise remplit le formulaire, « Annuler » rétablit les plages", async ({
+    page,
+  }) => {
+    await createSeason(page);
+    await createInstructor(page, "Karim", "Benali");
+    const monday = page.getByRole("group", { name: "Disponibilités du lundi" });
+    const tuesday = page.getByRole("group", { name: "Disponibilités du mardi" });
+    const slots = page.getByRole("list", { name: "Horaires de disponibilité" });
+    const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
+    const toast = page.getByTestId("toast");
+    const available = (row: Locator) => row.locator('[data-available="true"]');
+
+    await dragAlong(page, monday, "14:00", "18:00");
+    await expect(slots).toContainText("14:00–18:00");
+    await expect(available(monday)).toHaveCount(16);
+
+    // Case vide : l'heure cliquée plus une heure, rien n'est enregistré.
+    await clickCell(tuesday, "10:00");
+    await expect(slotForm.getByLabel("Jour")).toHaveValue("2");
+    await expect(slotForm.getByLabel("De").locator("option:checked")).toHaveText("10:00");
+    await expect(slotForm.getByLabel("À").locator("option:checked")).toHaveText("11:00");
+    await expect(slotForm.getByLabel("De")).toBeFocused();
+    await expect(available(tuesday)).toHaveCount(0);
+    await expect(slotForm.getByRole("button", { name: "Retirer l'horaire" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+
+    // Case disponible : la plage entière ; un clic n'efface rien.
+    await clickCell(monday, "15:00");
+    await expect(slotForm.getByLabel("Jour")).toHaveValue("1");
+    await expect(slotForm.getByLabel("De").locator("option:checked")).toHaveText("14:00");
+    await expect(slotForm.getByLabel("À").locator("option:checked")).toHaveText("18:00");
+    await expect(available(monday)).toHaveCount(16);
+    await expect(slots).toContainText("14:00–18:00");
+    // « Ajouter » serait sans effet : grisé, avec sa raison.
+    await expect(slotForm.getByRole("button", { name: "Ajouter un horaire" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await expect(slotForm.getByText("Déjà disponible sur tout cet horaire")).toBeVisible();
+
+    // Retirer une partie de la plage depuis le formulaire, puis annuler.
+    await slotForm.getByLabel("De").selectOption("16:00");
+    await slotForm.getByRole("button", { name: "Retirer l'horaire" }).click();
+    await expect(slots).toContainText("14:00–16:00");
+    await expect(slots).not.toContainText("14:00–18:00");
+    await expect(toast).toContainText("Lundi 16:00–18:00 retiré");
+    await toast.getByRole("button", { name: "Annuler" }).click();
+    await expect(slots).toContainText("14:00–18:00");
+    await expect(toast).toContainText("Annulé : Lundi 16:00–18:00 retiré");
+    await expect(available(monday)).toHaveCount(16);
+
+    // Les plages rétablies sont enregistrées : elles restent après un aller-retour.
+    await page.getByRole("link", { name: "Moniteurs", exact: true }).first().click();
+    await page.getByRole("link", { name: /Karim/ }).first().click();
+    await expect(slots).toContainText("14:00–18:00");
+
+    // Annuler un glisser d'effacement.
+    await dragAlong(page, monday, "15:00", "17:00");
+    await expect(slots).toContainText("14:00–15:00");
+    await expect(toast).toContainText("Lundi 15:00–17:00 retiré");
+    await toast.getByRole("button", { name: "Annuler" }).click();
+    await expect(slots).toContainText("14:00–18:00");
+  });
+
+  test("trace une plage dans les deux sens, annonce ce qui change et annule le dernier changement", async ({
+    page,
+  }) => {
+    await createSeason(page);
+    await createInstructor(page, "Karim", "Benali");
+    const monday = page.getByRole("group", { name: "Disponibilités du lundi" });
+    const tuesday = page.getByRole("group", { name: "Disponibilités du mardi" });
+    const slots = page.getByRole("list", { name: "Horaires de disponibilité" });
+    const toast = page.getByTestId("toast");
+    const dayList = (day: string) => slots.getByRole("listitem").filter({ hasText: day });
+
+    // De droite à gauche : du repère « 18h » au repère « 14h ».
+    await dragAlong(page, monday, "18:00", "14:00");
+    await expect(dayList("Lundi")).toContainText("14:00–18:00");
+    await expect(toast).toContainText("Lundi 14:00–18:00 ajouté");
+
+    // Appui juste avant le repère « 14h » : la plage commence à 14:00.
+    await dragAlong(page, tuesday, "14:00", "18:00", { from: -2 });
+    await expect(dayList("Mardi")).toContainText("14:00–18:00");
+    await expect(dayList("Mardi")).not.toContainText("13:45");
+
+    // Rien ne change (glisser dans une plage déjà disponible) : ni toast ni changement.
+    await toast.getByRole("button", { name: "Masquer le message" }).click();
+    await expect(toast).toHaveCount(0);
+    await dragAlong(page, tuesday, "14:00", "16:00", { from: -2 });
+    await expect(dayList("Mardi")).toContainText("14:00–18:00");
+    await page.waitForTimeout(300);
+    await expect(toast).toHaveCount(0);
+
+    // Le toast décrit ce qui a réellement été retiré, pas la plage demandée.
+    const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
+    await slotForm.getByLabel("Jour").selectOption({ label: "Mardi" });
+    await slotForm.getByLabel("De").selectOption("10:00");
+    await slotForm.getByLabel("À").selectOption("20:00");
+    await slotForm.getByRole("button", { name: "Retirer l'horaire" }).click();
+    await expect(toast).toContainText("Mardi 14:00–18:00 retiré");
+    await expect(dayList("Mardi")).not.toContainText("14:00–18:00");
+
+    // Second changement : « Annuler » ne rétablit que celui-ci.
+    await page.getByRole("button", { name: "Retirer lundi 14:00–18:00" }).click();
+    await expect(toast).toContainText("Lundi 14:00–18:00 retiré");
+    await toast.getByRole("button", { name: "Annuler" }).click();
+    await expect(dayList("Lundi")).toContainText("14:00–18:00");
+    await expect(dayList("Mardi")).not.toContainText("14:00–18:00");
   });
 
   test("compose un groupe par recherche d'élèves et signale les dépassements", async ({ page }) => {
@@ -150,9 +287,11 @@ test.describe("référentiels", () => {
     await dialog.getByLabel("Niveau").selectOption({ label: "Galaxie vert" });
     await dialog.getByLabel("Âge minimum").fill("8");
     await dialog.getByLabel("Âge maximum").fill("10");
-    await dialog.getByLabel("Effectif maximum").fill("2");
+    await dialog.getByLabel("Élèves au maximum").fill("2");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
-    await expect(page.getByRole("heading", { name: "Galaxie vert 1" })).toBeVisible();
+    // On reste sur la liste ; le toast mène à la fiche du groupe.
+    await expect(page.getByTestId("toast")).toContainText("Groupe « Galaxie vert 1 » créé");
+    await expect(page.getByRole("table", { name: "Groupes" })).toContainText("Galaxie vert 1");
 
     await tab(page, "Élèves").click();
     await createStudent(
@@ -188,9 +327,9 @@ test.describe("référentiels", () => {
 
     const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)");
     await search.fill("tom");
-    await page.getByRole("button", { name: "Ajouter Durand Tom" }).click();
+    await page.getByRole("option", { name: "Durand Tom" }).click();
     await search.fill("zoe");
-    await page.getByRole("button", { name: "Ajouter Éluard Zoé" }).click();
+    await page.getByRole("option", { name: "Éluard Zoé" }).click();
 
     const members = page.getByRole("table", { name: "Élèves du groupe" });
     await expect(members.getByRole("row")).toHaveCount(4);
@@ -201,11 +340,11 @@ test.describe("référentiels", () => {
 
     await page.getByRole("button", { name: "Retirer Éluard Zoé du groupe" }).click();
     await expect(page.getByTestId("group-size")).toHaveText("2 / 2");
-    await expect(page.getByRole("list", { name: "Alertes" })).toBeHidden();
+    await expect(page.getByRole("list", { name: "Alertes" })).toBeEmpty();
 
     // Glisser-déposer d'un élève trouvé sur la composition (§8).
     await search.fill("zoe");
-    const handle = page.getByRole("button", { name: "Glisser Éluard Zoé dans le groupe" });
+    const handle = page.getByRole("option", { name: "Éluard Zoé" });
     const from = await handle.boundingBox();
     const to = await members.boundingBox();
     if (!from || !to) throw new Error("éléments introuvables");

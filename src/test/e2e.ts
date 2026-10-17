@@ -3,6 +3,7 @@
  * serveur Vite (`import("/src/test/e2e.ts")`) : ils partagent la base sql.js
  * en mémoire de l'application ouverte. Jamais importés par l'application.
  */
+import { eq } from "drizzle-orm";
 import { openAppDatabase } from "@/db";
 import { createCourt, listCourts, updateCourt } from "@/db/repositories/courts";
 import { loadPlanningState, persistCommand } from "@/db/repositories/planning";
@@ -17,6 +18,8 @@ import {
   instructorUnavailabilities,
   lessonExceptions,
   lessons,
+  levels,
+  seasons,
   students,
 } from "@/db/schema";
 import { createClosure, emptyPlanningState } from "@/domain/commands";
@@ -35,6 +38,11 @@ export interface SeedInstructor {
 export interface SeedGroup {
   name: string;
   maxSize: number;
+  /** Tranche d'âge (facultative). */
+  minAge?: number;
+  maxAge?: number;
+  /** Niveau (libellé du référentiel, facultatif). */
+  level?: string;
   /** Élèves (prénoms) ; un même prénom dans deux groupes désigne le même élève. */
   students: string[];
 }
@@ -122,6 +130,15 @@ export async function tryWritingSeason(name: string): Promise<string[]> {
 }
 
 /**
+ * Archive la saison active en base, à l'insu de l'écran ouvert : ses écritures
+ * suivantes sont refusées par la base (échec d'enregistrement simulé).
+ */
+export async function archiveActiveSeason(): Promise<void> {
+  const { db, season } = await activeSeason();
+  await db.update(seasons).set({ status: "archived" }).where(eq(seasons.id, season.id));
+}
+
+/**
  * Club à la volumétrie cible (§11.5) dans la saison active : 10 courts,
  * 20 moniteurs, 60 groupes, 500 élèves, 150 cours (tests de charge).
  */
@@ -162,12 +179,24 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
         .values({ instructorId, weekday, startTime, endTime });
     }
   }
+  const levelIds = new Map(
+    (await db.select({ id: levels.id, label: levels.label }).from(levels)).map((l) => [
+      l.label,
+      l.id,
+    ]),
+  );
   for (const group of spec.groups) {
     const groupId = crypto.randomUUID();
     ids.set(`group:${group.name}`, groupId);
-    await db
-      .insert(groups)
-      .values({ id: groupId, seasonId: season.id, name: group.name, maxSize: group.maxSize });
+    await db.insert(groups).values({
+      id: groupId,
+      seasonId: season.id,
+      name: group.name,
+      maxSize: group.maxSize,
+      minAge: group.minAge ?? null,
+      maxAge: group.maxAge ?? null,
+      levelId: group.level ? (levelIds.get(group.level) ?? null) : null,
+    });
     for (const firstName of group.students) {
       if (!ids.has(`student:${firstName}`)) {
         const studentId = crypto.randomUUID();

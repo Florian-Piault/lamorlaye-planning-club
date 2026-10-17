@@ -1,7 +1,8 @@
 import { asc, eq } from "drizzle-orm";
+import { nameKey, type StudentCandidate } from "@/domain/duplicates";
 import type { StudentInput } from "@/domain/validation";
 import type { Db } from "../client";
-import { groupStudents, groups, levels, type Student, students } from "../schema";
+import { groupStudents, groups, levels, type Student, seasons, students } from "../schema";
 
 export interface StudentGroupRef {
   id: string;
@@ -38,6 +39,40 @@ export async function listStudents(db: Db, seasonId: string): Promise<StudentLis
   return rows.map(({ student, levelLabel }) => ({
     ...student,
     levelLabel: levelLabel ?? null,
+    groups: byStudent.get(student.id) ?? [],
+  }));
+}
+
+/** Fiche d'un élève de n'importe quelle saison, pour la détection des doublons. */
+export type StudentIdentity = StudentCandidate & Student;
+
+/**
+ * Élèves de toutes les saisons, avec leur saison et les noms de leurs groupes :
+ * détection des doublons et reprise des coordonnées (spec UX v1.1).
+ */
+export async function listStudentIdentities(db: Db): Promise<StudentIdentity[]> {
+  const [rows, memberships] = await Promise.all([
+    db
+      .select({ student: students, seasonName: seasons.name, seasonStartDate: seasons.startDate })
+      .from(students)
+      .innerJoin(seasons, eq(seasons.id, students.seasonId)),
+    db
+      .select({ studentId: groupStudents.studentId, name: groups.name })
+      .from(groupStudents)
+      .innerJoin(groups, eq(groups.id, groupStudents.groupId))
+      .orderBy(asc(groups.name)),
+  ]);
+  const byStudent = new Map<string, string[]>();
+  for (const { studentId, name } of memberships) {
+    const list = byStudent.get(studentId) ?? [];
+    list.push(name);
+    byStudent.set(studentId, list);
+  }
+  return rows.map(({ student, seasonName, seasonStartDate }) => ({
+    ...student,
+    seasonName,
+    seasonStartDate,
+    nameKey: nameKey(student),
     groups: byStudent.get(student.id) ?? [],
   }));
 }

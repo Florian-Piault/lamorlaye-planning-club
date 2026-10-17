@@ -100,7 +100,7 @@ describe("RGPD : export des données", () => {
     });
     expect(document.saisons).toHaveLength(2);
     expect(document.saisons[1]).toMatchObject({
-      saison: { nom: "2027-2028", statut: "active" },
+      saison: { nom: "2027-2028", statut: "en cours" },
       fiche: {
         téléphone: "0612345678",
         responsableLégal: { nom: "Marie Dupont", téléphone: "0698765432" },

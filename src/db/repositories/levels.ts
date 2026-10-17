@@ -51,7 +51,7 @@ export async function deleteLevel(db: Db, id: string): Promise<void> {
   } catch (error) {
     if (!isReadOnlyViolation(error)) throw error;
     throw new SeasonReadOnlyError(
-      "Ce niveau est utilisé par une saison archivée, en lecture seule : il ne peut pas être supprimé. Archivez-le plutôt.",
+      "Ce niveau est utilisé par une saison terminée, en consultation seulement : il ne peut pas être supprimé. Archivez-le plutôt.",
     );
   }
 }

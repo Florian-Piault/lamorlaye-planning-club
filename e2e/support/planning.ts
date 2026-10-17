@@ -74,7 +74,7 @@ export async function createSeason(page: Page) {
   await form.getByLabel("Date de fin").fill("2027-06-30");
   await form.getByLabel("Dimanche").uncheck();
   await form.getByRole("button", { name: "Créer la saison" }).click();
-  await expect(page.getByText("Saison active")).toBeVisible();
+  await expect(page.getByText("Saison en cours", { exact: true })).toBeVisible();
 }
 
 /** Module d'outils de test, chargé dans la page (chemin servi par Vite). */
@@ -151,12 +151,86 @@ export function lesson(page: Page, group: string): Locator {
   return page.getByTestId("lesson").filter({ hasText: group });
 }
 
+/** Barre d'outils du planning (une seule ligne, au-dessus de la barre de mode). */
+export function toolbar(page: Page): Locator {
+  return page.getByTestId("planning-toolbar");
+}
+
+/** Sélecteur « Planning habituel » / « Une semaine précise ». */
+export function modes(page: Page): Locator {
+  return page.getByRole("group", { name: "Mode d'affichage" });
+}
+
+/** Passe en semaine datée (« Une semaine précise »). */
+export async function showDatedWeek(page: Page) {
+  await modes(page).getByRole("button", { name: "Une semaine précise" }).click();
+  await expect(page.getByTestId("mode-bar")).toHaveAttribute("data-mode", "dated");
+}
+
+/** Barre des jours, au-dessus de la grille. */
+export function dayBar(page: Page): Locator {
+  return page.getByTestId("day-bar");
+}
+
+/** Vue Jour sur le jour nommé (« Lundi »…), par sa pastille de la barre des jours. */
+export async function showDay(page: Page, weekday: string) {
+  await dayBar(page)
+    .getByRole("button", { name: new RegExp(`^${weekday}, \\d+ cours$`) })
+    .click();
+  await expect(page.getByTestId("day-header")).toHaveCount(1);
+}
+
+/** Retour à la vue Semaine. */
+export async function showWeek(page: Page) {
+  await dayBar(page)
+    .getByRole("group", { name: "Affichage de la grille" })
+    .getByRole("button", { name: "Semaine" })
+    .click();
+}
+
+/**
+ * Ouvre le menu « Filtres » de la barre d'outils (s'il est fermé) et renvoie
+ * son contenu : filtres par moniteur, court et groupe, « Effacer les filtres ».
+ */
+export async function openFilters(page: Page): Promise<Locator> {
+  const button = toolbar(page).getByRole("button", { name: /^Filtres/ });
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  const id = await button.getAttribute("aria-controls");
+  const menu = page.locator(`[id="${id}"]`);
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+/** Replie ou affiche le panneau latéral (bouton de la barre des jours). */
+export async function togglePanel(page: Page, action: "Replier" | "Afficher") {
+  await dayBar(page)
+    .getByRole("button", { name: `${action} le panneau` })
+    .click();
+}
+
+/** Fiche du cours au survol (à la place de l'infobulle native). */
+export function lessonCard(page: Page): Locator {
+  return page.getByTestId("lesson-card");
+}
+
+/** Survole un cours et attend sa fiche. */
+export async function hoverLesson(page: Page, target: Locator): Promise<Locator> {
+  await target.scrollIntoViewIfNeeded();
+  await target.hover();
+  const card = lessonCard(page);
+  await expect(card).toBeVisible();
+  return card;
+}
+
 export interface Point {
   x: number;
   y: number;
 }
 
-/** Coordonnées écran d'un créneau : jour (0 = lundi), court (0 = premier), heure `HH:MM`. */
+/**
+ * Coordonnées écran d'un créneau : jour (rang parmi les jours dessinés : 0 =
+ * lundi en vue Semaine, toujours 0 en vue Jour), court (0 = premier), heure `HH:MM`.
+ */
 export async function slotPoint(
   page: Page,
   dayIndex: number,
@@ -209,4 +283,38 @@ export async function dragMouse(
   await page.mouse.move(from.x, from.y + 6, { steps: 2 });
   await page.mouse.move(to.x, to.y, { steps: 8 });
   if (options.drop !== false) await page.mouse.up();
+}
+
+/** Accueil « Avant de construire le planning » du guidage (L15). */
+export function guidanceWelcome(page: Page): Locator {
+  return page.getByRole("region", { name: "Avant de construire le planning" });
+}
+
+/** Astuce du mode d'emploi, en tête du panneau ; `data-context` dit la situation. */
+export function planningTip(page: Page): Locator {
+  return page.getByTestId("planning-tip");
+}
+
+/**
+ * Crée un cours par « + Nouveau cours » : court, groupe et moniteur par leur
+ * libellé dans les listes, ou le premier proposé ; jour et début facultatifs.
+ */
+export async function createLessonWithPanel(
+  page: Page,
+  choice: { court: string; group?: string; instructor?: string; day?: string; start?: string },
+) {
+  await page.getByRole("button", { name: "Nouveau cours" }).click();
+  const form = page.getByRole("form", { name: /^Nouveau cours/ });
+  if (choice.day) await form.getByLabel("Jour").selectOption({ label: choice.day });
+  await form.getByLabel("Court").selectOption({ label: choice.court });
+  if (choice.start) await form.getByLabel("Début").selectOption(choice.start);
+  // « Groupe », ou « Groupe (facultatif) » pour un cours ponctuel.
+  await form
+    .getByLabel(/^Groupe( \(facultatif\))?$/)
+    .selectOption(choice.group ? { label: choice.group } : { index: 1 });
+  await form
+    .getByLabel("Moniteur", { exact: true })
+    .selectOption(choice.instructor ? { label: choice.instructor } : { index: 1 });
+  await form.getByRole("button", { name: /^Créer le cours/ }).click();
+  await expect(form).toBeHidden();
 }

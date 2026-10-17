@@ -3,7 +3,6 @@ import { isAvailableDuring, uncoveredIntervals, type WeeklySlot } from "./availa
 import {
   checkInstructorAvailability,
   isInstructorAvailable,
-  sortByAvailability,
   unavailableIntervals,
 } from "./instructorAvailability";
 import { localDateTime, overlappingUnavailabilities, unavailableMinutesOn } from "./unavailability";
@@ -77,11 +76,6 @@ describe("disponibilité d'un moniteur sur un créneau", () => {
     availabilities: slots,
     unavailabilities: [{ startsAt: "2026-11-04T10:00", endsAt: "2026-11-04T12:00" }],
   };
-  const karim = {
-    name: "Karim",
-    availabilities: [{ weekday: 3, startTime: "08:00", endTime: "20:00" }],
-    unavailabilities: [],
-  };
 
   it("est disponible dans ses plages, hors indisponibilités", () => {
     expect(
@@ -135,19 +129,6 @@ describe("disponibilité d'un moniteur sur un créneau", () => {
     };
     expect(unavailableIntervals(allDay, { date: "2026-11-04", weekday: 3 }, h(8), h(22))).toEqual([
       { start: h(8), end: h(22) },
-    ]);
-  });
-
-  it("propose les moniteurs disponibles en premier", () => {
-    const sorted = sortByAvailability([marc, karim], {
-      date: "2026-11-04",
-      weekday: 3,
-      start: h(11),
-      end: h(12),
-    });
-    expect(sorted.map((s) => [s.instructor.name, s.available])).toEqual([
-      ["Karim", true],
-      ["Marc", false],
     ]);
   });
 });

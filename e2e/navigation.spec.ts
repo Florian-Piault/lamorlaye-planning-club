@@ -15,14 +15,19 @@ test.describe("coque de l'application", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Planning" })).toBeVisible();
 
     const nav = page.getByRole("navigation", { name: "Navigation principale" });
-    for (const label of ["Référentiels", "Import/Export", "Réglages", "À propos", "Planning"]) {
+    for (const label of ["Le club", "Import/Export", "Réglages", "À propos", "Planning"]) {
       await nav.getByRole("link", { name: label }).click();
       await expect(page.getByRole("heading", { level: 1, name: label })).toBeVisible();
     }
 
     // La base sql.js a été ouverte et migrée au démarrage.
     await nav.getByRole("link", { name: "Réglages" }).click();
-    await expect(page.getByTestId("storage-kind")).toHaveText("Base en mémoire (hors application)");
+    await expect(page.getByTestId("storage-kind")).toHaveText(
+      "Données gardées en mémoire, effacées à la fermeture (hors application)",
+    );
+    // Les détails exacts sont repliés dans « Détails techniques ».
+    await expect(page.getByText("0000_initial")).toBeHidden();
+    await page.getByText("Détails techniques").first().click();
     await expect(page.getByText("0000_initial")).toBeVisible();
 
     // Écran « À propos » : version de package.json, données en mémoire hors application.

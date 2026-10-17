@@ -15,6 +15,7 @@ import {
   groups,
   levels,
   type Student,
+  seasons,
   students,
 } from "../schema";
 
@@ -26,21 +27,39 @@ import {
 
 /** Élèves, groupes, niveaux et inscriptions utiles à l'aperçu de l'import. */
 export async function loadImportContext(db: Db, seasonId: string): Promise<ImportContext> {
-  const [studentRows, groupRows, levelRows, memberships] = await Promise.all([
+  const [studentRows, groupRows, levelRows, memberships, season] = await Promise.all([
     db.select().from(students).where(eq(students.seasonId, seasonId)),
     db
-      .select({ id: groups.id, name: groups.name })
+      .select({
+        id: groups.id,
+        name: groups.name,
+        minAge: groups.minAge,
+        maxAge: groups.maxAge,
+        levelId: groups.levelId,
+      })
       .from(groups)
       .where(eq(groups.seasonId, seasonId))
       .orderBy(asc(groups.name)),
-    db.select({ id: levels.id, label: levels.label }).from(levels).orderBy(asc(levels.sortOrder)),
+    db
+      .select({ id: levels.id, label: levels.label, active: levels.active })
+      .from(levels)
+      .orderBy(asc(levels.sortOrder)),
     db
       .select({ groupId: groupStudents.groupId, studentId: groupStudents.studentId })
       .from(groupStudents)
       .innerJoin(groups, eq(groups.id, groupStudents.groupId))
       .where(eq(groups.seasonId, seasonId)),
+    db.query.seasons.findFirst({ where: eq(seasons.id, seasonId) }),
   ]);
-  return { seasonId, students: studentRows, groups: groupRows, levels: levelRows, memberships };
+  if (!season) throw new Error("Saison introuvable.");
+  return {
+    seasonId,
+    seasonStartDate: season.startDate,
+    students: studentRows,
+    groups: groupRows,
+    levels: levelRows,
+    memberships,
+  };
 }
 
 /** Lignes insérées par requête (13 colonnes au plus : bien en deçà des limites de SQLite). */

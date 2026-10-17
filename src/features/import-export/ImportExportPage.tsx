@@ -7,7 +7,7 @@ export function ImportExportPage() {
   return (
     <Page
       title="Import/Export"
-      description="Import d'élèves (CSV, Excel), documents PDF à imprimer et exports CSV / Excel."
+      description="Importer des élèves, imprimer le planning et les feuilles d'appel, exporter vers Excel."
     >
       <RequireSeason>
         <div className="flex flex-col gap-8">

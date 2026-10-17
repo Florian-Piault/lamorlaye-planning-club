@@ -10,7 +10,7 @@ describe("coque de l'application", () => {
     render(<App openDatabase={openTestDatabase} />);
 
     const nav = await screen.findByRole("navigation", { name: "Navigation principale" });
-    for (const label of ["Planning", "Référentiels", "Import/Export", "Réglages", "À propos"]) {
+    for (const label of ["Planning", "Le club", "Import/Export", "Réglages", "À propos"]) {
       expect(nav).toHaveTextContent(label);
     }
     // L'écran d'accueil est le planning (redirection depuis la racine).
@@ -19,7 +19,7 @@ describe("coque de l'application", () => {
     // Les écrans sont chargés à la demande (découpage par route).
     await userEvent.click(screen.getByRole("link", { name: "Réglages" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Réglages" })).toBeInTheDocument();
-    expect(screen.getByTestId("storage-kind")).toHaveTextContent("Base en mémoire");
+    expect(screen.getByTestId("storage-kind")).toHaveTextContent("Données gardées en mémoire");
   });
 
   it("affiche la version et l'emplacement des données dans « À propos »", async () => {

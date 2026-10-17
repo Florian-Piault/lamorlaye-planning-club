@@ -215,7 +215,7 @@ export function groupsTable(
 export interface StudentRow {
   lastName: string;
   firstName: string;
-  phone: string;
+  phone: string | null;
   birthDate: string | null;
   levelLabel: string | null;
   fftRanking: string | null;

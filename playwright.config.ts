@@ -5,7 +5,8 @@ import { defineConfig, devices } from "@playwright/test";
  * remplacée par sql.js (SQLite en mémoire). Les moteurs WebKit et Chromium
  * couvrent les webviews de macOS, Linux (WebKit) et Windows (Chromium).
  */
-const port = 1420;
+// Port surchargeable (E2E_PORT) pour lancer plusieurs copies de travail en parallèle.
+const port = Number(process.env.E2E_PORT ?? 1420);
 const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
@@ -31,7 +32,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev",
+    command: `pnpm dev --port ${port}`,
     url: `http://localhost:${port}`,
     reuseExistingServer: !isCI,
     timeout: 60_000,

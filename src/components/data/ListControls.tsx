@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { TableHead } from "@/components/ui/table";
 import type { SortState } from "@/domain/search";
@@ -10,10 +10,12 @@ interface SearchInputProps {
   onChange: (value: string) => void;
   label: string;
   className?: string;
+  /** Attributs supplémentaires du champ (référence, clavier, rôle de liste déroulante…). */
+  inputProps?: Omit<ComponentProps<"input">, "value" | "onChange" | "type">;
 }
 
 /** Champ de recherche d'une liste. */
-export function SearchInput({ value, onChange, label, className }: SearchInputProps) {
+export function SearchInput({ value, onChange, label, className, inputProps }: SearchInputProps) {
   return (
     <div className={cn("relative w-full max-w-xs", className)}>
       <Search
@@ -21,6 +23,7 @@ export function SearchInput({ value, onChange, label, className }: SearchInputPr
         aria-hidden
       />
       <Input
+        {...inputProps}
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -61,7 +64,11 @@ export function SortableHead<K extends string>({
         className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {children}
-        <Icon className={cn("size-3.5", !active && "opacity-40")} aria-hidden />
+        {/* Tri inactif en gris (≥ 4,5:1), tri actif à la couleur du texte : forme et couleur. */}
+        <Icon
+          className={cn("size-3.5", active ? "text-foreground" : "text-muted-foreground")}
+          aria-hidden
+        />
       </button>
     </TableHead>
   );

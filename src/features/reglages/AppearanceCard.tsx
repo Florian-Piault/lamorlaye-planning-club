@@ -28,7 +28,7 @@ export function AppearanceCard() {
               key={value}
               className={cn(
                 "flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 font-medium text-muted-foreground text-sm transition-colors hover:text-foreground",
-                "has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50",
+                "has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/75",
                 preference === value && "bg-card text-foreground shadow-xs",
               )}
             >

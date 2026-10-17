@@ -15,6 +15,7 @@ describe("sauvegardes", () => {
     expect(describeBackupReason("fermeture")).toBe("À la fermeture");
     expect(describeBackupReason("manuelle")).toBe("Manuelle");
     expect(describeBackupReason("avant-restauration")).toBe("Avant restauration");
+    expect(describeBackupReason("avant-migration")).toBe("Avant mise à jour");
     expect(describeBackupReason("autre")).toBe("autre");
   });
 

@@ -302,7 +302,7 @@ describe("« Appliquer à partir de cette semaine »", () => {
   it("refuse un cours déjà clôturé", () => {
     const initial = state({ lessons: [lesson({ effectiveTo: "2026-10-31" })] });
     expect(() => applyFromWeek(initial, "cours", "2026-11-09", { courtId: "c2" })).toThrow(
-      "Le cours n'est plus en vigueur cette semaine-là.",
+      "Ce cours n'a plus lieu cette semaine-là.",
     );
     expect(() => applyFromWeek(initial, "cours", "09/11/2026", {})).toThrow("Date invalide.");
   });
@@ -390,11 +390,13 @@ describe("exceptions sur une séance", () => {
     });
 
     const restore = restoreOccurrence(current, ref);
-    expect(restore.label).toBe("Rétablissement de la séance du 04/11/2026");
+    expect(restore.label).toBe("Retour au cours habituel du 04/11/2026");
     current = roundTrip(current, restore);
     expect(current.exceptions).toEqual([]);
     expect(week(current, "2026-11-04")[0]).toMatchObject({ status: "active", instructorId: "m1" });
-    expect(() => restoreOccurrence(current, ref)).toThrow("Cette séance n'a pas d'exception.");
+    expect(() => restoreOccurrence(current, ref)).toThrow(
+      "Cette séance n'a pas été changée cette semaine.",
+    );
   });
 
   it("remplace un remplaçant et nettoie les doublons", () => {
@@ -417,7 +419,7 @@ describe("exceptions sur une séance", () => {
     });
     const after = roundTrip(initial, deleteException(initial, "rem"));
     expect(after.exceptions.map((e) => e.id)).toEqual(["ann"]);
-    expect(() => deleteException(initial, "x")).toThrow("Exception introuvable.");
+    expect(() => deleteException(initial, "x")).toThrow("Changement de la semaine introuvable.");
   });
 });
 

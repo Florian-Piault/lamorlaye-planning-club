@@ -1,7 +1,7 @@
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { createDatabase, type Db } from "./client";
 import type { SqlDriver } from "./driver";
-import { migrate } from "./migrate";
+import { migrate, migrateWithBackup } from "./migrate";
 
 export type { Db } from "./client";
 export type { SqlDriver } from "./driver";
@@ -26,14 +26,27 @@ let appDatabase: Promise<AppDatabase> | undefined;
  * même base, ce qui évite deux migrations concurrentes sur le même fichier.
  */
 export function openAppDatabase(): Promise<AppDatabase> {
-  appDatabase ??= openAndMigrate();
+  // Un échec (sauvegarde avant mise à jour impossible…) n'est pas gardé : l'ouverture suivante réessaie.
+  appDatabase ??= openAndMigrate().catch((error: unknown) => {
+    appDatabase = undefined;
+    throw error;
+  });
   return appDatabase;
 }
 
 async function openAndMigrate(): Promise<AppDatabase> {
-  const driver = isTauri() ? await openDesktopDriver() : await openBrowserDriver();
-  const appliedMigrations = await migrate(driver);
-  return { driver, db: createDatabase(driver), appliedMigrations };
+  const desktop = isTauri();
+  const driver = desktop ? await openDesktopDriver() : await openBrowserDriver();
+  try {
+    // Mise à jour de l'application : copie de sécurité de la base avant de la migrer (§11.3).
+    const appliedMigrations = desktop
+      ? await migrateWithBackup(driver, () => invoke("backup_before_migration"))
+      : await migrate(driver);
+    return { driver, db: createDatabase(driver), appliedMigrations };
+  } catch (error) {
+    await driver.close().catch(() => {});
+    throw error;
+  }
 }
 
 async function openDesktopDriver(): Promise<SqlDriver> {

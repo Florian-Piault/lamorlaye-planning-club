@@ -189,8 +189,8 @@ export async function getInstructorUsage(db: Db, id: string): Promise<Usage> {
     {
       table: lessonExceptions,
       where: eq(lessonExceptions.instructorId, id),
-      singular: "exception",
-      plural: "exceptions",
+      singular: "séance d'une semaine précise",
+      plural: "séances d'une semaine précise",
     },
   ]);
 }

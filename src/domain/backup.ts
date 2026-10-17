@@ -31,6 +31,8 @@ export function describeBackupReason(reason: string): string {
       return "Manuelle";
     case "avant-restauration":
       return "Avant restauration";
+    case "avant-migration":
+      return "Avant mise à jour";
     default:
       return reason;
   }

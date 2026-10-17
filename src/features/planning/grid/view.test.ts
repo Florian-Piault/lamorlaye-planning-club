@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createConflictIndex, slotFromLesson } from "@/domain/conflicts";
 import { lesson } from "@/test/planning";
 import {
+  activeFilterCount,
+  busyLabel,
   candidateSlot,
   candidateWarnings,
   displayedCourts,
@@ -11,6 +13,7 @@ import {
   hasFilters,
   type InstructorLabel,
   instructorChoices,
+  laterChangesSummary,
   matchesFilters,
   minutesByInstructor,
   NEW_LESSON_ID,
@@ -75,6 +78,57 @@ describe("semaine type", () => {
         .get("v2")
         ?.map((c) => c.kind),
     ).toEqual(["court_occupied", "instructor_busy"]);
+  });
+
+  describe("cours qui évoluent dans la saison (pastille de la barre de mode)", () => {
+    const before = lesson({ id: "v1", effectiveTo: "2026-11-01" });
+    const after = lesson({ id: "v2", effectiveFrom: "2026-11-02", previousLessonId: "v1" });
+    const steady = lesson({ id: "x" });
+
+    it("ne signale rien quand aucun cours n'évolue", () => {
+      expect(laterChangesSummary([steady], "2026-10-14")).toBeNull();
+    });
+
+    it("compte un cours modifié « à partir de » une seule fois, avant puis après", () => {
+      expect(laterChangesSummary([before, after, steady], "2026-10-14")).toEqual({
+        label: "1 cours change plus tard",
+        detail:
+          "Le planning habituel montre les cours tels qu'ils sont le 14/10/2026. 1 cours change d'horaire plus tard. Choisissez une semaine précise pour voir ces semaines-là.",
+      });
+      expect(laterChangesSummary([before, after], "2026-11-04")).toEqual({
+        label: "1 cours a changé",
+        detail:
+          "Le planning habituel montre les cours tels qu'ils sont le 04/11/2026. 1 cours a changé plus tôt.",
+      });
+    });
+
+    it("compte des chaînes de versions, pas des versions", () => {
+      const third = lesson({ id: "v3", effectiveFrom: "2027-01-04", previousLessonId: "v2" });
+      const middle = { ...after, effectiveTo: "2027-01-03" };
+      const summary = laterChangesSummary([before, middle, third], "2026-11-04");
+      expect(summary?.label).toBe("1 cours change plus tard");
+      expect(summary?.detail).toContain("1 cours change d'horaire plus tard.");
+      expect(summary?.detail).toContain("1 cours a changé plus tôt.");
+    });
+
+    it("distingue un cours qui commence plus tard et un cours qui s'arrête", () => {
+      const fresh = lesson({ id: "n", effectiveFrom: "2027-01-04" });
+      const ending = lesson({ id: "e", effectiveTo: "2027-02-28" });
+      const summary = laterChangesSummary([fresh, ending, steady], "2026-11-04");
+      expect(summary?.label).toBe("2 cours changent plus tard");
+      expect(summary?.detail).toContain("1 cours commence plus tard.");
+      expect(summary?.detail).toContain("1 cours s'arrête avant la fin de la saison.");
+      expect(summary?.detail).not.toContain("d'horaire");
+    });
+
+    it("signale un cours déjà arrêté", () => {
+      const ended = lesson({ id: "e", effectiveTo: "2026-10-01" });
+      expect(laterChangesSummary([ended], "2026-11-04")).toEqual({
+        label: "1 cours a changé",
+        detail:
+          "Le planning habituel montre les cours tels qu'ils sont le 04/11/2026. 1 cours s'est arrêté plus tôt.",
+      });
+    });
   });
 
   it("affiche les jours de la saison et ceux qui portent malgré tout un cours", () => {
@@ -186,6 +240,7 @@ describe("filtres", () => {
 
   it("laisse tout visible sans filtre", () => {
     expect(hasFilters(noFilters)).toBe(false);
+    expect(activeFilterCount(noFilters)).toBe(0);
     expect(matchesFilters(target, noFilters)).toBe(true);
   });
 
@@ -196,6 +251,8 @@ describe("filtres", () => {
     expect(matchesFilters(target, { ...noFilters, groupId: "g2" })).toBe(false);
     const all = { instructorIds: ["m1"], courtIds: ["c1"], groupId: "g1" };
     expect(hasFilters(all)).toBe(true);
+    expect(activeFilterCount(all)).toBe(3);
+    expect(activeFilterCount({ ...all, instructorIds: ["m1", "m2"], groupId: null })).toBe(3);
     expect(matchesFilters(target, all)).toBe(true);
   });
 
@@ -224,5 +281,93 @@ describe("choix du moniteur", () => {
       ["m1", false, "indisponible"],
       ["m2", false, "aucune disponibilité saisie"],
     ]);
+  });
+
+  describe("en trois groupes : disponibles, occupés, indisponibles", () => {
+    const h = (hours: number, minutes = 0) => hours * 60 + minutes;
+    const team = [
+      {
+        id: "karim",
+        availabilities: [{ weekday: 3, startTime: "13:00", endTime: "19:00" }],
+        unavailabilities: [],
+      },
+      {
+        id: "julie",
+        availabilities: [{ weekday: 3, startTime: "13:00", endTime: "19:00" }],
+        unavailabilities: [],
+      },
+      {
+        id: "marc",
+        availabilities: [{ weekday: 3, startTime: "16:00", endTime: "19:00" }],
+        unavailabilities: [],
+      },
+      { id: "lea", availabilities: [], unavailabilities: [] },
+    ];
+    const galaxie = {
+      id: "l1",
+      date: null,
+      weekday: 3,
+      start: h(17),
+      end: h(18),
+      instructorId: "julie",
+      label: busyLabel("Galaxie vert", h(17), h(18)),
+    };
+    const ados = { ...galaxie, id: "l2", instructorId: "marc", label: "Ados 14:00–15:00" };
+    const slot = { date: null, weekday: 3, start: h(14), end: h(18) };
+    const rows = (choices: ReturnType<typeof instructorChoices>) =>
+      choices.map((c) => [c.instructor.id, c.status, c.note]);
+
+    it("range parmi les occupés un moniteur dont un cours chevauche une partie du créneau", () => {
+      expect(galaxie.label).toBe("Galaxie vert 17:00–18:00");
+      expect(rows(instructorChoices(team, { ...slot, start: h(17, 45) }, [galaxie]))).toEqual([
+        ["karim", "available", null],
+        ["marc", "available", null],
+        ["julie", "busy", "Galaxie vert 17:00–18:00"],
+        ["lea", "unavailable", "aucune disponibilité saisie"],
+      ]);
+      // Créneau contigu (18:00) : pas de chevauchement.
+      expect(
+        instructorChoices(team, { ...slot, start: h(18), end: h(19) }, [galaxie]).find(
+          (c) => c.instructor.id === "julie",
+        )?.status,
+      ).toBe("available");
+      // Autre jour : pas occupé.
+      expect(
+        instructorChoices(team, { ...slot, weekday: 4 }, [galaxie]).every(
+          (c) => c.status === "unavailable",
+        ),
+      ).toBe(true);
+    });
+
+    it("ne compte pas le cours en cours d'édition", () => {
+      const editing = { date: null, weekday: 3, start: h(17), end: h(18) };
+      expect(
+        instructorChoices(team, editing, [galaxie], "l1").find((c) => c.instructor.id === "julie"),
+      ).toMatchObject({ status: "available", available: true, note: null });
+    });
+
+    it("range parmi les indisponibles un moniteur occupé et hors disponibilités, une seule fois", () => {
+      const choices = instructorChoices(team, slot, [galaxie, ados]);
+      expect(rows(choices)).toEqual([
+        ["karim", "available", null],
+        ["julie", "busy", "Galaxie vert 17:00–18:00"],
+        ["marc", "unavailable", "indisponible, Ados 14:00–15:00"],
+        ["lea", "unavailable", "aucune disponibilité saisie"],
+      ]);
+      expect(new Set(choices.map((c) => c.instructor.id)).size).toBe(team.length);
+    });
+
+    it("compare les dates en semaine datée", () => {
+      const dated = { ...galaxie, date: "2026-11-04" };
+      const other = { ...slot, date: "2026-11-11" };
+      expect(
+        instructorChoices(team, other, [dated]).find((c) => c.instructor.id === "julie")?.status,
+      ).toBe("available");
+      expect(
+        instructorChoices(team, { ...slot, date: "2026-11-04" }, [dated]).find(
+          (c) => c.instructor.id === "julie",
+        )?.status,
+      ).toBe("busy");
+    });
   });
 });

@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { useSeason } from "@/app/season";
 import { SearchInput } from "@/components/data/ListControls";
+import { useToast } from "@/components/feedback/Toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TechnicalDetails } from "@/components/ui/technical-details";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { listPeople } from "@/db/repositories/rgpd";
 import { matchesSearch } from "@/domain/search";
@@ -25,7 +27,7 @@ export function PrivacyCard() {
   const { data, reload } = useLoader(load);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
 
   const results = useMemo(
     () =>
@@ -40,24 +42,24 @@ export function PrivacyCard() {
       <CardHeader>
         <CardTitle>Données personnelles (RGPD)</CardTitle>
         <CardDescription>
-          Les données des élèves, dont des mineurs, restent sur ce poste. Recherchez un élève,
+          Les données des élèves, dont des mineurs, restent sur cet ordinateur. Recherchez un élève,
           toutes saisons confondues, pour exporter ses données ou les supprimer définitivement.
-          Chiffrez le disque du poste (FileVault, BitLocker, LUKS) et protégez les sauvegardes
-          exportées par un mot de passe.
+          Protégez l'ordinateur par un mot de passe, et les sauvegardes exportées aussi.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        <TechnicalDetails>
+          <p>
+            Pour protéger les données même en cas de vol, chiffrez le disque de l'ordinateur :
+            FileVault sous macOS, BitLocker sous Windows, LUKS sous Linux.
+          </p>
+        </TechnicalDetails>
         <SearchInput
           value={query}
           onChange={setQuery}
           label="Rechercher un élève (toutes saisons)"
           className="max-w-md"
         />
-        {message && (
-          <output className="text-muted-foreground text-sm" data-testid="privacy-message">
-            {message}
-          </output>
-        )}
         {query.trim().length >= 2 && (
           <ul aria-label="Élèves trouvés" className="divide-y rounded-lg border text-sm">
             {results.length === 0 && (
@@ -84,12 +86,9 @@ export function PrivacyCard() {
                     size="sm"
                     variant="outline"
                     aria-label={`Données personnelles de ${name}`}
-                    onClick={() => {
-                      setMessage(null);
-                      setSelected(person.records[0]?.studentId ?? null);
-                    }}
+                    onClick={() => setSelected(person.records[0]?.studentId ?? null)}
                   >
-                    Données…
+                    Données personnelles…
                   </Button>
                 </li>
               );
@@ -103,7 +102,7 @@ export function PrivacyCard() {
         onClose={() => setSelected(null)}
         onErased={(count) => {
           setSelected(null);
-          setMessage(
+          toast.success(
             `Données supprimées définitivement (${count} ${count > 1 ? "fiches" : "fiche"}).`,
           );
           reload();

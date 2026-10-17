@@ -1,13 +1,19 @@
 import { Check } from "lucide-react";
 import { type FormEvent, useState } from "react";
-import { ErrorAlert, Field } from "@/components/form/Field";
+import { MessageZone } from "@/components/feedback/MessageZone";
+import { errorMessages, type Message } from "@/components/feedback/messages";
+import { Field } from "@/components/form/Field";
+import { sameValues } from "@/components/form/formState";
+import { useFormErrors } from "@/components/form/useFormErrors";
 import { Button } from "@/components/ui/button";
-import { Checkbox, Input, Label } from "@/components/ui/input";
+import { useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
+import { Checkbox, Input } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { Instructor } from "@/db/schema";
 import { INSTRUCTOR_PALETTE, normalizeColor } from "@/domain/colors";
+import { initialsConflict } from "@/domain/duplicates";
 import { suggestInitials } from "@/domain/initials";
 import {
-  type FieldErrors,
   type InstructorFormValues,
   type InstructorInput,
   instructorSchema,
@@ -61,14 +67,19 @@ export function InstructorForm({
 }: InstructorFormProps) {
   const [values, setValues] = useState(initialValues);
   const [initialsEdited, setInitialsEdited] = useState(initialValues.initials !== "");
-  const [errors, setErrors] = useState<FieldErrors<InstructorFormValues>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { errors, setErrors, error, setError, changed } = useFormErrors<InstructorFormValues>();
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
   const takenInitials = others.map((o) => o.initials);
+  useDirtyGuard(!sameValues(values, initialValues));
+  const cancel = useGuardedCancel(onCancel);
 
   const update = (patch: Partial<InstructorFormValues>) => {
-    setSaved(false);
+    // Les initiales suggérées changent avec le nom : leur erreur s'efface aussi.
+    changed(
+      !initialsEdited && ("firstName" in patch || "lastName" in patch)
+        ? { ...patch, initials: "" }
+        : patch,
+    );
     setValues((current) => {
       const next = { ...current, ...patch };
       if (!initialsEdited && ("firstName" in patch || "lastName" in patch)) {
@@ -87,7 +98,6 @@ export function InstructorForm({
     setBusy(true);
     try {
       await onSubmit(result.data);
-      setSaved(true);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -95,9 +105,28 @@ export function InstructorForm({
     }
   };
 
-  const initialsTaken = takenInitials.some(
-    (t) => t.toUpperCase() === values.initials.trim().toUpperCase(),
-  );
+  // Initiales déjà prises (B2) : avertissement et proposition appliquée en un clic.
+  const conflict = readOnly ? null : initialsConflict(values, others);
+  const messages: Message[] = [
+    ...errorMessages(error),
+    ...(conflict
+      ? [
+          {
+            kind: "warning" as const,
+            text: conflict.message,
+            action: conflict.proposal
+              ? {
+                  label: `Utiliser ${conflict.proposal}`,
+                  onClick: () => {
+                    setInitialsEdited(true);
+                    update({ initials: conflict.proposal ?? "" });
+                  },
+                }
+              : undefined,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-4" aria-label="Fiche moniteur">
@@ -146,11 +175,7 @@ export function InstructorForm({
           label="Initiales"
           required
           error={errors.initials}
-          hint={
-            initialsTaken
-              ? "Ces initiales sont déjà utilisées par un autre moniteur."
-              : "Toujours affichées sur les cours (impression en noir et blanc, daltonisme)."
-          }
+          hint="Toujours affichées sur les cours (impression en noir et blanc, daltonisme)."
           className="max-w-48"
         >
           {(props) => (
@@ -172,29 +197,26 @@ export function InstructorForm({
           onChange={(color) => update({ color })}
           initials={values.initials}
         />
-        <Label className="font-normal">
-          <Checkbox
-            checked={values.active}
-            onChange={(e) => update({ active: e.target.checked })}
-          />
-          Actif (proposé dans le planning)
-        </Label>
+        <Checkbox
+          label="Actif (proposé dans le planning)"
+          checked={values.active}
+          onChange={(e) => update({ active: e.target.checked })}
+        />
       </fieldset>
-      <ErrorAlert>{error}</ErrorAlert>
       {!readOnly && (
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={busy}>
-            {submitLabel}
-          </Button>
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Annuler
+        <>
+          <MessageZone label="Messages" messages={messages} />
+          <div className="flex items-center gap-2">
+            <Button type="submit" disabled={busy}>
+              {submitLabel}
             </Button>
-          )}
-          {saved && (
-            <output className="text-muted-foreground text-sm">Modifications enregistrées.</output>
-          )}
-        </div>
+            {cancel && (
+              <Button type="button" variant="outline" onClick={cancel}>
+                Annuler
+              </Button>
+            )}
+          </div>
+        </>
       )}
     </form>
   );
@@ -220,31 +242,33 @@ function ColorPicker({ value, others, error, initials, onChange }: ColorPickerPr
           const isSelected = color.value === selected;
           const ownersLabel = owners.map((o) => `${o.firstName} ${o.lastName}`).join(", ");
           return (
-            // biome-ignore lint/a11y/useSemanticElements: nuancier en boutons radio (ARIA).
-            <button
+            <Tooltip
               key={color.value}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              aria-label={
-                owners.length > 0 ? `${color.name} (utilisée par ${ownersLabel})` : color.name
-              }
-              title={owners.length > 0 ? `${color.name} — ${ownersLabel}` : color.name}
-              onClick={() => onChange(color.value)}
-              className={cn(
-                "flex size-9 items-center justify-center rounded-md font-semibold text-white text-xs ring-offset-2 ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                isSelected && "ring-2 ring-foreground",
-              )}
-              style={{ backgroundColor: color.value }}
+              content={owners.length > 0 ? `${color.name} — ${ownersLabel}` : color.name}
+              describe={false}
             >
-              {isSelected ? (
-                <Check className="size-4" aria-hidden />
-              ) : (
-                <span aria-hidden className="opacity-90">
-                  {owners[0]?.initials ?? ""}
-                </span>
-              )}
-            </button>
+              {/* biome-ignore lint/a11y/useSemanticElements: nuancier en boutons radio (ARIA). */}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                aria-label={
+                  owners.length > 0 ? `${color.name} (utilisée par ${ownersLabel})` : color.name
+                }
+                onClick={() => onChange(color.value)}
+                className={cn(
+                  "flex size-9 items-center justify-center rounded-md font-semibold text-white text-xs ring-offset-2 ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isSelected && "ring-2 ring-foreground",
+                )}
+                style={{ backgroundColor: color.value }}
+              >
+                {isSelected ? (
+                  <Check className="size-4" aria-hidden />
+                ) : (
+                  <span aria-hidden>{owners[0]?.initials ?? ""}</span>
+                )}
+              </button>
+            </Tooltip>
           );
         })}
       </div>

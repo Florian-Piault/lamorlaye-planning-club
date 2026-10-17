@@ -445,7 +445,7 @@ const INSTRUCTOR_COLUMNS: Column[] = [
   { label: "Durée", width: 40 },
   { label: "Court", width: 62 },
   { label: "Groupe", width: 100 },
-  { label: "Effectif", width: 40 },
+  { label: "Élèves", width: 40 },
   { label: "Remarques" },
 ];
 

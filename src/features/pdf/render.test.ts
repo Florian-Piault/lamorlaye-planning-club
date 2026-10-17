@@ -78,7 +78,7 @@ describe("rendu des PDF", () => {
     expect(pages[0]).toContain("Planning de Karim Benali (KB)");
     expect(pages[0]).toContain("Remplacé(e) par Marc Leroy");
     // Aucun caractère perdu d'un document à l'autre (police propre à chaque document).
-    expect(pages[0]).toContain("Effectif");
+    expect(pages[0]).toContain("Élèves");
     expect(pages[0]).toContain("Total : 0 h (0 séance)");
     expect(pages.join(" ")).toContain("Planning de Julie Martin (JM)");
   });

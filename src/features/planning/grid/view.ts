@@ -13,12 +13,14 @@ import {
   slotFromLesson,
 } from "@/domain/conflicts";
 import {
+  type BusySlot,
+  groupByAvailability,
   type InstructorAvailabilityData,
-  sortByAvailability,
+  type InstructorStatus,
   type TimeSlot,
 } from "@/domain/instructorAvailability";
 import { lessonsInEffect } from "@/domain/occurrences";
-import { timeToMinutes } from "@/domain/time";
+import { formatDate, minutesToTime, timeToMinutes } from "@/domain/time";
 
 /**
  * Date de référence de la semaine type : aujourd'hui, ramené dans la saison.
@@ -37,6 +39,78 @@ export function semaineTypeDate(
 /** Cours de la semaine type en vigueur à la date de référence. */
 export function weekLessons(lessons: readonly Lesson[], referenceDate: string): Lesson[] {
   return lessonsInEffect(lessons, referenceDate);
+}
+
+type ChainLesson = Pick<Lesson, "id" | "previousLessonId" | "effectiveFrom" | "effectiveTo">;
+
+const count = (n: number, singular: string, plural: string) =>
+  `${n} cours ${n > 1 ? plural : singular}`;
+
+/**
+ * Cours du planning habituel dont l'horaire évolue dans la saison, en mots
+ * simples (pastille de la barre de mode). Un cours est une chaîne de versions
+ * reliées par `previousLessonId` (« Appliquer à partir de cette semaine ») ;
+ * on compte des cours, pas des versions. Par rapport à la date de référence :
+ * - « change plus tard » : une version suivante commence après cette date ;
+ * - « commence plus tard » : cours nouveau (sans prédécesseur) pas encore commencé ;
+ * - « s'arrête plus tard » : fin saisie, sans version suivante ;
+ * - « a changé » : la version affichée a remplacé une version terminée ;
+ * - « s'est arrêté » : dernière version terminée avant cette date.
+ * La pastille garde un libellé court ; le détail va dans la bulle. `null` si
+ * rien n'évolue.
+ */
+export function laterChangesSummary(
+  lessons: readonly ChainLesson[],
+  referenceDate: string,
+): { label: string; detail: string } | null {
+  const ids = new Set(lessons.map((l) => l.id));
+  const next = new Map<string, ChainLesson>();
+  for (const l of lessons) if (l.previousLessonId) next.set(l.previousLessonId, l);
+  const roots = lessons.filter((l) => !l.previousLessonId || !ids.has(l.previousLessonId));
+  const tally = { changesLater: 0, startsLater: 0, stopsLater: 0, changed: 0, stopped: 0 };
+  for (const root of roots) {
+    const chain: ChainLesson[] = [];
+    const seen = new Set<string>();
+    for (let v: ChainLesson | undefined = root; v && !seen.has(v.id); v = next.get(v.id)) {
+      seen.add(v.id);
+      chain.push(v);
+    }
+    const last = chain[chain.length - 1] as ChainLesson;
+    const currentIndex = chain.findIndex(
+      (v) => v.effectiveFrom <= referenceDate && (v.effectiveTo ?? "9999") >= referenceDate,
+    );
+    if (currentIndex === -1) {
+      if (root.effectiveFrom > referenceDate) tally.startsLater++;
+      else if (chain.some((v) => v.effectiveFrom > referenceDate)) tally.changesLater++;
+      else tally.stopped++;
+      continue;
+    }
+    if (currentIndex > 0) tally.changed++;
+    if (currentIndex < chain.length - 1) tally.changesLater++;
+    else if (last.effectiveTo !== null) tally.stopsLater++;
+  }
+  const future = tally.changesLater + tally.startsLater + tally.stopsLater;
+  const past = tally.changed + tally.stopped;
+  if (future === 0 && past === 0) return null;
+  const label =
+    future > 0
+      ? `${count(future, "change", "changent")} plus tard`
+      : count(past, "a changé", "ont changé");
+  const details = [
+    `Le planning habituel montre les cours tels qu'ils sont le ${formatDate(referenceDate)}.`,
+  ];
+  if (tally.changesLater > 0)
+    details.push(`${count(tally.changesLater, "change", "changent")} d'horaire plus tard.`);
+  if (tally.startsLater > 0)
+    details.push(`${count(tally.startsLater, "commence", "commencent")} plus tard.`);
+  if (tally.stopsLater > 0)
+    details.push(`${count(tally.stopsLater, "s'arrête", "s'arrêtent")} avant la fin de la saison.`);
+  if (future > 0) details.push("Choisissez une semaine précise pour voir ces semaines-là.");
+  if (tally.changed > 0)
+    details.push(`${count(tally.changed, "a changé", "ont changé")} plus tôt.`);
+  if (tally.stopped > 0)
+    details.push(`${count(tally.stopped, "s'est arrêté", "se sont arrêtés")} plus tôt.`);
+  return { label, detail: details.join(" ") };
 }
 
 /** Jours affichés : ceux de la saison, plus ceux où un cours existe malgré tout. */
@@ -221,6 +295,11 @@ export function hasFilters(filters: PlanningFilters): boolean {
   );
 }
 
+/** Nombre de filtres actifs, affiché sur le bouton « Filtres » : moniteurs, courts, groupe. */
+export function activeFilterCount(filters: PlanningFilters): number {
+  return filters.instructorIds.length + filters.courtIds.length + (filters.groupId ? 1 : 0);
+}
+
 /** Le cours est-il concerné par les filtres ? (les autres sont estompés) */
 export function matchesFilters(
   lesson: { instructorId: string | null; courtId: string | null; groupId: string | null },
@@ -244,23 +323,41 @@ export function toggleId(ids: readonly string[], id: string): string[] {
 
 export interface InstructorChoice<T> {
   instructor: T;
+  /** Disponible, occupé par un autre cours sur le créneau, ou hors de ses disponibilités. */
+  status: InstructorStatus;
   available: boolean;
-  /** Mention affichée après le nom des moniteurs indisponibles. */
+  /** Mention affichée après le nom des moniteurs occupés ou indisponibles. */
   note: string | null;
 }
 
-/** Moniteurs disponibles sur le créneau en tête, puis les autres avec leur mention. */
-export function instructorChoices<T extends InstructorAvailabilityData>(
+/** Désignation d'un cours sur la ligne d'un moniteur occupé : « Galaxie vert 17:00–18:00 ». */
+export function busyLabel(groupName: string | null, start: number, end: number): string {
+  return `${groupName ?? "Cours sans groupe"} ${minutesToTime(start)}–${minutesToTime(end)}`;
+}
+
+/**
+ * Choix du moniteur d'un cours (§5.1), en trois groupes : disponibles,
+ * occupés sur ce créneau (avec le cours), indisponibles (avec la raison, et le
+ * cours s'ils en ont aussi un). Les cours du créneau (`lessons`) sont comptés
+ * sauf le cours en cours d'édition (`excludedId`).
+ */
+export function instructorChoices<T extends InstructorAvailabilityData & { id: string }>(
   instructors: readonly T[],
   slot: TimeSlot,
+  lessons: readonly BusySlot[] = [],
+  excludedId: string | null = null,
 ): InstructorChoice<T>[] {
-  return sortByAvailability(instructors, slot).map(({ instructor, available }) => ({
-    instructor,
-    available,
-    note: available
-      ? null
-      : instructor.availabilities.length === 0
-        ? "aucune disponibilité saisie"
-        : "indisponible",
-  }));
+  return groupByAvailability(instructors, slot, lessons, excludedId).map(
+    ({ instructor, status, busyWith }) => {
+      const busy = busyWith.map((lesson) => lesson.label);
+      const reason =
+        status !== "unavailable"
+          ? null
+          : instructor.availabilities.length === 0
+            ? "aucune disponibilité saisie"
+            : "indisponible";
+      const note = [reason, ...busy].filter((part) => part !== null).join(", ");
+      return { instructor, status, available: status === "available", note: note || null };
+    },
+  );
 }

@@ -1,11 +1,20 @@
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_LEVELS } from "@/domain/levels";
 import type { SeasonInput } from "@/domain/validation";
 import { openTestDatabase } from "@/test/database";
+import { seedFullSeason } from "@/test/fixtures";
 import type { AppDatabase } from "..";
-import { seasons } from "../schema";
+import { onDataChange } from "../changes";
+import { lessons, seasons } from "../schema";
 import { createLevel, listLevels, reorderLevels } from "./levels";
-import { createSeason, getActiveSeason, listSeasons, updateSeason } from "./seasons";
+import {
+  countSeasonContents,
+  createSeason,
+  getActiveSeason,
+  listSeasons,
+  updateSeason,
+} from "./seasons";
 
 const input = (name: string, startDate: string, endDate: string): SeasonInput => ({
   name,
@@ -97,5 +106,63 @@ describe("niveaux", () => {
     levels = await listLevels(database.db);
     expect(levels[0]?.label).toBe("Loisir");
     expect(levels[1]?.label).toBe("Galaxie blanc");
+  });
+});
+
+describe("guidage : comptes de la saison et avis d'écriture", () => {
+  let database: AppDatabase;
+  beforeEach(async () => {
+    database = await openTestDatabase();
+  });
+  afterEach(async () => {
+    await database.driver.close();
+  });
+
+  it("compte les fiches de la saison, de la saison vide à la saison complète", async () => {
+    const season = await createSeason(database.db, input("2026-2027", "2026-09-01", "2027-06-30"));
+    expect(await countSeasonContents(database.db, season.id)).toEqual({
+      courts: 0,
+      instructors: 0,
+      groups: 0,
+      students: 0,
+      lessons: 0,
+    });
+    await seedFullSeason(database.db, season.id);
+    const counts = await countSeasonContents(database.db, season.id);
+    expect(Object.values(counts).every((n) => n > 0)).toBe(true);
+  });
+
+  it("un cours ponctuel compte comme premier cours", async () => {
+    const season = await createSeason(database.db, input("2026-2027", "2026-09-01", "2027-06-30"));
+    await seedFullSeason(database.db, season.id);
+    // Plus aucun cours du planning habituel : reste le cours ponctuel de la saison.
+    await database.db.delete(lessons).where(eq(lessons.seasonId, season.id));
+    expect((await countSeasonContents(database.db, season.id)).lessons).toBe(1);
+  });
+
+  it("signale les écritures, pas les lectures", async () => {
+    let writes = 0;
+    const stop = onDataChange(() => {
+      writes += 1;
+    });
+    try {
+      const season = await createSeason(
+        database.db,
+        input("2026-2027", "2026-09-01", "2027-06-30"),
+      );
+      expect(writes).toBeGreaterThan(0);
+      const before = writes;
+      await listSeasons(database.db);
+      await countSeasonContents(database.db, season.id);
+      expect(writes).toBe(before);
+      await updateSeason(
+        database.db,
+        season.id,
+        input("2026-2027 bis", "2026-09-01", "2027-06-30"),
+      );
+      expect(writes).toBe(before + 1);
+    } finally {
+      stop();
+    }
   });
 });

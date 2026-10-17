@@ -4,6 +4,7 @@ import {
   dragMouse,
   GRAB_OFFSET,
   grabPoint,
+  hoverLesson,
   lesson,
   openPlanning,
   readPlanning,
@@ -34,9 +35,9 @@ async function openWeek(page: Page, spec = demoClub) {
   await openPlanning(page, spec);
   await page
     .getByRole("group", { name: "Mode d'affichage" })
-    .getByRole("button", { name: "Semaine du 02/11" })
+    .getByRole("button", { name: "Une semaine précise" })
     .click();
-  await expect(modeBar(page)).toContainText("Semaine du 02/11/2026");
+  await expect(modeBar(page)).toContainText("Semaine du 2 novembre");
 }
 
 function panel(page: Page, name: string) {
@@ -49,46 +50,46 @@ test.describe("semaines datées", () => {
   }) => {
     await openPlanning(page);
     await expect(modeBar(page)).toHaveAttribute("data-mode", "type");
-    await expect(page.getByTestId("day-header").first()).toHaveText(/^LundiC1/);
+    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi\D*Court 1/);
     // ← / → sont sans effet en semaine type.
     await page.keyboard.press("ArrowRight");
     await expect(modeBar(page)).toHaveAttribute("data-mode", "type");
 
     const modes = page.getByRole("group", { name: "Mode d'affichage" });
-    await modes.getByRole("button", { name: "Semaine du 02/11" }).click();
+    await modes.getByRole("button", { name: "Une semaine précise" }).click();
     await expect(modeBar(page)).toHaveAttribute("data-mode", "dated");
-    await expect(modeBar(page)).toContainText("Semaine du 02/11/2026");
-    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi 02\/11C1/);
+    await expect(modeBar(page)).toContainText("Semaine du 2 novembre");
+    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi 02\/11.*Court 1/);
 
     await page.keyboard.press("ArrowRight");
-    await expect(modeBar(page)).toContainText("Semaine du 09/11/2026");
-    await expect(page.getByTestId("day-header").nth(2)).toHaveText(/^Mercredi 11\/11C1/);
+    await expect(modeBar(page)).toContainText("Semaine du 9 novembre");
+    await expect(page.getByTestId("day-header").nth(2)).toHaveText(/^Mercredi 11\/11.*Court 1/);
     await page.keyboard.press("ArrowLeft");
     await page.keyboard.press("ArrowLeft");
-    await expect(modeBar(page)).toContainText("Semaine du 26/10/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 26 octobre");
 
     await page.getByRole("button", { name: "Semaine suivante" }).click();
     await page.getByRole("button", { name: "Semaine suivante" }).click();
-    await expect(modeBar(page)).toContainText("Semaine du 09/11/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 9 novembre");
     await page.getByRole("button", { name: "Semaine précédente" }).click();
-    await expect(modeBar(page)).toContainText("Semaine du 02/11/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 2 novembre");
 
     await page.getByLabel("Aller à la date").fill("2026-12-16");
-    await expect(modeBar(page)).toContainText("Semaine du 14/12/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 14 décembre");
     await page.getByRole("button", { name: "Aujourd'hui" }).click();
-    await expect(modeBar(page)).toContainText("Semaine du 02/11/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 2 novembre");
 
     // Début de saison : pas de semaine précédente.
     await page.getByLabel("Aller à la date").fill("2026-09-01");
-    await expect(modeBar(page)).toContainText("Semaine du 31/08/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 31 août");
     await expect(page.getByRole("button", { name: "Semaine précédente" })).toBeDisabled();
     await page.getByLabel("Aller à la date").blur();
     await page.keyboard.press("ArrowLeft");
-    await expect(modeBar(page)).toContainText("Semaine du 31/08/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 31 août");
 
-    await modes.getByRole("button", { name: "Semaine type" }).click();
+    await modes.getByRole("button", { name: "Planning habituel" }).click();
     await expect(modeBar(page)).toHaveAttribute("data-mode", "type");
-    await expect(page.getByTestId("day-header").first()).toHaveText(/^LundiC1/);
+    await expect(page.getByTestId("day-header").first()).toHaveText(/^Lundi\D*Court 1/);
   });
 
   test("un cours déplacé en semaine datée ne modifie ni la semaine type ni les autres semaines", async ({
@@ -103,6 +104,8 @@ test.describe("semaines datées", () => {
     await expect(page.getByTestId("toast")).toContainText(
       "Modification de la séance du 02/11/2026",
     );
+    // Dit en mots simples, sans « exception » : description et fiche au survol (L10).
+    await expect(galaxie).toHaveAccessibleDescription(/Modifié cette semaine/);
 
     const stored = await readPlanning(page);
     expect(stored.lessons).toContainEqual(
@@ -118,18 +121,18 @@ test.describe("semaines datées", () => {
     ]);
 
     await page.keyboard.press("ArrowRight");
-    await expect(modeBar(page)).toContainText("Semaine du 09/11/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 9 novembre");
     await expect(galaxie).toContainText("10h00–11h00");
     await expect(galaxie).not.toHaveAttribute("data-modified");
     await page.keyboard.press("ArrowLeft");
     await page.keyboard.press("ArrowLeft");
     await expect(galaxie).toContainText("10h00–11h00");
 
-    await page.getByRole("button", { name: "Semaine type" }).click();
+    await page.getByRole("button", { name: "Planning habituel" }).click();
     await expect(galaxie).toContainText("10h00–11h00");
 
     // Annuler (Ctrl/Cmd+Z) supprime l'exception.
-    await page.getByRole("button", { name: "Semaine du 26/10" }).click();
+    await page.getByRole("button", { name: "Une semaine précise" }).click();
     await page.getByRole("button", { name: "Aujourd'hui" }).click();
     await page.keyboard.press("ControlOrMeta+z");
     await expect(galaxie).toContainText("10h00–11h00");
@@ -169,12 +172,12 @@ test.describe("semaines datées", () => {
       ]);
 
     await page.keyboard.press("ArrowLeft");
-    await expect(modeBar(page)).toContainText("Semaine du 26/10/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 26 octobre");
     await expect(ados).toContainText("10h00–11h30");
     await page.getByLabel("Aller à la date").fill("2027-03-17");
     await expect(ados).toContainText("14h00–15h30");
     // Semaine type : versions en vigueur aujourd'hui.
-    await page.getByRole("button", { name: "Semaine type" }).click();
+    await page.getByRole("button", { name: "Planning habituel" }).click();
     await expect(ados).toHaveCount(1);
     await expect(ados).toContainText("14h00–15h30");
   });
@@ -197,7 +200,7 @@ test.describe("semaines datées", () => {
 
     await expect(galaxie).toHaveAttribute("data-cancelled", "true");
     await expect(galaxie).toHaveCSS("text-decoration-line", "line-through");
-    await expect(galaxie).toHaveAttribute("title", /Annulée : Pluie/);
+    await expect(await hoverLesson(page, galaxie)).toContainText("Annulé cette semaine : Pluie");
     await expect(
       legend.getByRole("button", { name: "Karim Benali, 0h cette semaine" }),
     ).toBeVisible();
@@ -205,9 +208,9 @@ test.describe("semaines datées", () => {
       .poll(async () => (await readPlanning(page)).exceptions)
       .toEqual([expect.objectContaining({ kind: "cancellation", cancellationReason: "rain" })]);
     await expect(page.getByRole("list", { name: "État de la séance" })).toContainText(
-      "Séance annulée : Pluie",
+      "Annulé cette semaine : Pluie",
     );
-    await page.getByRole("button", { name: "Rétablir l'occurrence d'origine" }).click();
+    await page.getByRole("button", { name: "Revenir au cours habituel" }).click();
     await expect(galaxie).not.toHaveAttribute("data-cancelled");
 
     // Remplaçant : Julie (indisponible le lundi matin, signalé).
@@ -219,12 +222,10 @@ test.describe("semaines datées", () => {
     await expect(galaxie).toContainText("JM · 3/8");
     await expect(galaxie).toHaveCSS("background-color", "rgb(29, 78, 216)");
     await expect(galaxie.getByTestId("lesson-marker")).toHaveText("⇄");
-    await expect(galaxie).toHaveAttribute(
-      "title",
-      /Remplacement : Julie Martin au lieu de Karim Benali/,
-    );
     await expect(galaxie).toHaveAttribute("data-warning", "true");
-    await expect(galaxie).toHaveAttribute("title", /⚠ Hors disponibilités de Julie/);
+    const card = await hoverLesson(page, galaxie);
+    await expect(card).toContainText("Remplacement : Julie Martin au lieu de Karim Benali");
+    await expect(card).toContainText("⚠ Hors disponibilités de Julie");
     await expect(
       legend.getByRole("button", { name: "Julie Martin, 2h30 cette semaine" }),
     ).toBeVisible();
@@ -234,7 +235,7 @@ test.describe("semaines datées", () => {
     );
 
     await galaxie.click();
-    await page.getByRole("button", { name: "Rétablir l'occurrence d'origine" }).click();
+    await page.getByRole("button", { name: "Revenir au cours habituel" }).click();
     await expect(galaxie).not.toHaveAttribute("data-replaced");
     await expect(galaxie).toContainText("KB · 3/8");
     await expect.poll(async () => (await readPlanning(page)).exceptions).toEqual([]);
@@ -267,7 +268,7 @@ test.describe("semaines datées", () => {
       ],
     });
     await page.keyboard.press("ArrowLeft");
-    await expect(modeBar(page)).toContainText("Semaine du 26/10/2026");
+    await expect(modeBar(page)).toContainText("Semaine du 26 octobre");
     const bands = page.getByTestId("closure-band");
     await expect(bands).toHaveCount(6);
     await expect(bands.first()).toHaveText("Fermé — Vacances de la Toussaint");
@@ -303,7 +304,7 @@ test.describe("semaines datées", () => {
         ["one_off", "2026-10-30"],
       ]);
     // Semaine type inchangée.
-    await page.getByRole("button", { name: "Semaine type" }).click();
+    await page.getByRole("button", { name: "Planning habituel" }).click();
     await expect(page.getByTestId("lesson")).toHaveCount(2);
   });
 
@@ -329,7 +330,7 @@ test.describe("semaines datées", () => {
     await expect(hatches).toHaveCount(10);
     await page.mouse.move(5, 5);
 
-    await page.getByRole("button", { name: "Semaine du 02/11" }).click();
+    await page.getByRole("button", { name: "Une semaine précise" }).click();
     await expect(galaxie).toHaveAttribute("data-warning", "true");
     await expect(page.getByRole("list", { name: "Avertissements" })).toContainText(
       "Lun 02/11 10h00 · Galaxie vert",
@@ -354,10 +355,10 @@ test.describe("périodes de fermeture", () => {
     await openPlanning(page);
     await page
       .getByRole("navigation", { name: "Navigation principale" })
-      .getByRole("link", { name: "Référentiels" })
+      .getByRole("link", { name: "Le club" })
       .click();
     await page
-      .getByRole("navigation", { name: "Référentiels" })
+      .getByRole("navigation", { name: "Fiches du club" })
       .getByRole("link", { name: "Fermetures" })
       .click();
     await page.getByRole("button", { name: "Vacances et jours fériés…" }).click();
@@ -377,7 +378,7 @@ test.describe("périodes de fermeture", () => {
     ]) {
       await expect(checkbox(name)).toBeChecked();
     }
-    // Jours fériés pendant les vacances : proposés mais décochés.
+    // Jours fériés compris dans une période cochée : proposés mais décochés.
     for (const name of [
       "Toussaint (férié) le 01/11/2026",
       "Noël (férié) le 25/12/2026",
@@ -385,6 +386,18 @@ test.describe("périodes de fermeture", () => {
     ]) {
       await expect(checkbox(name)).not.toBeChecked();
     }
+    const ascension = dialog
+      .getByTestId("closure-proposal")
+      .filter({ hasText: "Ascension (férié)" });
+    await expect(ascension).toContainText("compris dans Pont de l'Ascension");
+    // Le calcul suit la sélection : décocher le pont recoche l'Ascension (B9).
+    const pont = checkbox("Pont de l'Ascension du 06/05/2027 au 09/05/2027");
+    await pont.uncheck();
+    await expect(checkbox("Ascension (férié) le 06/05/2027")).toBeChecked();
+    await expect(ascension).not.toContainText("compris dans");
+    await pont.check();
+    await expect(checkbox("Ascension (férié) le 06/05/2027")).not.toBeChecked();
+    await expect(ascension).toContainText("compris dans Pont de l'Ascension");
     // Début des vacances d'été : après la fin de la saison.
     await expect(checkbox("Vacances d'été du 03/07/2027 au 01/09/2027")).toBeDisabled();
     await expect(
@@ -436,7 +449,7 @@ test.describe("périodes de fermeture", () => {
       .getByRole("navigation", { name: "Navigation principale" })
       .getByRole("link", { name: "Planning" })
       .click();
-    await page.getByRole("button", { name: "Semaine du 02/11" }).click();
+    await page.getByRole("button", { name: "Une semaine précise" }).click();
     await page.getByLabel("Aller à la date").fill("2027-02-24");
     await expect(page.getByTestId("closure-band")).toHaveCount(6);
     await expect(page.getByTestId("closure-band").first()).toHaveText("Fermé — Vacances d'hiver");

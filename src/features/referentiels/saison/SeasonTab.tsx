@@ -1,6 +1,7 @@
 import { Copy, Eye, Plus } from "lucide-react";
 import { useState } from "react";
 import { useSeason } from "@/app/season";
+import { useToast } from "@/components/feedback/Toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,8 +25,8 @@ import { defaultSeasonValues, SeasonForm, seasonValues } from "./SeasonForm";
 export function SeasonTab() {
   const { db } = useDatabase();
   const { season, activeSeason, seasons, readOnly, loading, reload, selectSeason } = useSeason();
+  const toast = useToast();
   const [creating, setCreating] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   if (loading) return <p className="text-muted-foreground text-sm">Chargement…</p>;
 
@@ -35,7 +36,7 @@ export function SeasonTab() {
         <CardHeader>
           <CardTitle>Créer la saison</CardTitle>
           <CardDescription>
-            La saison regroupe les courts, moniteurs, groupes, élèves et la semaine type.
+            La saison regroupe les courts, moniteurs, groupes, élèves et le planning habituel.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -43,9 +44,11 @@ export function SeasonTab() {
             initialValues={defaultSeasonValues()}
             submitLabel="Créer la saison"
             onSubmit={async (input) => {
+              // B11 : la saison est relue avant la confirmation, sans état transitoire.
               await createSeason(db, input);
               selectSeason(null);
-              reload();
+              await reload();
+              toast.success(`Saison « ${input.name} » créée`);
             }}
           />
         </CardContent>
@@ -60,8 +63,10 @@ export function SeasonTab() {
       ) : (
         <Card className="max-w-3xl">
           <CardHeader>
-            <CardTitle>Saison active</CardTitle>
-            <CardDescription>Amplitude horaire et jours affichés dans le planning.</CardDescription>
+            <CardTitle>Saison en cours</CardTitle>
+            <CardDescription>
+              Dates de la saison, heures et jours affichés dans le planning.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <SeasonForm
@@ -70,7 +75,8 @@ export function SeasonTab() {
               submitLabel="Enregistrer"
               onSubmit={async (input) => {
                 await updateSeason(db, season.id, input);
-                reload();
+                await reload();
+                toast.success("Modifications enregistrées.");
               }}
             />
           </CardContent>
@@ -87,11 +93,6 @@ export function SeasonTab() {
             </Button>
           )}
         </div>
-        {message && (
-          <output className="text-muted-foreground text-sm" data-testid="season-message">
-            {message}
-          </output>
-        )}
         <Table aria-label="Saisons">
           <TableHeader>
             <TableRow>
@@ -112,23 +113,23 @@ export function SeasonTab() {
                 <TableCell>{formatDate(s.endDate)}</TableCell>
                 <TableCell>
                   {s.status === "active" ? (
-                    <Badge>Active</Badge>
+                    <Badge>En cours</Badge>
                   ) : (
-                    <Badge variant="outline">Archivée</Badge>
+                    <Badge variant="outline">Terminée</Badge>
                   )}
                 </TableCell>
                 <TableCell>
                   {s.id === season.id ? (
-                    <span className="text-muted-foreground text-xs">Consultée</span>
+                    <span className="text-muted-foreground text-xs">Affichée</span>
                   ) : (
                     <Button
                       size="sm"
                       variant="ghost"
-                      aria-label={`Consulter la saison ${s.name}`}
+                      aria-label={`Afficher la saison ${s.name}`}
                       onClick={() => selectSeason(s.status === "active" ? null : s.id)}
                     >
                       <Eye aria-hidden />
-                      Consulter
+                      Afficher
                     </Button>
                   )}
                 </TableCell>
@@ -143,11 +144,11 @@ export function SeasonTab() {
           open={creating}
           onOpenChange={setCreating}
           source={activeSeason}
-          onCreated={(summary) => {
+          onCreated={async (name, summary) => {
             setCreating(false);
             selectSeason(null);
-            reload();
-            setMessage(summary ? describeSummary(summary) : "Saison créée.");
+            await reload();
+            toast.success(summary ? describeSummary(name, summary) : `Saison « ${name} » créée`);
           }}
           create={async (input, sourceId) => {
             if (sourceId) return (await duplicateSeason(db, sourceId, input)).summary;
@@ -163,7 +164,7 @@ export function SeasonTab() {
 const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
   `${count} ${count > 1 ? pluralForm : singular}`;
 
-function describeSummary(summary: DuplicationSummary): string {
+function describeSummary(name: string, summary: DuplicationSummary): string {
   const parts = [
     plural(summary.courts, "court"),
     plural(summary.instructors, "moniteur"),
@@ -171,7 +172,7 @@ function describeSummary(summary: DuplicationSummary): string {
     plural(summary.students, "élève"),
     plural(summary.lessons, "cours", "cours"),
   ];
-  return `Saison créée par duplication : ${parts.join(", ")} repris.`;
+  return `Saison « ${name} » créée par duplication : ${parts.join(", ")} repris.`;
 }
 
 /** Saison archivée : consultation seule de ses réglages. */
@@ -184,11 +185,11 @@ function ArchivedSeasonCard({ season }: { season: Season }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           Saison {season.name}
-          <Badge variant="outline">Archivée</Badge>
+          <Badge variant="outline">Terminée</Badge>
         </CardTitle>
         <CardDescription>
-          Saison passée, consultable en lecture seule : ses référentiels, son planning et ses
-          fermetures ne peuvent plus être modifiés.
+          Consultation seulement (saison terminée) : ses fiches, son planning et ses fermetures ne
+          peuvent plus être modifiés.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -197,7 +198,7 @@ function ArchivedSeasonCard({ season }: { season: Season }) {
           <dd>
             du {formatDate(season.startDate)} au {formatDate(season.endDate)}
           </dd>
-          <dt className="text-muted-foreground">Amplitude horaire</dt>
+          <dt className="text-muted-foreground">Heures affichées</dt>
           <dd>
             {season.displayStartTime} – {season.displayEndTime}
           </dd>
@@ -218,7 +219,7 @@ interface NewSeasonDialogProps {
     input: Parameters<typeof createSeason>[1],
     sourceId: string | null,
   ) => Promise<DuplicationSummary | null>;
-  onCreated: (summary: DuplicationSummary | null) => void;
+  onCreated: (name: string, summary: DuplicationSummary | null) => Promise<void>;
 }
 
 /** Nouvelle saison (§8.1) : vierge, ou par duplication de la saison active. */
@@ -232,7 +233,7 @@ function NewSeasonDialog({ open, onOpenChange, source, create, onCreated }: NewS
       title="Nouvelle saison"
       description={
         source
-          ? `La saison « ${source.name} » sera archivée : elle restera consultable en lecture seule. Une seule saison est active à la fois.`
+          ? `La saison « ${source.name} » sera terminée : elle restera consultable, sans modification possible. Une seule saison est en cours à la fois.`
           : undefined
       }
       className="max-w-2xl"
@@ -256,10 +257,10 @@ function NewSeasonDialog({ open, onOpenChange, source, create, onCreated }: NewS
                     Dupliquer la saison {source.name}
                   </span>
                   <span className="block text-muted-foreground text-xs">
-                    Copie des courts, des moniteurs et de leurs disponibilités hebdomadaires, des
-                    groupes et de leur composition, des élèves et de la semaine type (cours en
-                    vigueur en fin de saison). Les exceptions, indisponibilités datées et fermetures
-                    ne sont pas copiées.
+                    Copie des courts, des moniteurs et de leurs disponibilités de chaque semaine,
+                    des groupes et de leurs élèves, et du planning habituel (les cours tels qu'ils
+                    sont en fin de saison). Les changements faits sur une semaine précise, les
+                    indisponibilités datées et les fermetures ne sont pas copiés.
                   </span>
                 </span>
               </Label>
@@ -283,7 +284,7 @@ function NewSeasonDialog({ open, onOpenChange, source, create, onCreated }: NewS
                 input,
                 mode === "duplicate" ? (source?.id ?? null) : null,
               );
-              onCreated(summary);
+              await onCreated(input.name, summary);
             }}
           />
         </div>

@@ -80,7 +80,7 @@ export function groupPeople(
     );
 }
 
-const SEASON_STATUS_LABELS = { active: "active", archived: "archivée" } as const;
+const SEASON_STATUS_LABELS = { active: "en cours", archived: "terminée" } as const;
 
 /** Document d'export des données d'une personne (JSON lisible, clés en français). */
 export function buildStudentExport(records: readonly StudentRecord[], exportedAt: string) {

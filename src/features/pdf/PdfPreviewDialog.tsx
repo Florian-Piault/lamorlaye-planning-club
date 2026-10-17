@@ -78,7 +78,18 @@ export function PdfPreviewDialog({
           <Button variant="outline" onClick={onClose}>
             Fermer l'aperçu
           </Button>
-          <Button onClick={saveAndOpen} disabled={preview.status !== "ready" || state.busy}>
+          <Button
+            onClick={saveAndOpen}
+            disabled={preview.status !== "ready" || state.busy}
+            disabledReason={
+              preview.status === "error"
+                ? "Le PDF n'a pas pu être produit"
+                : state.busy
+                  ? "Enregistrement en cours…"
+                  : "PDF en préparation…"
+            }
+            reasonSide="start"
+          >
             <Download aria-hidden />
             Enregistrer le PDF…
           </Button>

@@ -6,11 +6,14 @@ import {
   GRAB_OFFSET,
   goToPlanning,
   grabPoint,
+  hoverLesson,
   lesson,
+  openFilters,
   openPlanning,
   readLessons,
   resizePoint,
   slotPoint,
+  toolbar,
 } from "./support/planning";
 
 /**
@@ -52,15 +55,22 @@ test.describe("grille semaine type", () => {
     await expect(galaxie).toContainText("10h00–11h00");
     await expect(galaxie).toContainText("KB · 3/8");
     await expect(galaxie).toHaveCSS("background-color", "rgb(194, 65, 12)");
-    await expect(galaxie).toHaveAttribute("title", /Court 1 \(couvert\)\nMoniteur : Karim Benali/);
+    // Plus d'infobulle native : la fiche du cours s'affiche au survol.
+    await expect(galaxie).not.toHaveAttribute("title");
+    const card = await hoverLesson(page, galaxie);
+    await expect(card).toContainText("Court 1 (couvert)Moniteur : Karim Benali");
+    // Pastilles réduites à la couleur et au prénom ; heures en bulle, sans total.
     const legend = page.getByRole("group", { name: "Légende des moniteurs" });
-    await expect(
-      legend.getByRole("button", { name: "Julie Martin, 1h30 cette semaine" }),
-    ).toBeVisible();
+    const julie = legend.getByRole("button", { name: "Julie Martin, 1h30 cette semaine" });
+    await expect(julie).toContainText("Julie");
+    // Barre large : les initiales (barre étroite) restent masquées.
+    await expect(julie.getByTestId("instructor-initials")).toBeHidden();
     await expect(
       legend.getByRole("button", { name: "Karim Benali, 1h cette semaine" }),
     ).toBeVisible();
-    await expect(page.getByTestId("week-total")).toHaveText("Total : 2h30");
+    await julie.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Julie Martin · 1h30 cette semaine");
+    await expect(toolbar(page)).not.toContainText("Total");
   });
 
   test("crée un cours par sélection sur la grille, moniteurs disponibles en tête", async ({
@@ -96,7 +106,7 @@ test.describe("grille semaine type", () => {
     ]);
     await form.getByLabel("Groupe", { exact: true }).selectOption({ label: "Mini-tennis (1/6)" });
     await instructor.selectOption({ label: "● Karim Benali" });
-    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeHidden();
+    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeEmpty();
     await form.getByRole("button", { name: "Créer le cours" }).click();
 
     await expect(form).toBeHidden();
@@ -126,7 +136,7 @@ test.describe("grille semaine type", () => {
     await form.getByRole("button", { name: "Nouveau groupe" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau groupe" });
     await dialog.getByLabel("Nom").fill("Galaxie jaune");
-    await dialog.getByLabel("Effectif maximum").fill("6");
+    await dialog.getByLabel("Élèves au maximum").fill("6");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
     await expect(dialog).toBeHidden();
     await expect(form.getByLabel("Groupe", { exact: true }).locator("option:checked")).toHaveText(
@@ -148,6 +158,56 @@ test.describe("grille semaine type", () => {
       );
   });
 
+  test("range les moniteurs occupés à part et hachure le moniteur du panneau (B8)", async ({
+    page,
+  }) => {
+    await openPlanning(page);
+    await page.getByRole("button", { name: "Nouveau cours" }).click();
+    const form = panel(page, "Nouveau cours");
+    const instructor = form.getByLabel("Moniteur", { exact: true });
+    const group = (label: string) => instructor.locator(`optgroup[label="${label}"] option`);
+    await form.getByLabel("Jour").selectOption({ label: "Lundi" });
+    await form.getByLabel("Début").selectOption({ label: "10:30" });
+    // Karim donne « Galaxie vert » de 10:00 à 11:00 : chevauchement partiel.
+    await expect(group("Disponibles")).toHaveCount(0);
+    await expect(group("Occupés sur ce créneau")).toHaveText([
+      "◐ Karim Benali (Galaxie vert 10:00–11:00)",
+    ]);
+    await expect(group("Indisponibles sur ce créneau")).toHaveText([
+      "○ Marc Leroy (aucune disponibilité saisie)",
+      "○ Julie Martin (indisponible)",
+    ]);
+    // Tous restent sélectionnables ; le conflit est signalé.
+    await instructor.selectOption({ label: "◐ Karim Benali (Galaxie vert 10:00–11:00)" });
+    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toContainText(
+      "Karim",
+    );
+
+    // Le moniteur du panneau passe avant le survol pour les hachures.
+    await instructor.selectOption({ label: "○ Julie Martin (indisponible)" });
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Julie Martin");
+    await lesson(page, "Galaxie vert").hover();
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Julie Martin");
+    await form.getByRole("button", { name: "Fermer", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Abandonner les modifications ?" })
+      .getByRole("button", { name: /Abandonner/ })
+      .click();
+    await expect(form).toBeHidden();
+
+    // Le cours édité n'est pas compté : Karim reste disponible pour « Galaxie vert ».
+    await lesson(page, "Galaxie vert").click();
+    const edit = panel(page, "Modifier le cours");
+    await expect(
+      edit.getByLabel("Moniteur", { exact: true }).locator('optgroup[label="Disponibles"] option'),
+    ).toHaveText(["● Karim Benali"]);
+    await expect(
+      edit
+        .getByLabel("Moniteur", { exact: true })
+        .locator('optgroup[label="Occupés sur ce créneau"] option'),
+    ).toHaveCount(0);
+  });
+
   test("avertit en temps réel dans le panneau ; un clic dans le vide le ferme", async ({
     page,
   }) => {
@@ -155,15 +215,18 @@ test.describe("grille semaine type", () => {
     const galaxie = lesson(page, "Galaxie vert");
     await galaxie.click();
     const form = panel(page, "Modifier le cours");
-    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeHidden();
+    await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeEmpty();
     await form.getByLabel("Jour").selectOption({ label: "Mercredi" });
     await form.getByLabel("Court").selectOption({ label: "Court 2" });
     await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toContainText(
       "déjà occupé par Ados perfectionnement",
     );
 
+    // Saisie modifiée : fermer le panneau demande confirmation (garde de modale).
     const empty = await slotPoint(page, SAT, C1, "15:00");
     await page.mouse.click(empty.x, empty.y);
+    const discard = page.getByRole("dialog", { name: "Abandonner les modifications ?" });
+    await discard.getByRole("button", { name: "Abandonner" }).click();
     await expect(form).toBeHidden();
     await expect(galaxie).not.toHaveAttribute("data-selected");
     await expect(galaxie).toContainText("10h00–11h00");
@@ -334,9 +397,7 @@ test.describe("grille semaine type", () => {
       "Confier « Galaxie vert » à Julie",
     );
     await expect(page.getByTestId("drag-tooltip")).toContainText("⚠ Hors disponibilités de Julie");
-    await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachuré : indisponibilités de Julie Martin",
-    );
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Julie Martin");
     await page.mouse.up();
 
     await expect(galaxie).toContainText("JM · 3/8");
@@ -406,12 +467,14 @@ test.describe("grille semaine type", () => {
     await page.keyboard.press("ControlOrMeta+z");
     await expect(galaxie).toHaveCount(1);
 
-    // Ctrl/Cmd+N ouvre le panneau « Nouveau cours » (§11.5), Échap le ferme ;
-    // N seul est sans effet (pas de raccourci d'une seule lettre, WCAG 2.1.4).
+    // Ctrl/Cmd+N ouvre le panneau « Nouveau cours » (§11.5), curseur dans le
+    // premier champ ; Échap le ferme. N seul est sans effet (pas de raccourci
+    // d'une seule lettre, WCAG 2.1.4).
     await page.keyboard.press("n");
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");
     await expect(panel(page, "Nouveau cours")).toBeVisible();
+    await expect(panel(page, "Nouveau cours").getByLabel("Rechercher un groupe")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");
@@ -424,9 +487,7 @@ test.describe("grille semaine type", () => {
     await expect(hatches).toHaveCount(0);
 
     await lesson(page, "Galaxie vert").hover();
-    await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachuré : indisponibilités de Karim Benali",
-    );
+    await expect(page.getByTestId("hatch-info")).toHaveText("Zones rayées : Karim Benali");
     // Lundi 8h–9h, 12h–17h, 21h30–22h ; mardi 8h–9h, 12h–22h ; mercredi 8h–13h, 19h–22h ;
     // jeudi, vendredi, samedi entiers.
     await expect(hatches).toHaveCount(10);
@@ -439,7 +500,7 @@ test.describe("grille semaine type", () => {
     await expect(marc).toHaveAttribute("aria-pressed", "true");
     await expect(hatches).toHaveCount(6);
     await expect(page.getByTestId("hatch-info")).toHaveText(
-      "Hachuré : Marc Leroy n'a saisi aucune disponibilité (indisponible partout)",
+      "Zones rayées : Marc Leroy (aucune disponibilité)",
     );
     await marc.click();
     await expect(hatches).toHaveCount(0);
@@ -457,15 +518,27 @@ test.describe("grille semaine type", () => {
     const galaxie = lesson(page, "Galaxie vert");
     const ados = lesson(page, "Ados perfectionnement");
 
-    const byInstructor = page.getByRole("group", { name: "Filtrer par moniteur" });
+    // Filtres dans un menu déroulant de la barre d'outils, avec le nombre de filtres actifs.
+    const filtersButton = toolbar(page).getByRole("button", { name: /^Filtres/ });
+    await expect(filtersButton).toHaveAccessibleName("Filtres");
+    const menu = await openFilters(page);
+    const byInstructor = menu.getByRole("group", { name: "Filtrer par moniteur" });
     await byInstructor.getByRole("button", { name: "Julie Martin" }).click();
     await expect(galaxie).toHaveAttribute("data-dimmed", "true");
     await expect(ados).not.toHaveAttribute("data-dimmed");
     await byInstructor.getByRole("button", { name: "Karim Benali" }).click();
     await expect(galaxie).not.toHaveAttribute("data-dimmed");
-    await page.getByRole("button", { name: "Effacer les filtres" }).click();
+    await expect(filtersButton).toHaveAccessibleName("Filtres, 2 actifs");
+    await expect(page.getByTestId("filter-count")).toHaveText("2");
+    // Échap ferme le menu, les filtres restent appliqués.
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(filtersButton).toBeFocused();
+    await expect(galaxie).not.toHaveAttribute("data-dimmed");
+    await (await openFilters(page)).getByRole("button", { name: "Effacer les filtres" }).click();
+    await expect(filtersButton).toHaveAccessibleName("Filtres");
 
-    const byCourt = page.getByRole("group", { name: "Filtrer par court" });
+    const byCourt = menu.getByRole("group", { name: "Filtrer par court" });
     await byCourt.getByRole("button", { name: "Court 1" }).click();
     await expect(ados).toHaveAttribute("data-dimmed", "true");
     await expect(galaxie).not.toHaveAttribute("data-dimmed");
@@ -475,7 +548,11 @@ test.describe("grille semaine type", () => {
     await page.getByLabel("Filtrer par groupe").selectOption({ label: "Ados perfectionnement" });
     await expect(galaxie).toHaveAttribute("data-dimmed", "true");
     await expect(ados).not.toHaveAttribute("data-dimmed");
+    // Un clic au-dehors ferme le menu.
+    await page.getByTestId("app-sidebar").click({ position: { x: 10, y: 10 } });
+    await expect(menu).toBeHidden();
     await expect(galaxie).toHaveCSS("opacity", "0.25");
+    await expect(page.getByTestId("filter-count")).toHaveText("1");
   });
 
   test("liste les avertissements et navigue vers le cours concerné", async ({ page }) => {
@@ -503,7 +580,7 @@ test.describe("grille semaine type", () => {
     });
     await expect(lesson(page, "Galaxie vert")).toHaveCount(1);
     await expect(lesson(page, "Galaxie vert")).not.toHaveAttribute("data-warning");
-    await expect(page.getByText("1 version(s) de cours hors vigueur")).toBeVisible();
+    await expect(page.getByTestId("later-changes")).toHaveText("1 cours a changé");
 
     await expect(page.getByRole("heading", { name: "Avertissements (1)" })).toBeVisible();
     const item = page.getByRole("list", { name: "Avertissements" }).getByRole("button");
@@ -533,7 +610,7 @@ test.describe("grille semaine type", () => {
     // L'écran est démonté puis rechargé depuis la base.
     await page
       .getByRole("navigation", { name: "Navigation principale" })
-      .getByRole("link", { name: "Référentiels" })
+      .getByRole("link", { name: "Le club" })
       .click();
     await goToPlanning(page);
     await expect(lesson(page, "Galaxie vert")).toContainText("9h00–10h00");

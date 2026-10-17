@@ -39,7 +39,7 @@ function nav(page: Page, name: string) {
 }
 
 function tab(page: Page, name: string) {
-  return page.getByRole("navigation", { name: "Référentiels" }).getByRole("link", { name });
+  return page.getByRole("navigation", { name: "Fiches du club" }).getByRole("link", { name });
 }
 
 /** Saison 2026-2027 avec le club, puis duplication vers 2027-2028 par l'interface. */
@@ -53,13 +53,13 @@ async function duplicateClub(page: Page) {
   await expect(dialog.getByLabel("Date de début")).toHaveValue("2027-09-01");
   await dialog.getByRole("button", { name: "Dupliquer la saison" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId("season-message")).toHaveText(
-    "Saison créée par duplication : 2 courts, 3 moniteurs, 4 groupes, 8 élèves, 2 cours repris.",
+  await expect(page.getByTestId("toast")).toHaveText(
+    "Saison « 2027-2028 » créée par duplication : 2 courts, 3 moniteurs, 4 groupes, 8 élèves, 2 cours repris.",
   );
 }
 
 async function viewSeason(page: Page, label: string) {
-  await page.getByLabel("Saison consultée").selectOption({ label });
+  await page.getByLabel("Saison affichée").selectOption({ label });
 }
 
 function waitForFile(page: Page, name: string): Promise<Download> {
@@ -78,9 +78,14 @@ test.describe("saisons", () => {
   }) => {
     await duplicateClub(page);
     const seasons = page.getByRole("table", { name: "Saisons" });
-    await expect(seasons.getByRole("row", { name: /2027-2028/ })).toContainText("Active");
-    await expect(seasons.getByRole("row", { name: /2026-2027/ })).toContainText("Archivée");
-    await expect(page.getByLabel("Saison consultée")).toHaveValue(/.+/);
+    await expect(seasons.getByRole("row", { name: /2027-2028/ })).toContainText("En cours");
+    await expect(seasons.getByRole("row", { name: /2026-2027/ })).toContainText("Terminée");
+    // La saison consultée est « Affichée », l'autre propose de l'afficher.
+    await expect(seasons.getByRole("row", { name: /2027-2028/ })).toContainText("Affichée");
+    await expect(
+      seasons.getByRole("button", { name: "Afficher la saison 2026-2027" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Saison affichée")).toHaveValue(/.+/);
     await expect(page.getByTestId("read-only-banner")).toHaveCount(0);
 
     // La semaine type est reprise ; ni fermetures ni indisponibilités datées.
@@ -90,7 +95,7 @@ test.describe("saisons", () => {
     await tab(page, "Moniteurs").click();
     await page.getByRole("link", { name: "Martin Julie" }).click();
     await expect(page.getByText("Aucune indisponibilité.")).toBeVisible();
-    await expect(page.getByRole("list", { name: "Plages de disponibilité" })).toContainText(
+    await expect(page.getByRole("list", { name: "Horaires de disponibilité" })).toContainText(
       "16:00–21:00",
     );
 
@@ -122,9 +127,9 @@ test.describe("saisons", () => {
     expect(await readLessons(page, "2026-2027")).toContainEqual(
       expect.objectContaining({ group: "Galaxie vert", weekday: 1, startTime: "10:00" }),
     );
-    await viewSeason(page, "2026-2027 (archivée)");
+    await viewSeason(page, "2026-2027 (terminée)");
     await expect(page.getByTestId("read-only-banner")).toContainText("2026-2027");
-    await nav(page, "Référentiels").click();
+    await nav(page, "Le club").click();
     await tab(page, "Courts").click();
     await expect(page.getByRole("list", { name: "Courts" })).toContainText("Court 1");
     await expect(page.getByText("Court central")).toHaveCount(0);
@@ -141,11 +146,13 @@ test.describe("saisons", () => {
 
   test("une saison archivée n'est modifiable par aucun écran", async ({ page }) => {
     await duplicateClub(page);
-    await viewSeason(page, "2026-2027 (archivée)");
+    await viewSeason(page, "2026-2027 (terminée)");
     await expect(page.getByTestId("read-only-banner")).toBeVisible();
 
     // Saison.
-    await expect(page.getByText("Saison passée, consultable en lecture seule")).toBeVisible();
+    await expect(
+      page.getByText("Consultation seulement (saison terminée) : ses fiches"),
+    ).toBeVisible();
     await expect(page.getByRole("form", { name: "Saison" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Nouvelle saison" })).toHaveCount(0);
 
@@ -174,7 +181,7 @@ test.describe("saisons", () => {
     await expect(page.getByText(/Tournoi/)).toBeVisible();
     for (const name of [
       "Supprimer",
-      "Ajouter la plage",
+      "Ajouter un horaire",
       "Ajouter l'indisponibilité",
       "Retirer lundi 16:00–21:00",
     ]) {
@@ -275,12 +282,11 @@ test.describe("saisons", () => {
     );
     await expect(page.getByRole("form", { name: "Nouveau cours" })).toHaveCount(0);
     // Semaine datée : aucune action sur la séance.
-    await page
-      .getByRole("button", { name: /Semaine datée|Semaine du/ })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "Une semaine précise" }).first().click();
     await expect(page.getByTestId("mode-bar")).toHaveAttribute("data-mode", "dated");
-    await expect(page.getByTestId("mode-bar")).toContainText("consultation seule");
+    await expect(page.getByTestId("mode-bar")).toContainText(
+      "Consultation seulement (saison terminée)",
+    );
     await lesson(page, "Galaxie vert").click();
     const side = page.getByRole("complementary", { name: "Panneau latéral" });
     await expect(side.getByRole("form", { name: "Détail du cours" })).toBeVisible();
@@ -290,7 +296,7 @@ test.describe("saisons", () => {
     // Refus au niveau des repositories et de la persistance des commandes.
     const refusals = await tryWritingSeason(page, "2026-2027");
     expect(refusals).toHaveLength(3);
-    for (const message of refusals) expect(message).toMatch(/archivée/);
+    for (const message of refusals) expect(message).toMatch(/terminée/);
     expect(await tryWritingSeason(page, "2027-2028")).toEqual(["ok", "ok", "ok"]);
   });
 });
@@ -315,8 +321,8 @@ test.describe("RGPD", () => {
         s.saison.statut,
       ]),
     ).toEqual([
-      ["2026-2027", "archivée"],
-      ["2027-2028", "active"],
+      ["2026-2027", "terminée"],
+      ["2027-2028", "en cours"],
     ]);
     expect(json.saisons[1].fiche.téléphone).toBe("0600000000");
     expect(json.saisons[1].groupes).toEqual([{ nom: "Ados perfectionnement", niveau: null }]);
@@ -338,7 +344,7 @@ test.describe("RGPD", () => {
     await dialog.getByLabel(/Je confirme la suppression définitive/).check();
     await confirm.click();
     await expect(dialog).toBeHidden();
-    await expect(page.getByTestId("students-message")).toHaveText(
+    await expect(page.getByTestId("toast")).toHaveText(
       "Données de l'élève supprimées définitivement (2 fiches).",
     );
     await expect(page.getByTestId("student-count")).toHaveText("7 élèves");
@@ -348,7 +354,7 @@ test.describe("RGPD", () => {
     await tab(page, "Groupes").click();
     await page.getByRole("link", { name: "Galaxie vert" }).click();
     await expect(page.getByTestId("group-size")).toHaveText("2 / 8");
-    await viewSeason(page, "2026-2027 (archivée)");
+    await viewSeason(page, "2026-2027 (terminée)");
     await tab(page, "Élèves").click();
     await expect(page.getByTestId("student-count")).toHaveText("7 élèves");
     await tab(page, "Groupes").click();
@@ -385,15 +391,15 @@ test.describe("RGPD", () => {
       .fill("paul");
     await page.getByRole("button", { name: "Données personnelles de Test Paul" }).click();
     const dialog = page.getByRole("dialog", { name: "Données personnelles" });
-    await expect(dialog.getByRole("list", { name: "Fiches de l'élève" })).toContainText("Archivée");
+    await expect(dialog.getByRole("list", { name: "Fiches de l'élève" })).toContainText("Terminée");
     await dialog.getByRole("button", { name: "Supprimer définitivement…" }).click();
     await dialog.getByLabel(/Je confirme la suppression définitive/).check();
     await dialog.getByRole("button", { name: "Supprimer définitivement", exact: true }).click();
-    await expect(page.getByTestId("privacy-message")).toHaveText(
+    await expect(page.getByTestId("toast")).toHaveText(
       "Données supprimées définitivement (1 fiche).",
     );
-    await viewSeason(page, "2026-2027 (archivée)");
-    await nav(page, "Référentiels").click();
+    await viewSeason(page, "2026-2027 (terminée)");
+    await nav(page, "Le club").click();
     await tab(page, "Élèves").click();
     await expect(page.getByTestId("student-count")).toHaveText("7 élèves");
   });

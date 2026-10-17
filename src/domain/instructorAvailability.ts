@@ -92,17 +92,64 @@ export function unavailableIntervals(
   return mergeIntervals(intervals);
 }
 
+// ---------------------------------------------------------------------------
+// Choix du moniteur d'un cours (§5.1)
+// ---------------------------------------------------------------------------
+
+/** Cours déjà placé, pour savoir si un moniteur est occupé sur un créneau. */
+export interface BusySlot extends TimeSlot {
+  id: string;
+  instructorId: string | null;
+  /** Désignation affichée sur la ligne du moniteur : « Galaxie vert 17:00–18:00 ». */
+  label: string;
+}
+
+/** Disponible ; occupé par un autre cours ; hors de ses disponibilités. */
+export type InstructorStatus = "available" | "busy" | "unavailable";
+
 /**
- * Trie des moniteurs : disponibles sur le créneau d'abord (§5.1), en gardant
- * l'ordre d'origine dans chaque catégorie.
+ * Cours du moniteur qui chevauchent le créneau, même partiellement, en
+ * excluant le cours en cours d'édition (`excludedId`).
  */
-export function sortByAvailability<T extends InstructorAvailabilityData>(
+export function busySlotsOf(
+  instructorId: string,
+  slot: TimeSlot,
+  lessons: readonly BusySlot[],
+  excludedId: string | null = null,
+): BusySlot[] {
+  return lessons.filter(
+    (lesson) =>
+      lesson.id !== excludedId &&
+      lesson.instructorId === instructorId &&
+      lesson.weekday === slot.weekday &&
+      (lesson.date === null || slot.date === null || lesson.date === slot.date) &&
+      lesson.start < slot.end &&
+      slot.start < lesson.end,
+  );
+}
+
+/**
+ * Range les moniteurs en trois groupes, dans cet ordre : disponibles, occupés
+ * sur ce créneau (un autre cours leur est affecté), indisponibles (hors de
+ * leurs disponibilités, qu'ils aient ou non un cours : ce groupe l'emporte).
+ * Chaque moniteur n'apparaît qu'une fois ; l'ordre d'origine est gardé dans
+ * chaque groupe.
+ */
+export function groupByAvailability<T extends InstructorAvailabilityData & { id: string }>(
   instructors: readonly T[],
   slot: TimeSlot,
-): { instructor: T; available: boolean }[] {
-  const entries = instructors.map((instructor) => ({
-    instructor,
-    available: isInstructorAvailable(instructor, slot),
-  }));
-  return [...entries.filter((e) => e.available), ...entries.filter((e) => !e.available)];
+  lessons: readonly BusySlot[] = [],
+  excludedId: string | null = null,
+): { instructor: T; status: InstructorStatus; busyWith: BusySlot[] }[] {
+  const entries = instructors.map((instructor) => {
+    const busyWith = busySlotsOf(instructor.id, slot, lessons, excludedId);
+    const status: InstructorStatus = !isInstructorAvailable(instructor, slot)
+      ? "unavailable"
+      : busyWith.length > 0
+        ? "busy"
+        : "available";
+    return { instructor, status, busyWith };
+  });
+  const order: InstructorStatus[] = ["available", "busy", "unavailable"];
+  return order.flatMap((status) => entries.filter((e) => e.status === status));
 }

@@ -4,7 +4,7 @@ import { ErrorAlert } from "@/components/form/Field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Checkbox, Label } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/input";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { eraseStudents, findStudentRecords } from "@/db/repositories/rgpd";
 import { studentExportBytes, studentExportFileName } from "@/domain/rgpd";
@@ -32,7 +32,7 @@ export function StudentPrivacyDialog({ studentId, ...props }: StudentPrivacyDial
       open={studentId !== null}
       onOpenChange={(open) => !open && props.onClose()}
       title="Données personnelles"
-      description="Droits d'accès et d'effacement (RGPD) : toutes les fiches de l'élève, saisons archivées comprises."
+      description="Droits d'accès et d'effacement (RGPD) : toutes les fiches de l'élève, saisons terminées comprises."
       className="max-w-2xl"
     >
       {studentId && <PrivacyContent studentId={studentId} {...props} />}
@@ -102,9 +102,9 @@ function PrivacyContent({
             <li key={student.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
               <span className="font-medium">Saison {season.name}</span>
               {season.status === "archived" ? (
-                <Badge variant="outline">Archivée</Badge>
+                <Badge variant="outline">Terminée</Badge>
               ) : (
-                <Badge>Active</Badge>
+                <Badge>En cours</Badge>
               )}
               <span className="text-muted-foreground">
                 {groups.length > 0
@@ -138,17 +138,20 @@ function PrivacyContent({
             Supprimer définitivement
           </h3>
           <p className="text-muted-foreground">
-            Efface toutes les fiches de l'élève ({records.length}{" "}
-            {records.length > 1 ? "saisons" : "saison"}, archivées comprises) et le retire de tous
-            ses groupes. Cette action ne peut pas être annulée ; seule une sauvegarde antérieure
-            contient encore ses données.
+            Efface toutes les fiches de l'élève (
+            {records.length > 1
+              ? `${records.length} saisons, y compris les saisons terminées`
+              : "1 saison"}
+            ) et le retire de tous ses groupes. Cette action ne peut pas être annulée ; seule une
+            sauvegarde antérieure contient encore ses données.
           </p>
           {confirming ? (
             <div className="flex flex-col gap-2">
-              <Label className="font-normal">
-                <Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-                Je confirme la suppression définitive des données de {name}
-              </Label>
+              <Checkbox
+                label={`Je confirme la suppression définitive des données de ${name}`}
+                checked={confirmed}
+                onChange={(e) => setConfirmed(e.target.checked)}
+              />
               <div className="flex gap-2">
                 <Button variant="destructive" disabled={!confirmed || busy} onClick={erase}>
                   <Trash2 aria-hidden />

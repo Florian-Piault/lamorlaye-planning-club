@@ -1,10 +1,11 @@
-import { Pencil, Plus, ShieldCheck } from "lucide-react";
+import { ClipboardPaste, Pencil, Plus, ShieldCheck } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
 import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListControls";
+import { useToast } from "@/components/feedback/Toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -17,45 +18,45 @@ import { useDatabase } from "@/db/DatabaseProvider";
 import { listGroups } from "@/db/repositories/groups";
 import { listLevels } from "@/db/repositories/levels";
 import {
-  createStudent,
   deleteStudent,
+  listStudentIdentities,
   listStudents,
   type StudentListItem,
-  updateStudent,
 } from "@/db/repositories/students";
+import { studentDetails } from "@/domain/duplicates";
 import { ageOn } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
+import { formatContactPhone } from "@/domain/students";
 import { formatDate } from "@/domain/time";
 import { StudentPrivacyDialog } from "@/features/rgpd/StudentPrivacyDialog";
 import { useListState } from "@/hooks/useListState";
 import { useLoader } from "@/hooks/useLoader";
 import { DeleteAction } from "../components/DeleteAction";
-import { emptyStudentValues, StudentForm, studentValues } from "./StudentForm";
+import { newStudentEditing, StudentDialog, type StudentEditing } from "./StudentDialog";
 
 type SortKey = "name" | "age" | "level" | "ranking" | "groups";
-
-type Editing = { mode: "create" } | { mode: "edit"; student: StudentListItem } | null;
 
 export function StudentsTab() {
   const { db } = useDatabase();
   const season = useViewedSeason();
   const readOnly = useReadOnly();
   const [privacy, setPrivacy] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
   const load = useCallback(async () => {
-    const [students, groups, levels] = await Promise.all([
+    const [students, groups, levels, identities] = await Promise.all([
       listStudents(db, season.id),
       listGroups(db, season.id),
       listLevels(db),
+      listStudentIdentities(db),
     ]);
-    return { students, groups, levels };
+    return { students, groups, levels, identities };
   }, [db, season.id]);
   const { data, reload } = useLoader(load);
   const { query, setQuery, sort, onSort } = useListState<SortKey>({
     key: "name",
     direction: "asc",
   });
-  const [editing, setEditing] = useState<Editing>(null);
+  const [editing, setEditing] = useState<StudentEditing>(null);
   const levelOrder = useMemo(
     () => new Map((data?.levels ?? []).map((l) => [l.id, l.sortOrder])),
     [data],
@@ -63,10 +64,7 @@ export function StudentsTab() {
 
   // Rappels stables : les lignes (mémoïsées) ne sont redessinées que si leur élève change.
   const edit = useCallback((student: StudentListItem) => setEditing({ mode: "edit", student }), []);
-  const showPrivacy = useCallback((id: string) => {
-    setMessage(null);
-    setPrivacy(id);
-  }, []);
+  const showPrivacy = useCallback((id: string) => setPrivacy(id), []);
   const remove = useCallback((id: string) => deleteStudent(db, id), [db]);
 
   const students = data?.students ?? [];
@@ -78,6 +76,7 @@ export function StudentsTab() {
           s.lastName,
           s.firstName,
           s.phone,
+          s.guardianPhone,
           s.email,
           s.levelLabel,
           s.fftRanking,
@@ -115,18 +114,25 @@ export function StudentsTab() {
               : `${rows.length} sur ${students.length}`}
           </span>
           {!readOnly && (
-            <Button onClick={() => setEditing({ mode: "create" })}>
-              <Plus aria-hidden />
-              Nouvel élève
-            </Button>
+            <>
+              <Button asChild variant="outline">
+                <Link to="/import-export?import">
+                  <ClipboardPaste aria-hidden />
+                  Importer ou coller une liste
+                </Link>
+              </Button>
+              <Button
+                onClick={() =>
+                  setEditing(newStudentEditing([], data?.groups ?? [], data?.levels ?? []))
+                }
+              >
+                <Plus aria-hidden />
+                Nouvel élève
+              </Button>
+            </>
           )}
         </div>
       </div>
-      {message && (
-        <output className="text-muted-foreground text-sm" data-testid="students-message">
-          {message}
-        </output>
-      )}
       <Table aria-label="Élèves">
         <TableHeader>
           <TableRow>
@@ -172,42 +178,25 @@ export function StudentsTab() {
         </TableBody>
       </Table>
 
-      <Dialog
-        open={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
-        title={
-          readOnly ? "Fiche élève" : editing?.mode === "edit" ? "Modifier l'élève" : "Nouvel élève"
-        }
-        className="max-w-2xl"
-      >
-        {editing && (
-          <StudentForm
-            readOnly={readOnly}
-            initialValues={
-              editing.mode === "edit" ? studentValues(editing.student) : emptyStudentValues
-            }
-            initialGroupIds={editing.mode === "edit" ? editing.student.groups.map((g) => g.id) : []}
-            levels={data?.levels ?? []}
-            groups={data?.groups ?? []}
-            submitLabel={editing.mode === "edit" ? "Enregistrer" : "Créer l'élève"}
-            onCancel={() => setEditing(null)}
-            onSubmit={async (input, groupIds) => {
-              if (editing.mode === "edit")
-                await updateStudent(db, editing.student.id, input, groupIds);
-              else await createStudent(db, season.id, input, groupIds);
-              setEditing(null);
-              reload();
-            }}
-          />
-        )}
-      </Dialog>
+      <StudentDialog
+        editing={editing}
+        onEditingChange={setEditing}
+        season={season}
+        readOnly={readOnly}
+        students={data?.students ?? []}
+        identities={data?.identities ?? []}
+        groups={data?.groups ?? []}
+        levels={data?.levels ?? []}
+        series
+        onSaved={reload}
+      />
       <StudentPrivacyDialog
         studentId={privacy}
         allowErase={!readOnly}
         onClose={() => setPrivacy(null)}
         onErased={(count) => {
           setPrivacy(null);
-          setMessage(
+          toast.success(
             `Données de l'élève supprimées définitivement (${count} ${count > 1 ? "fiches" : "fiche"}).`,
           );
           reload();
@@ -225,6 +214,12 @@ interface StudentRowProps {
   onPrivacy: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
   onDeleted: () => void;
+}
+
+/** Précisions de la confirmation de suppression : toujours naissance et groupes (homonymes). */
+function details(student: StudentListItem): string {
+  const text = studentDetails({ ...student, groups: student.groups.map((g) => g.name) });
+  return text ? ` (${text})` : "";
 }
 
 /**
@@ -255,7 +250,7 @@ const StudentRow = memo(function StudentRow({
       </TableCell>
       <TableCell>{student.levelLabel ?? "—"}</TableCell>
       <TableCell>{student.fftRanking ?? "—"}</TableCell>
-      <TableCell className="whitespace-nowrap">{student.phone}</TableCell>
+      <TableCell className="whitespace-nowrap">{formatContactPhone(student)}</TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-1">
           {student.groups.map((g) => (
@@ -272,7 +267,7 @@ const StudentRow = memo(function StudentRow({
               variant="ghost"
               size="icon"
               aria-label={`Modifier ${name}`}
-              title="Modifier"
+              tooltip="Modifier"
               onClick={() => onEdit(student)}
             >
               <Pencil aria-hidden />
@@ -280,17 +275,19 @@ const StudentRow = memo(function StudentRow({
           )}
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
+            className="h-9"
             aria-label={`Données personnelles de ${name}`}
-            title="Données personnelles (RGPD)"
+            tooltip="Consulter, exporter ou effacer ses données (RGPD)"
             onClick={() => onPrivacy(student.id)}
           >
             <ShieldCheck aria-hidden />
+            Données personnelles
           </Button>
           {!readOnly && (
             <DeleteAction
               name={name}
-              subject={`l'élève « ${name} »`}
+              subject={`l'élève « ${name} »${details(student)}`}
               warning={
                 student.groups.length > 0
                   ? `Il sera retiré de ${student.groups.length > 1 ? `ses ${student.groups.length} groupes` : "son groupe"} de cette saison. Pour effacer ses données de toutes les saisons, utilisez « Données personnelles ».`

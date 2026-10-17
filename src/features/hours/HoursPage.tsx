@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TechnicalDetails } from "@/components/ui/technical-details";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { todayInParis } from "@/domain/dates";
 import { csvBytes, hoursDetailTable, hoursSummaryTable, xlsxBytes } from "@/domain/exports";
@@ -120,7 +121,9 @@ export function HoursReportView({ data, today }: { data: OutputData; today: stri
       <Card>
         <CardHeader>
           <CardTitle>Période</CardTitle>
-          <CardDescription>Bornes incluses. Saison {season.name}.</CardDescription>
+          <CardDescription>
+            Du premier au dernier jour inclus. Saison {season.name}.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1.5">
@@ -211,19 +214,37 @@ export function HoursReportView({ data, today }: { data: OutputData; today: stri
               </TableBody>
             </Table>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={saveState.busy} onClick={() => exportCsv(false)}>
-                <FileText aria-hidden />
-                Exporter le récapitulatif (CSV)
-              </Button>
-              <Button variant="outline" disabled={saveState.busy} onClick={() => exportCsv(true)}>
-                <FileText aria-hidden />
-                Exporter le détail des séances (CSV)
-              </Button>
-              <Button variant="outline" disabled={saveState.busy} onClick={exportXlsx}>
+              <Button disabled={saveState.busy} onClick={exportXlsx}>
                 <FileSpreadsheet aria-hidden />
-                Exporter en Excel
+                Exporter vers Excel
               </Button>
             </div>
+            <TechnicalDetails>
+              <p>
+                Le classeur Excel contient le récapitulatif et le détail des séances. Fichiers CSV
+                (texte séparé par « ; », encodage UTF-8), pour un autre tableur ou logiciel :
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={saveState.busy}
+                  onClick={() => exportCsv(false)}
+                >
+                  <FileText aria-hidden />
+                  Exporter le récapitulatif (CSV)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={saveState.busy}
+                  onClick={() => exportCsv(true)}
+                >
+                  <FileText aria-hidden />
+                  Exporter le détail des séances (CSV)
+                </Button>
+              </div>
+            </TechnicalDetails>
             <SaveStatus state={saveState} onOpen={open} />
           </CardContent>
         </Card>

@@ -20,7 +20,8 @@ interface SeasonContextValue {
    */
   readOnly: boolean;
   loading: boolean;
-  reload: () => void;
+  /** Relit les saisons ; résolu une fois la liste à jour. */
+  reload: () => Promise<void>;
   /** Consulte une saison ; `null` revient à la saison active. */
   selectSeason: (id: string | null) => void;
 }

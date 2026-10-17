@@ -1,5 +1,6 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
+import type { SeasonCounts } from "@/domain/guidance";
 import {
   type DuplicationContext,
   type DuplicationSummary,
@@ -16,11 +17,13 @@ import {
   groups,
   instructorAvailabilities,
   instructors,
+  lessonExceptions,
   lessons,
   type Season,
   seasons,
   students,
 } from "../schema";
+import { countWhere } from "./common";
 
 /** Saison active (une seule à la fois, garanti par un index unique partiel). */
 export async function getActiveSeason(db: Db): Promise<Season | undefined> {
@@ -33,6 +36,35 @@ export async function getSeason(db: Db, id: string): Promise<Season | undefined>
 
 export async function listSeasons(db: Db): Promise<Season[]> {
   return db.select().from(seasons).orderBy(desc(seasons.startDate), asc(seasons.name));
+}
+
+/**
+ * Comptes de la saison, pour l'état des étapes du guidage. Les cours sont
+ * ceux du planning habituel et les cours ponctuels d'une semaine précise.
+ */
+export async function countSeasonContents(db: Db, seasonId: string): Promise<SeasonCounts> {
+  const inSeason = (table: typeof courts | typeof instructors | typeof groups | typeof students) =>
+    countWhere(db, table, eq(table.seasonId, seasonId));
+  const [courtCount, instructorCount, groupCount, studentCount, lessonCount, oneOffCount] =
+    await Promise.all([
+      inSeason(courts),
+      inSeason(instructors),
+      inSeason(groups),
+      inSeason(students),
+      countWhere(db, lessons, eq(lessons.seasonId, seasonId)),
+      countWhere(
+        db,
+        lessonExceptions,
+        and(eq(lessonExceptions.seasonId, seasonId), eq(lessonExceptions.kind, "one_off")),
+      ),
+    ]);
+  return {
+    courts: courtCount,
+    instructors: instructorCount,
+    groups: groupCount,
+    students: studentCount,
+    lessons: lessonCount + oneOffCount,
+  };
 }
 
 /**
