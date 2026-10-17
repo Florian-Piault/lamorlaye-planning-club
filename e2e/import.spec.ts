@@ -38,7 +38,7 @@ test.describe("import d'élèves", () => {
     await openImport(page);
 
     // 1. Fichier.
-    await page.getByLabel("Fichier à importer").setInputFiles(FIXTURE);
+    await page.getByLabel("Fichier à importer", { exact: true }).setInputFiles(FIXTURE);
     await expect(page.getByTestId("import-file-info")).toContainText(
       "eleves-windows1252.csv — CSV, séparateur « ; », encodage Windows-1252, 7 lignes de données.",
     );
@@ -47,8 +47,8 @@ test.describe("import d'élèves", () => {
     const mapping = page.getByRole("table", { name: "Associer les colonnes de votre fichier" });
     await expect(mapping.getByLabel("Nom", { exact: true })).toHaveValue("0");
     await expect(mapping.getByLabel("Téléphone", { exact: true })).toHaveValue("3");
-    await expect(mapping.getByLabel("Groupe(s)")).toHaveValue("5");
-    await expect(mapping.getByLabel("Niveau")).toHaveValue("");
+    await expect(mapping.getByLabel("Groupe(s)", { exact: true })).toHaveValue("5");
+    await expect(mapping.getByLabel("Niveau", { exact: true })).toHaveValue("");
     await expect(mapping.getByRole("row", { name: /Prénom/ })).toContainText("Zoé");
     await page.getByRole("button", { name: "Afficher l'aperçu" }).click();
 
@@ -75,9 +75,9 @@ test.describe("import d'élèves", () => {
       "Groupe inconnu « Zumba »",
     );
 
-    await page.getByLabel("Afficher uniquement les lignes à vérifier").check();
+    await page.getByLabel("Afficher uniquement les lignes à vérifier", { exact: true }).check();
     await expect(preview.locator("tbody tr")).toHaveCount(4);
-    await page.getByLabel("Afficher uniquement les lignes à vérifier").uncheck();
+    await page.getByLabel("Afficher uniquement les lignes à vérifier", { exact: true }).uncheck();
 
     // 4. Import.
     await page.getByRole("button", { name: "Importer 3 élèves" }).click();
@@ -121,12 +121,14 @@ test.describe("import d'élèves", () => {
 
   test("mémorise la correspondance et met à jour les doublons", async ({ page }) => {
     await openImport(page);
-    const input = page.getByLabel("Fichier à importer");
+    const input = page.getByLabel("Fichier à importer", { exact: true });
     await input.setInputFiles(FIXTURE);
     const mapping = page.getByRole("table", { name: "Associer les colonnes de votre fichier" });
     // Ne pas importer les groupes ; mettre à jour les élèves déjà enregistrés.
-    await mapping.getByLabel("Groupe(s)").selectOption({ label: "— Ne pas importer —" });
-    await page.getByLabel("Les mettre à jour avec les valeurs du fichier").check();
+    await mapping
+      .getByLabel("Groupe(s)", { exact: true })
+      .selectOption({ label: "— Ne pas importer —" });
+    await page.getByLabel("Les mettre à jour avec les valeurs du fichier", { exact: true }).check();
     await page.getByRole("button", { name: "Afficher l'aperçu" }).click();
     const summary = page.getByRole("list", { name: "Résumé de l'import" });
     await expect(summary).toContainText("3 nouveaux élèves");
@@ -137,9 +139,11 @@ test.describe("import d'élèves", () => {
     await page.getByRole("button", { name: "Retour au choix des colonnes" }).click();
     await page.getByRole("button", { name: "Changer de fichier" }).click();
     await input.setInputFiles(FIXTURE);
-    await expect(mapping.getByLabel("Groupe(s)")).toHaveValue("");
+    await expect(mapping.getByLabel("Groupe(s)", { exact: true })).toHaveValue("");
     await expect(mapping.getByLabel("Nom", { exact: true })).toHaveValue("0");
-    await expect(page.getByLabel("Les mettre à jour avec les valeurs du fichier")).toBeChecked();
+    await expect(
+      page.getByLabel("Les mettre à jour avec les valeurs du fichier", { exact: true }),
+    ).toBeChecked();
   });
 
   test("marque et compte les lignes hors tranche d'âge sans bloquer l'import", async ({ page }) => {
@@ -151,7 +155,7 @@ test.describe("import d'élèves", () => {
       groups: [{ name: "Galaxie vert", maxSize: 8, minAge: 6, maxAge: 8, students: [] }],
     });
     await navigate(page, "Import/Export");
-    await page.getByLabel("Fichier à importer").setInputFiles(FIXTURE);
+    await page.getByLabel("Fichier à importer", { exact: true }).setInputFiles(FIXTURE);
     await page.getByRole("button", { name: "Afficher l'aperçu" }).click();
 
     // Zoé (9 ans au début de saison) et Hélène (10 ans) sont hors des 6–8 ans.

@@ -8,6 +8,7 @@
  * sont rappelées dans `docs/TRACABILITE.md`.
  */
 import { describe, expect, it } from "vitest";
+import { perfLimit } from "@/test/perf";
 import { testContext } from "@/test/planning";
 import {
   buildVolumeData,
@@ -64,7 +65,7 @@ describe("volumétrie cible (§11.5)", () => {
       runs: 21,
       label: "séances d'une semaine",
     });
-    expect(duration).toBeLessThan(5);
+    expect(duration).toBeLessThan(perfLimit(5));
   });
 
   it("génère les séances de toute la saison en moins de 100 ms", async () => {
@@ -75,7 +76,7 @@ describe("volumétrie cible (§11.5)", () => {
       () => occurrencesBetween(source, VOLUME_SEASON.startDate, VOLUME_SEASON.endDate),
       { label: "séances de la saison" },
     );
-    expect(duration).toBeLessThan(100);
+    expect(duration).toBeLessThan(perfLimit(100));
   });
 
   it("calcule les conflits d'une semaine en moins de 10 ms (référentiels compris)", async () => {
@@ -87,7 +88,7 @@ describe("volumétrie cible (§11.5)", () => {
     // Les groupes chargés à plus de 8 élèves et les élèves inscrits deux fois sont signalés.
     expect(run().size).toBeGreaterThan(0);
     expect(await medianDuration(run, { runs: 21, label: "conflits d'une semaine" })).toBeLessThan(
-      10,
+      perfLimit(10),
     );
   });
 
@@ -106,7 +107,7 @@ describe("volumétrie cible (§11.5)", () => {
       },
       { runs: 5, warmup: 1, label: "conflits des 43 semaines" },
     );
-    expect(duration).toBeLessThan(300);
+    expect(duration).toBeLessThan(perfLimit(300));
   });
 
   it("calcule les heures de la saison par moniteur en moins de 150 ms", async () => {
@@ -127,7 +128,7 @@ describe("volumétrie cible (§11.5)", () => {
     const duration = await medianDuration(() => buildHoursReport(source, refs, period), {
       label: "heures de la saison",
     });
-    expect(duration).toBeLessThan(150);
+    expect(duration).toBeLessThan(perfLimit(150));
   });
 
   it("prépare la duplication de la saison en moins de 50 ms", async () => {
@@ -149,7 +150,7 @@ describe("volumétrie cible (§11.5)", () => {
       () => planSeasonDuplication(snapshot, VOLUME_SEASON.endDate, target, testContext()),
       { label: "plan de duplication" },
     );
-    expect(duration).toBeLessThan(50);
+    expect(duration).toBeLessThan(perfLimit(50));
   });
 
   it("applique une commande (déplacement) en moins de 5 ms", async () => {
@@ -167,7 +168,7 @@ describe("volumétrie cible (§11.5)", () => {
       );
     expect(run().lessons.find((l) => l.id === lesson.id)?.startTime).toBe("08:00");
     expect(await medianDuration(run, { runs: 21, label: "commande de déplacement" })).toBeLessThan(
-      5,
+      perfLimit(5),
     );
   });
 

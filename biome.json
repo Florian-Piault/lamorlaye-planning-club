@@ -45,5 +45,10 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "plugins": [
+    "./biome-plugins/no-wait-for-timeout.grit",
+    "./biome-plugins/get-by-label-exact.grit",
+    "./biome-plugins/no-native-title.grit"
+  ]
 }

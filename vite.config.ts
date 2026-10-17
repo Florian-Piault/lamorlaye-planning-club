@@ -7,6 +7,8 @@ import packageJson from "./package.json" with { type: "json" };
 
 // Hôte fourni par la CLI Tauri pour le développement sur appareil distant (inutilisé ici).
 const host = process.env.TAURI_DEV_HOST;
+const e2e = Boolean(process.env.E2E);
+const perf = Boolean(process.env.PERF);
 
 /** Taille maximale (octets) du bundle principal, chargé au démarrage. */
 const ENTRY_CHUNK_LIMIT = 500 * 1024;
@@ -50,9 +52,10 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     host: host || false,
-    watch: {
-      ignored: ["**/src-tauri/**"],
-    },
+    // Serveur lancé par Playwright (`E2E`) : sans surveillance des fichiers, une
+    // modification pendant la suite ne recharge pas la page testée.
+    hmr: !e2e,
+    watch: e2e ? null : { ignored: ["**/src-tauri/**"] },
   },
   build: {
     // Moteurs web visés : WebKit (macOS), WebView2 (Windows), WebKitGTK (Linux).
@@ -61,8 +64,11 @@ export default defineConfig({
     chunkSizeWarningLimit: 1600,
   },
   test: {
-    environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}"],
+    // jsdom seulement pour les fichiers qui l'annoncent (`// @vitest-environment jsdom`).
+    environment: "node",
+    // Mesures de temps (`*.perf.test.ts`) à part : `pnpm test:perf` (`PERF`).
+    include: perf ? ["src/**/*.perf.test.ts"] : ["src/**/*.test.{ts,tsx}"],
+    exclude: perf ? [] : ["src/**/*.perf.test.ts"],
     setupFiles: ["./src/test/setup.ts"],
     // Couverture des règles métier, de la logique pure de la grille et de la
     // mise en forme des PDF (`pnpm test:coverage`) : seuil de 90 % (lots L2, L3, L6).

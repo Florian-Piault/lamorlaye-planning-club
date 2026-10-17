@@ -519,6 +519,7 @@ export async function iconButtonsByKeyboard(
     let tooltip: string | null = null;
     for (let attempt = 0; attempt < 10 && tooltip === null; attempt++) {
       tooltip = await bubbleOfFocused(page);
+      // biome-ignore lint/plugin: une bulle absente est un résultat valide ; attente bornée à 1 s.
       if (tooltip === null) await page.waitForTimeout(100);
     }
     found.push({ ...focused, tooltip });

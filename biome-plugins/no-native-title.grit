@@ -1,0 +1,13 @@
+language js
+
+// `title` sur un élément HTML : bulle native, ni stylée ni annoncée de façon fiable (lot L10).
+or {
+  JsxOpeningElement(name=$tag, attributes=$attrs),
+  JsxSelfClosingElement(name=$tag, attributes=$attrs)
+} where {
+  $tag <: r"[a-z][a-zA-Z0-9-]*",
+  // Sur <iframe>, title est le nom accessible du cadre.
+  not $tag <: `iframe`,
+  $attrs <: contains JsxAttribute(name=$name) as $attribute where { $name <: `title` },
+  register_diagnostic(span=$attribute, message="Attribut title natif : utiliser la bulle d'aide (Tooltip, src/components/ui/tooltip.tsx).")
+}

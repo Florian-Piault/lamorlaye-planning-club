@@ -63,8 +63,8 @@ test.describe("sorties", () => {
       page.getByRole("heading", { level: 1, name: "Récapitulatif des heures" }),
     ).toBeVisible();
 
-    await page.getByLabel("Du").fill("2026-10-15");
-    await page.getByLabel("Au").fill("2026-11-15");
+    await page.getByLabel("Du", { exact: true }).fill("2026-10-15");
+    await page.getByLabel("Au", { exact: true }).fill("2026-11-15");
     const table = page.getByRole("table", { name: "Heures par moniteur" });
     const rows = table.getByTestId("hours-row");
     // 19/10, 26/10, 21/10 et 28/10 fermés ; 02/11 annulé ; 04/11 assuré par Marc.
@@ -99,8 +99,8 @@ test.describe("sorties", () => {
 
     // Raccourci « Saison ».
     await page.getByRole("button", { name: "Saison" }).click();
-    await expect(page.getByLabel("Du")).toHaveValue("2026-09-01");
-    await expect(page.getByLabel("Au")).toHaveValue("2027-06-30");
+    await expect(page.getByLabel("Du", { exact: true })).toHaveValue("2026-09-01");
+    await expect(page.getByLabel("Au", { exact: true })).toHaveValue("2027-06-30");
   });
 
   test("aperçu et enregistrement du PDF de la semaine (Ctrl/Cmd+P)", async ({ page }) => {
@@ -115,7 +115,7 @@ test.describe("sorties", () => {
     );
     await expect(dialog.getByTitle("Aperçu du PDF")).toHaveAttribute("src", /^blob:/);
 
-    await dialog.getByLabel("Format").selectOption("A3");
+    await dialog.getByLabel("Format", { exact: true }).selectOption("A3");
     await expect(dialog.getByTestId("pdf-info")).toHaveText(
       "planning-semaine-type-2026-2027-a3.pdf — 1 page",
     );
@@ -152,7 +152,7 @@ test.describe("sorties", () => {
 
     // Planning par moniteur, semaine datée du 02/11 : Karim (annulé), Julie (remplacée), Marc.
     await page.getByLabel("Planning", { exact: true }).selectOption("dated");
-    await page.getByLabel("Semaine du").fill("2026-11-04");
+    await page.getByLabel("Semaine du", { exact: true }).fill("2026-11-04");
     await page.getByRole("button", { name: "PDF par moniteur…" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("Planning de tous les moniteurs — Semaine du 02/11/2026");

@@ -9,9 +9,9 @@ async function createSeason(page: Page) {
   await page.goto("/#/referentiels");
   const form = page.getByRole("form", { name: "Saison" });
   await form.getByLabel("Nom", { exact: true }).fill("2026-2027");
-  await form.getByLabel("Date de début").fill("2026-09-01");
-  await form.getByLabel("Date de fin").fill("2027-06-30");
-  await form.getByLabel("Dimanche").uncheck();
+  await form.getByLabel("Date de début", { exact: true }).fill("2026-09-01");
+  await form.getByLabel("Date de fin", { exact: true }).fill("2027-06-30");
+  await form.getByLabel("Dimanche", { exact: true }).uncheck();
   await form.getByRole("button", { name: "Créer la saison" }).click();
   await expect(page.getByText("Saison en cours", { exact: true })).toBeVisible();
 }
@@ -23,8 +23,8 @@ function tab(page: Page, name: string) {
 async function createCourt(page: Page, name: string, kind: "Couvert" | "Extérieur") {
   await page.getByRole("button", { name: "Nouveau court" }).click();
   const dialog = page.getByRole("dialog", { name: "Nouveau court" });
-  await dialog.getByLabel("Nom").fill(name);
-  await dialog.getByLabel("Type").selectOption({ label: kind });
+  await dialog.getByLabel("Nom", { exact: true }).fill(name);
+  await dialog.getByLabel("Type", { exact: true }).selectOption({ label: kind });
   await dialog.getByRole("button", { name: "Enregistrer" }).click();
   await expect(dialog).toBeHidden();
 }
@@ -33,7 +33,7 @@ async function createInstructor(page: Page, firstName: string, lastName: string)
   await tab(page, "Moniteurs").click();
   await page.getByRole("button", { name: "Nouveau moniteur" }).click();
   const dialog = page.getByRole("dialog", { name: "Nouveau moniteur" });
-  await dialog.getByLabel("Prénom").fill(firstName);
+  await dialog.getByLabel("Prénom", { exact: true }).fill(firstName);
   await dialog.getByLabel("Nom", { exact: true }).fill(lastName);
   await dialog.getByRole("button", { name: "Créer le moniteur" }).click();
   await expect(page.getByRole("heading", { name: `${firstName} ${lastName}` })).toBeVisible();
@@ -47,9 +47,10 @@ async function createStudent(
   await page.getByRole("button", { name: "Nouvel élève" }).click();
   const dialog = page.getByRole("dialog", { name: "Nouvel élève" });
   await dialog.getByLabel("Nom", { exact: true }).fill(student.lastName);
-  await dialog.getByLabel("Prénom").fill(student.firstName);
+  await dialog.getByLabel("Prénom", { exact: true }).fill(student.firstName);
   await dialog.getByLabel("Téléphone", { exact: true }).fill(student.phone);
-  if (student.birthDate) await dialog.getByLabel("Date de naissance").fill(student.birthDate);
+  if (student.birthDate)
+    await dialog.getByLabel("Date de naissance", { exact: true }).fill(student.birthDate);
   for (const group of groups) await dialog.getByLabel(group).check();
   await dialog.getByRole("button", { name: "Créer l'élève" }).click();
   await expect(dialog).toBeHidden();
@@ -131,9 +132,9 @@ test.describe("référentiels", () => {
 
     // Saisie précise au clavier.
     const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
-    await slotForm.getByLabel("Jour").selectOption({ label: "Mercredi" });
-    await slotForm.getByLabel("De").selectOption("14:00");
-    await slotForm.getByLabel("À").selectOption("18:30");
+    await slotForm.getByLabel("Jour", { exact: false }).selectOption({ label: "Mercredi" });
+    await slotForm.getByLabel("De", { exact: false }).selectOption("14:00");
+    await slotForm.getByLabel("À", { exact: false }).selectOption("18:30");
     await slotForm.getByRole("button", { name: "Ajouter un horaire" }).click();
     await expect(slots).toContainText("14:00–18:30");
     await expect(page.getByText("Total : 8 h 30 par semaine")).toBeVisible();
@@ -145,9 +146,9 @@ test.describe("référentiels", () => {
 
     // Indisponibilité datée.
     const unavailability = page.getByRole("form", { name: "Ajouter l'indisponibilité" });
-    await unavailability.getByLabel("Du").fill("2026-11-09");
-    await unavailability.getByLabel("Au").fill("2026-11-11");
-    await unavailability.getByLabel("Motif").fill("Tournoi");
+    await unavailability.getByLabel("Du", { exact: true }).fill("2026-11-09");
+    await unavailability.getByLabel("Au", { exact: true }).fill("2026-11-11");
+    await unavailability.getByLabel("Motif", { exact: true }).fill("Tournoi");
     await unavailability.getByRole("button", { name: "Ajouter l'indisponibilité" }).click();
     await expect(page.getByRole("list", { name: "Indisponibilités" })).toContainText(
       "Du 09/11/2026 au 11/11/2026 — Tournoi",
@@ -184,10 +185,14 @@ test.describe("référentiels", () => {
 
     // Case vide : l'heure cliquée plus une heure, rien n'est enregistré.
     await clickCell(tuesday, "10:00");
-    await expect(slotForm.getByLabel("Jour")).toHaveValue("2");
-    await expect(slotForm.getByLabel("De").locator("option:checked")).toHaveText("10:00");
-    await expect(slotForm.getByLabel("À").locator("option:checked")).toHaveText("11:00");
-    await expect(slotForm.getByLabel("De")).toBeFocused();
+    await expect(slotForm.getByLabel("Jour", { exact: false })).toHaveValue("2");
+    await expect(slotForm.getByLabel("De", { exact: false }).locator("option:checked")).toHaveText(
+      "10:00",
+    );
+    await expect(slotForm.getByLabel("À", { exact: false }).locator("option:checked")).toHaveText(
+      "11:00",
+    );
+    await expect(slotForm.getByLabel("De", { exact: false })).toBeFocused();
     await expect(available(tuesday)).toHaveCount(0);
     await expect(slotForm.getByRole("button", { name: "Retirer l'horaire" })).toHaveAttribute(
       "aria-disabled",
@@ -196,9 +201,13 @@ test.describe("référentiels", () => {
 
     // Case disponible : la plage entière ; un clic n'efface rien.
     await clickCell(monday, "15:00");
-    await expect(slotForm.getByLabel("Jour")).toHaveValue("1");
-    await expect(slotForm.getByLabel("De").locator("option:checked")).toHaveText("14:00");
-    await expect(slotForm.getByLabel("À").locator("option:checked")).toHaveText("18:00");
+    await expect(slotForm.getByLabel("Jour", { exact: false })).toHaveValue("1");
+    await expect(slotForm.getByLabel("De", { exact: false }).locator("option:checked")).toHaveText(
+      "14:00",
+    );
+    await expect(slotForm.getByLabel("À", { exact: false }).locator("option:checked")).toHaveText(
+      "18:00",
+    );
     await expect(available(monday)).toHaveCount(16);
     await expect(slots).toContainText("14:00–18:00");
     // « Ajouter » serait sans effet : grisé, avec sa raison.
@@ -209,7 +218,7 @@ test.describe("référentiels", () => {
     await expect(slotForm.getByText("Déjà disponible sur tout cet horaire")).toBeVisible();
 
     // Retirer une partie de la plage depuis le formulaire, puis annuler.
-    await slotForm.getByLabel("De").selectOption("16:00");
+    await slotForm.getByLabel("De", { exact: false }).selectOption("16:00");
     await slotForm.getByRole("button", { name: "Retirer l'horaire" }).click();
     await expect(slots).toContainText("14:00–16:00");
     await expect(slots).not.toContainText("14:00–18:00");
@@ -258,14 +267,15 @@ test.describe("référentiels", () => {
     await expect(toast).toHaveCount(0);
     await dragAlong(page, tuesday, "14:00", "16:00", { from: -2 });
     await expect(dayList("Mardi")).toContainText("14:00–18:00");
+    // biome-ignore lint/plugin: prouve une absence après le délai réel de l'interface.
     await page.waitForTimeout(300);
     await expect(toast).toHaveCount(0);
 
     // Le toast décrit ce qui a réellement été retiré, pas la plage demandée.
     const slotForm = page.getByRole("form", { name: "Saisir un horaire" });
-    await slotForm.getByLabel("Jour").selectOption({ label: "Mardi" });
-    await slotForm.getByLabel("De").selectOption("10:00");
-    await slotForm.getByLabel("À").selectOption("20:00");
+    await slotForm.getByLabel("Jour", { exact: false }).selectOption({ label: "Mardi" });
+    await slotForm.getByLabel("De", { exact: false }).selectOption("10:00");
+    await slotForm.getByLabel("À", { exact: false }).selectOption("20:00");
     await slotForm.getByRole("button", { name: "Retirer l'horaire" }).click();
     await expect(toast).toContainText("Mardi 14:00–18:00 retiré");
     await expect(dayList("Mardi")).not.toContainText("14:00–18:00");
@@ -283,11 +293,11 @@ test.describe("référentiels", () => {
     await tab(page, "Groupes").click();
     await page.getByRole("button", { name: "Nouveau groupe" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau groupe" });
-    await dialog.getByLabel("Nom").fill("Galaxie vert 1");
-    await dialog.getByLabel("Niveau").selectOption({ label: "Galaxie vert" });
-    await dialog.getByLabel("Âge minimum").fill("8");
-    await dialog.getByLabel("Âge maximum").fill("10");
-    await dialog.getByLabel("Élèves au maximum").fill("2");
+    await dialog.getByLabel("Nom", { exact: true }).fill("Galaxie vert 1");
+    await dialog.getByLabel("Niveau", { exact: true }).selectOption({ label: "Galaxie vert" });
+    await dialog.getByLabel("Âge minimum", { exact: true }).fill("8");
+    await dialog.getByLabel("Âge maximum", { exact: true }).fill("10");
+    await dialog.getByLabel("Élèves au maximum", { exact: true }).fill("2");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
     // On reste sur la liste ; le toast mène à la fiche du groupe.
     await expect(page.getByTestId("toast")).toContainText("Groupe « Galaxie vert 1 » créé");
@@ -317,15 +327,15 @@ test.describe("référentiels", () => {
     await expect(students.getByRole("row", { name: /Martin Léa/ })).toContainText("Galaxie vert 1");
 
     // Recherche sans accents.
-    await page.getByLabel("Rechercher un élève").fill("eluard");
+    await page.getByLabel("Rechercher un élève", { exact: true }).fill("eluard");
     await expect(students.getByRole("row")).toHaveCount(2);
-    await page.getByLabel("Rechercher un élève").fill("");
+    await page.getByLabel("Rechercher un élève", { exact: true }).fill("");
 
     await tab(page, "Groupes").click();
     await page.getByRole("link", { name: "Galaxie vert 1" }).click();
     await expect(page.getByTestId("group-size")).toHaveText("1 / 2");
 
-    const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)");
+    const search = page.getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true });
     await search.fill("tom");
     await page.getByRole("option", { name: "Durand Tom" }).click();
     await search.fill("zoe");
@@ -379,7 +389,7 @@ test.describe("référentiels", () => {
     // Un niveau utilisé par un élève : archivage proposé.
     await page.getByRole("button", { name: "Modifier Arnaud Anne" }).click();
     const edit = page.getByRole("dialog", { name: "Modifier l'élève" });
-    await edit.getByLabel("Niveau").selectOption({ label: "Débutant" });
+    await edit.getByLabel("Niveau", { exact: true }).selectOption({ label: "Débutant" });
     await edit.getByRole("button", { name: "Enregistrer" }).click();
     await expect(edit).toBeHidden();
 

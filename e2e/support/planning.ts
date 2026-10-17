@@ -70,9 +70,9 @@ export async function createSeason(page: Page) {
   await page.goto("/#/referentiels");
   const form = page.getByRole("form", { name: "Saison" });
   await form.getByLabel("Nom", { exact: true }).fill("2026-2027");
-  await form.getByLabel("Date de début").fill("2026-09-01");
-  await form.getByLabel("Date de fin").fill("2027-06-30");
-  await form.getByLabel("Dimanche").uncheck();
+  await form.getByLabel("Date de début", { exact: true }).fill("2026-09-01");
+  await form.getByLabel("Date de fin", { exact: true }).fill("2027-06-30");
+  await form.getByLabel("Dimanche", { exact: true }).uncheck();
   await form.getByRole("button", { name: "Créer la saison" }).click();
   await expect(page.getByText("Saison en cours", { exact: true })).toBeVisible();
 }
@@ -305,9 +305,10 @@ export async function createLessonWithPanel(
 ) {
   await page.getByRole("button", { name: "Nouveau cours" }).click();
   const form = page.getByRole("form", { name: /^Nouveau cours/ });
-  if (choice.day) await form.getByLabel("Jour").selectOption({ label: choice.day });
-  await form.getByLabel("Court").selectOption({ label: choice.court });
-  if (choice.start) await form.getByLabel("Début").selectOption(choice.start);
+  if (choice.day)
+    await form.getByLabel("Jour", { exact: false }).selectOption({ label: choice.day });
+  await form.getByLabel("Court", { exact: true }).selectOption({ label: choice.court });
+  if (choice.start) await form.getByLabel("Début", { exact: true }).selectOption(choice.start);
   // « Groupe », ou « Groupe (facultatif) » pour un cours ponctuel.
   await form
     .getByLabel(/^Groupe( \(facultatif\))?$/)

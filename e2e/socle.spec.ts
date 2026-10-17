@@ -64,9 +64,9 @@ test.describe("rien ne bouge sous le curseur", () => {
     await form
       .getByLabel("Groupe", { exact: true })
       .selectOption({ label: "Adultes débutants (3/2)" });
-    await form.getByLabel("Jour").selectOption({ label: "Lundi" });
-    await form.getByLabel("Court").selectOption({ label: "Court 1" });
-    await form.getByLabel("Début").selectOption({ label: "10:00" });
+    await form.getByLabel("Jour", { exact: false }).selectOption({ label: "Lundi" });
+    await form.getByLabel("Court", { exact: true }).selectOption({ label: "Court 1" });
+    await form.getByLabel("Début", { exact: true }).selectOption({ label: "10:00" });
     const more = form.getByRole("button", { name: /^\+ \d+ autres? avertissements?$/ });
     await expect(more).toBeVisible();
     expect(await position(create)).toEqual(before);
@@ -131,7 +131,7 @@ test.describe("rien ne bouge sous le curseur", () => {
     const cancel = dialog.getByRole("button", { name: "Annuler" });
     const before = [await position(create), await position(cancel)];
 
-    await dialog.getByLabel("Date de naissance").fill("2016-05-04");
+    await dialog.getByLabel("Date de naissance", { exact: true }).fill("2016-05-04");
     await expect(dialog.getByRole("list", { name: "Messages" })).toContainText(
       "Élève mineur : renseignez le nom et le téléphone du responsable légal.",
     );
@@ -152,7 +152,9 @@ test.describe("rien ne bouge sous le curseur", () => {
     const before = await position(members);
 
     // Résultats de recherche en liste superposée.
-    await page.getByLabel("Ajouter un élève (nom, prénom, téléphone)").fill("hugo");
+    await page
+      .getByLabel("Ajouter un élève (nom, prénom, téléphone)", { exact: true })
+      .fill("hugo");
     await expect(page.getByRole("listbox", { name: "Élèves trouvés" })).toBeVisible();
     expect(await position(members)).toEqual(before);
 
@@ -178,7 +180,7 @@ test.describe("rien ne bouge sous le curseur", () => {
 
     // La raison est aussi en bulle, atteignable au clavier.
     // WebKit ne tabule vers les boutons qu'avec ⌥ (réglage par défaut de macOS).
-    await page.getByLabel("Filtrer par groupe").focus();
+    await page.getByLabel("Filtrer par groupe", { exact: true }).focus();
     await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
     await expect(clear).toBeFocused();
     await expect(page.getByRole("tooltip")).toHaveText("Aucun filtre actif");
@@ -218,8 +220,8 @@ test.describe("rien ne bouge sous le curseur", () => {
     const addSlot = page.getByRole("form", { name: "Saisir un horaire" });
     const add = addSlot.getByRole("button", { name: "Ajouter un horaire" });
     await expect(add).toBeEnabled();
-    await addSlot.getByLabel("De").selectOption("14:00");
-    await addSlot.getByLabel("À").selectOption("12:00");
+    await addSlot.getByLabel("De", { exact: false }).selectOption("14:00");
+    await addSlot.getByLabel("À", { exact: false }).selectOption("12:00");
     await expect(add).toBeDisabled();
     await expect(addSlot.getByText("L'heure de fin doit suivre l'heure de début")).toBeVisible();
   });
@@ -235,7 +237,7 @@ test.describe("garde des modales", () => {
     await tab(page, "Courts").click();
     await page.getByRole("button", { name: "Nouveau court" }).click();
     const court = page.getByRole("dialog", { name: "Nouveau court" });
-    await expect(court.getByLabel("Nom")).toBeFocused();
+    await expect(court.getByLabel("Nom", { exact: true })).toBeFocused();
     await court.getByRole("button", { name: "Fermer" }).click();
     await expect(court).toBeHidden();
 
@@ -249,7 +251,7 @@ test.describe("garde des modales", () => {
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     // Prénom avant Nom (v1.1) : premier champ de la fiche élève.
     await expect(
-      page.getByRole("dialog", { name: "Nouvel élève" }).getByLabel("Prénom"),
+      page.getByRole("dialog", { name: "Nouvel élève" }).getByLabel("Prénom", { exact: true }),
     ).toBeFocused();
     await page.keyboard.press("Escape");
 
@@ -257,7 +259,7 @@ test.describe("garde des modales", () => {
     await tab(page, "Moniteurs").click();
     await page.getByRole("button", { name: "Nouveau moniteur" }).click();
     const instructor = page.getByRole("dialog", { name: "Nouveau moniteur" });
-    await expect(instructor.getByLabel("Prénom")).toBeFocused();
+    await expect(instructor.getByLabel("Prénom", { exact: true })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(instructor.getByLabel("Nom", { exact: true })).toBeFocused();
   });
@@ -274,7 +276,7 @@ test.describe("garde des modales", () => {
     // question. Repli retenu (risques de L9) : les trois moteurs ne disent pas si
     // le calendrier natif est ouvert, le premier Échap lui revient donc toujours.
     await open();
-    await expect(dialog.getByLabel("Libellé")).toBeFocused();
+    await expect(dialog.getByLabel("Libellé", { exact: true })).toBeFocused();
     await dialog.getByLabel("Du", { exact: true }).focus();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();
@@ -284,14 +286,14 @@ test.describe("garde des modales", () => {
 
     // Saisie modifiée : Échap demande confirmation, « Continuer la saisie » par défaut.
     await open();
-    await dialog.getByLabel("Libellé").fill("Tournoi du club");
+    await dialog.getByLabel("Libellé", { exact: true }).fill("Tournoi du club");
     await page.keyboard.press("Escape");
     const discard = discardDialog(page);
     await expect(discard).toBeVisible();
     await expect(discard.getByRole("button", { name: "Continuer la saisie" })).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(discard).toBeHidden();
-    await expect(dialog.getByLabel("Libellé")).toHaveValue("Tournoi du club");
+    await expect(dialog.getByLabel("Libellé", { exact: true })).toHaveValue("Tournoi du club");
 
     // Échap dans la confirmation y revient aussi ; « Annuler » passe par la même garde.
     await dialog.getByRole("button", { name: "Annuler" }).click();
@@ -306,8 +308,8 @@ test.describe("garde des modales", () => {
 
     // Revenue à son état d'ouverture, la saisie n'est plus « modifiée ».
     await open();
-    await dialog.getByLabel("Libellé").fill("x");
-    await dialog.getByLabel("Libellé").fill("");
+    await dialog.getByLabel("Libellé", { exact: true }).fill("x");
+    await dialog.getByLabel("Libellé", { exact: true }).fill("");
     await dialog.getByRole("button", { name: "Annuler" }).click();
     await expect(dialog).toBeHidden();
   });
@@ -325,10 +327,10 @@ test.describe("garde des modales", () => {
 
     await page.getByRole("button", { name: "Nouveau cours" }).click();
     const form = page.getByRole("form", { name: "Nouveau cours" });
-    await expect(form.getByLabel("Rechercher un groupe")).toBeFocused();
-    await form.getByLabel("Court").selectOption({ label: "Court 2" });
+    await expect(form.getByLabel("Rechercher un groupe", { exact: true })).toBeFocused();
+    await form.getByLabel("Court", { exact: true }).selectOption({ label: "Court 2" });
     // Échap, même dans un champ, passe par la garde : confirmation, saisie gardée.
-    await form.getByLabel("Court").focus();
+    await form.getByLabel("Court", { exact: true }).focus();
     await page.keyboard.press("Escape");
     await expect(discardDialog(page)).toBeVisible();
     await discardDialog(page).getByRole("button", { name: "Continuer la saisie" }).click();
@@ -344,7 +346,9 @@ test.describe("garde des modales", () => {
     const discard = discardDialog(page);
     await expect(discard).toBeVisible();
     await discard.getByRole("button", { name: "Continuer la saisie" }).click();
-    await expect(form.getByLabel("Court").locator("option:checked")).toHaveText("Court 2");
+    await expect(form.getByLabel("Court", { exact: true }).locator("option:checked")).toHaveText(
+      "Court 2",
+    );
 
     await form.getByRole("button", { name: "Fermer le panneau" }).click();
     await discard.getByRole("button", { name: "Abandonner" }).click();
@@ -455,7 +459,7 @@ test.describe("erreurs de champ", () => {
     await tab(page, "Courts").click();
     await page.getByRole("button", { name: "Nouveau court" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau court" });
-    const name = dialog.getByLabel("Nom");
+    const name = dialog.getByLabel("Nom", { exact: true });
     await name.fill("");
     await dialog.getByRole("button", { name: "Enregistrer" }).click();
     await expect(name).toHaveAttribute("aria-invalid", "true");
@@ -558,7 +562,7 @@ test.describe("erreurs de champ", () => {
     expect(colors.actual).toBe(colors.expected);
     expect(await position(save)).toEqual(before);
     // Une modification de la saisie l'efface aussitôt.
-    await dialog.getByLabel("Libellé").fill("Tournoi");
+    await dialog.getByLabel("Libellé", { exact: true }).fill("Tournoi");
     await expect(alert).toHaveCount(0);
     expect(await position(save)).toEqual(before);
   });
@@ -657,7 +661,7 @@ test.describe("cases à cocher", () => {
 
     await page.goto("/#/import-export");
     await page.getByRole("button", { name: "Coller depuis Excel" }).click();
-    await page.getByLabel("Tableau à coller").fill("Martin\tLéo\t0611223344\n");
+    await page.getByLabel("Tableau à coller", { exact: true }).fill("Martin\tLéo\t0611223344\n");
     await page.getByRole("button", { name: "Lire le tableau" }).click();
     await expect(
       page.getByRole("checkbox", { name: "La première ligne contient des élèves" }),

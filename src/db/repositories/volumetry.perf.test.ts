@@ -12,6 +12,7 @@ import { moveLesson } from "@/domain/commands";
 import { loadPlanningReferences } from "@/features/planning/references";
 import { openTestDatabase } from "@/test/database";
 import { seedSeason } from "@/test/fixtures";
+import { perfLimit } from "@/test/perf";
 import { testContext } from "@/test/planning";
 import { medianDuration, seedVolumeData, TARGET_VOLUME, type VolumeData } from "@/test/volumetry";
 import { listGroupMembers, listGroups } from "./groups";
@@ -35,7 +36,7 @@ beforeAll(async () => {
 
 describe("volumétrie cible en base (sql.js)", () => {
   it("insère le club complet en une transaction de moins de 2 s", () => {
-    expect(seedDuration).toBeLessThan(2_000);
+    expect(seedDuration).toBeLessThan(perfLimit(2_000));
   });
 
   it("charge les données de l'écran Planning en moins de 300 ms", async () => {
@@ -52,7 +53,7 @@ describe("volumétrie cible en base (sql.js)", () => {
       () => Promise.all([loadPlanningReferences(db, seasonId), loadPlanningState(db, seasonId)]),
       { runs: 7, label: "chargement du planning" },
     );
-    expect(duration).toBeLessThan(300);
+    expect(duration).toBeLessThan(perfLimit(300));
   });
 
   it("liste les 500 élèves avec leurs groupes en moins de 150 ms", async () => {
@@ -63,7 +64,7 @@ describe("volumétrie cible en base (sql.js)", () => {
       runs: 7,
       label: "liste des élèves",
     });
-    expect(duration).toBeLessThan(150);
+    expect(duration).toBeLessThan(perfLimit(150));
   });
 
   it("liste les groupes, leurs effectifs et une composition en moins de 100 ms", async () => {
@@ -80,7 +81,7 @@ describe("volumétrie cible en base (sql.js)", () => {
         ]),
       { runs: 7, label: "groupes, moniteurs et composition" },
     );
-    expect(duration).toBeLessThan(100);
+    expect(duration).toBeLessThan(perfLimit(100));
   });
 
   it("enregistre une modification du planning en moins de 50 ms", async () => {
@@ -108,7 +109,7 @@ describe("volumétrie cible en base (sql.js)", () => {
       },
       { runs: 9, label: "écriture d'une commande" },
     );
-    expect(duration).toBeLessThan(50);
+    expect(duration).toBeLessThan(perfLimit(50));
   });
 
   it("duplique la saison complète en moins de 2 s", async () => {
@@ -135,6 +136,6 @@ describe("volumétrie cible en base (sql.js)", () => {
     const copy = await loadSeasonSnapshot(db, season.id);
     expect(copy.memberships).toHaveLength(data.memberships.length);
     expect(copy.availabilities).toHaveLength(data.availabilities.length);
-    expect(duration).toBeLessThan(2_000);
+    expect(duration).toBeLessThan(perfLimit(2_000));
   });
 });

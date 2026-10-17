@@ -1,0 +1,7 @@
+language js
+
+`$scope.getByLabel($label)` where {
+  $filename <: r".*/e2e/.*",
+  $label <: string(),
+  register_diagnostic(span=$label, message="getByLabel avec un texte : préciser { exact: true }, ou { exact: false } quand le nom accessible contient plus que ce texte (liste déroulante dans son label, effectif après le nom).")
+}

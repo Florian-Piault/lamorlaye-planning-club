@@ -135,7 +135,7 @@ test.describe("vocabulaire", () => {
     await page.getByRole("button", { name: "Nouvel élève" }).click();
     const student = page.getByRole("dialog", { name: "Nouvel élève" });
     await student.getByLabel("Nom", { exact: true }).fill("Test");
-    await student.getByLabel("Prénom").fill("Léa");
+    await student.getByLabel("Prénom", { exact: true }).fill("Léa");
     await expect(student.getByRole("list", { name: "Messages" })).toContainText("existe déjà");
     expect(await forbiddenTerms(page), "doublon d'élève").toEqual([]);
     await student.getByRole("button", { name: "Annuler" }).click();
@@ -143,10 +143,10 @@ test.describe("vocabulaire", () => {
 
     // Saisie en série (L13) : fiche suivante après « Enregistrer et ajouter un autre ».
     await page.getByRole("button", { name: "Nouvel élève" }).click();
-    await student.getByLabel("Prénom").fill("Jules");
+    await student.getByLabel("Prénom", { exact: true }).fill("Jules");
     await student.getByLabel("Nom", { exact: true }).fill("Petit");
-    await student.getByLabel("Téléphone du responsable").fill("0611223344");
-    await student.getByLabel("Galaxie vert").check();
+    await student.getByLabel("Téléphone du responsable", { exact: true }).fill("0611223344");
+    await student.getByLabel("Galaxie vert", { exact: false }).check();
     await student.getByRole("button", { name: "Enregistrer et ajouter un autre" }).click();
     await expect(page.getByTestId("toast")).toContainText("Jules Petit ajouté(e)");
     expect(await forbiddenTerms(page), "ajouter un autre élève").toEqual([]);
@@ -155,18 +155,20 @@ test.describe("vocabulaire", () => {
     // Collage depuis Excel (L13), sans en-têtes : zone de collage puis choix des colonnes.
     await visit(page, "/#/import-export?import");
     await page.getByRole("button", { name: "Coller depuis Excel" }).click();
-    await expect(page.getByLabel("Tableau à coller")).toBeVisible();
+    await expect(page.getByLabel("Tableau à coller", { exact: true })).toBeVisible();
     expect(await forbiddenTerms(page), "zone de collage").toEqual([]);
-    await page.getByLabel("Tableau à coller").fill("Martin\tLéo\t0611223344\n");
+    await page.getByLabel("Tableau à coller", { exact: true }).fill("Martin\tLéo\t0611223344\n");
     await page.getByRole("button", { name: "Lire le tableau" }).click();
-    await expect(page.getByLabel("La première ligne contient des élèves")).toBeChecked();
+    await expect(
+      page.getByLabel("La première ligne contient des élèves", { exact: true }),
+    ).toBeChecked();
     expect(await forbiddenTerms(page), "collage sans en-têtes").toEqual([]);
     await visit(page, "/#/referentiels/moniteurs");
     await page.getByRole("button", { name: "Nouveau moniteur" }).click();
     const instructor = page.getByRole("dialog", { name: "Nouveau moniteur" });
-    await instructor.getByLabel("Prénom").fill("Jean");
+    await instructor.getByLabel("Prénom", { exact: true }).fill("Jean");
     await instructor.getByLabel("Nom", { exact: true }).fill("Morel");
-    await instructor.getByLabel("Initiales").fill("jm");
+    await instructor.getByLabel("Initiales", { exact: true }).fill("jm");
     await expect(instructor.getByRole("list", { name: "Messages" })).toContainText("déjà utilisé");
     expect(await forbiddenTerms(page), "initiales prises").toEqual([]);
   });
@@ -377,7 +379,9 @@ test.describe("saison terminée", () => {
     const dialog = page.getByRole("dialog", { name: "Nouvelle saison" });
     await dialog.getByRole("button", { name: "Dupliquer la saison" }).click();
     await expect(dialog).toBeHidden();
-    await page.getByLabel("Saison affichée").selectOption({ label: "2026-2027 (terminée)" });
+    await page
+      .getByLabel("Saison affichée", { exact: true })
+      .selectOption({ label: "2026-2027 (terminée)" });
     await expect(page.getByTestId("read-only-banner")).toContainText(
       "consultation seulement (saison terminée)",
     );

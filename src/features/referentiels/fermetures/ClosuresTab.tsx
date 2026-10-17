@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, useDirtyGuard, useGuardedCancel } from "@/components/ui/dialog";
 import { Checkbox, Input } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useDatabase } from "@/db/DatabaseProvider";
 import { loadPlanningState, persistCommand } from "@/db/repositories/planning";
 import type { Closure } from "@/db/schema";
@@ -344,9 +345,9 @@ function ClosureAssistant({
                     </Badge>
                   )}
                 </div>
-                <div className="truncate text-muted-foreground text-xs" title={row.detail}>
-                  {row.detail}
-                </div>
+                <Tooltip content={row.detail} describe={false}>
+                  <div className="truncate text-muted-foreground text-xs">{row.detail}</div>
+                </Tooltip>
               </div>
               <div className="flex items-center gap-1.5">
                 <Input

@@ -84,11 +84,17 @@ test.describe("grille semaine type", () => {
     await page.mouse.up();
 
     const form = panel(page, "Nouveau cours");
-    await expect(form.getByLabel("Jour")).toHaveValue("2");
-    await expect(form.getByLabel("Court")).toHaveValue(/.+/);
-    await expect(form.getByLabel("Court").locator("option:checked")).toHaveText("Court 1");
-    await expect(form.getByLabel("Début").locator("option:checked")).toHaveText("09:00");
-    await expect(form.getByLabel("Durée").locator("option:checked")).toHaveText("1 h 30");
+    await expect(form.getByLabel("Jour", { exact: false })).toHaveValue("2");
+    await expect(form.getByLabel("Court", { exact: true })).toHaveValue(/.+/);
+    await expect(form.getByLabel("Court", { exact: true }).locator("option:checked")).toHaveText(
+      "Court 1",
+    );
+    await expect(form.getByLabel("Début", { exact: true }).locator("option:checked")).toHaveText(
+      "09:00",
+    );
+    await expect(form.getByLabel("Durée", { exact: true }).locator("option:checked")).toHaveText(
+      "1 h 30",
+    );
     await expect(page.getByTestId("lesson-draft")).toBeVisible();
 
     const instructor = form.getByLabel("Moniteur", { exact: true });
@@ -99,7 +105,7 @@ test.describe("grille semaine type", () => {
       instructor.locator('optgroup[label="Indisponibles sur ce créneau"] option'),
     ).toHaveText(["○ Marc Leroy (aucune disponibilité saisie)", "○ Julie Martin (indisponible)"]);
 
-    await form.getByLabel("Rechercher un groupe").fill("mini");
+    await form.getByLabel("Rechercher un groupe", { exact: true }).fill("mini");
     await expect(form.getByLabel("Groupe", { exact: true }).locator("option")).toHaveText([
       "— choisir —",
       "Mini-tennis (1/6)",
@@ -131,22 +137,22 @@ test.describe("grille semaine type", () => {
     const form = panel(page, "Nouveau cours");
     await expect(form.getByLabel("Groupe", { exact: true })).toHaveValue("");
     await expect(form.getByLabel("Moniteur", { exact: true })).toHaveValue("");
-    await expect(form.getByLabel("Court")).toHaveValue("");
+    await expect(form.getByLabel("Court", { exact: true })).toHaveValue("");
 
     await form.getByRole("button", { name: "Nouveau groupe" }).click();
     const dialog = page.getByRole("dialog", { name: "Nouveau groupe" });
-    await dialog.getByLabel("Nom").fill("Galaxie jaune");
-    await dialog.getByLabel("Élèves au maximum").fill("6");
+    await dialog.getByLabel("Nom", { exact: true }).fill("Galaxie jaune");
+    await dialog.getByLabel("Élèves au maximum", { exact: true }).fill("6");
     await dialog.getByRole("button", { name: "Créer le groupe" }).click();
     await expect(dialog).toBeHidden();
     await expect(form.getByLabel("Groupe", { exact: true }).locator("option:checked")).toHaveText(
       "Galaxie jaune (0/6)",
     );
 
-    await form.getByLabel("Jour").selectOption({ label: "Samedi" });
-    await form.getByLabel("Court").selectOption({ label: "Court 2" });
-    await form.getByLabel("Début").selectOption("540");
-    await form.getByLabel("Durée").selectOption({ label: "1 h" });
+    await form.getByLabel("Jour", { exact: false }).selectOption({ label: "Samedi" });
+    await form.getByLabel("Court", { exact: true }).selectOption({ label: "Court 2" });
+    await form.getByLabel("Début", { exact: true }).selectOption("540");
+    await form.getByLabel("Durée", { exact: true }).selectOption({ label: "1 h" });
     await form.getByLabel("Moniteur", { exact: true }).selectOption({ label: "● Julie Martin" });
     await form.getByRole("button", { name: "Créer le cours" }).click();
 
@@ -166,8 +172,8 @@ test.describe("grille semaine type", () => {
     const form = panel(page, "Nouveau cours");
     const instructor = form.getByLabel("Moniteur", { exact: true });
     const group = (label: string) => instructor.locator(`optgroup[label="${label}"] option`);
-    await form.getByLabel("Jour").selectOption({ label: "Lundi" });
-    await form.getByLabel("Début").selectOption({ label: "10:30" });
+    await form.getByLabel("Jour", { exact: false }).selectOption({ label: "Lundi" });
+    await form.getByLabel("Début", { exact: true }).selectOption({ label: "10:30" });
     // Karim donne « Galaxie vert » de 10:00 à 11:00 : chevauchement partiel.
     await expect(group("Disponibles")).toHaveCount(0);
     await expect(group("Occupés sur ce créneau")).toHaveText([
@@ -216,8 +222,8 @@ test.describe("grille semaine type", () => {
     await galaxie.click();
     const form = panel(page, "Modifier le cours");
     await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeEmpty();
-    await form.getByLabel("Jour").selectOption({ label: "Mercredi" });
-    await form.getByLabel("Court").selectOption({ label: "Court 2" });
+    await form.getByLabel("Jour", { exact: false }).selectOption({ label: "Mercredi" });
+    await form.getByLabel("Court", { exact: true }).selectOption({ label: "Court 2" });
     await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toContainText(
       "déjà occupé par Ados perfectionnement",
     );
@@ -258,9 +264,11 @@ test.describe("grille semaine type", () => {
     await openPlanning(page);
     await lesson(page, "Ados perfectionnement").click();
     const form = panel(page, "Modifier le cours");
-    await expect(form.getByLabel("Jour").locator("option:checked")).toHaveText("Mercredi");
-    await form.getByLabel("Durée").selectOption({ label: "2 h" });
-    await form.getByLabel("Note").fill("Prévoir des balles neuves");
+    await expect(form.getByLabel("Jour", { exact: false }).locator("option:checked")).toHaveText(
+      "Mercredi",
+    );
+    await form.getByLabel("Durée", { exact: true }).selectOption({ label: "2 h" });
+    await form.getByLabel("Note", { exact: true }).fill("Prévoir des balles neuves");
     await form.getByRole("button", { name: "Enregistrer" }).click();
     await expect(lesson(page, "Ados perfectionnement")).toContainText("10h00–12h00");
     await expect
@@ -474,7 +482,9 @@ test.describe("grille semaine type", () => {
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");
     await expect(panel(page, "Nouveau cours")).toBeVisible();
-    await expect(panel(page, "Nouveau cours").getByLabel("Rechercher un groupe")).toBeFocused();
+    await expect(
+      panel(page, "Nouveau cours").getByLabel("Rechercher un groupe", { exact: true }),
+    ).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");
@@ -545,7 +555,9 @@ test.describe("grille semaine type", () => {
     await byCourt.getByRole("button", { name: "Court 1" }).click();
     await expect(ados).not.toHaveAttribute("data-dimmed");
 
-    await page.getByLabel("Filtrer par groupe").selectOption({ label: "Ados perfectionnement" });
+    await page
+      .getByLabel("Filtrer par groupe", { exact: true })
+      .selectOption({ label: "Ados perfectionnement" });
     await expect(galaxie).toHaveAttribute("data-dimmed", "true");
     await expect(ados).not.toHaveAttribute("data-dimmed");
     // Un clic au-dehors ferme le menu.
