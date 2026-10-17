@@ -1,6 +1,6 @@
 # Recette manuelle — moteurs web et installateurs
 
-> À dérouler **avant chaque version** (SPECS §12.2, lot L8) sur les installateurs produits par la CI, sur les trois systèmes. Les tests automatiques (Vitest, Playwright sous Chromium et WebKit) ne couvrent ni les installateurs, ni les dialogues natifs, ni WebView2 et WebKitGTK eux-mêmes, ni la sauvegarde à la fermeture : c'est l'objet de cette liste.
+> À dérouler **avant chaque version** (SPECS §12.2, lots L8 et L16) sur les installateurs produits par la CI, sur les trois systèmes. Les tests automatiques (Vitest, Playwright sous Chromium et WebKit) ne couvrent ni les installateurs, ni les dialogues natifs, ni WebView2 et WebKitGTK eux-mêmes, ni la sauvegarde à la fermeture : c'est l'objet de cette liste.
 
 ## Mode opératoire
 
@@ -31,7 +31,7 @@ Club de démonstration minimal : saison 2026-2027 (lundi → samedi, 8h–22h), 
 | 1.2 | Windows `.exe` : installation **sans** demande de droits administrateur. `.msi` : installation pour tous les utilisateurs. | — | | — |
 | 1.3 | Premier lancement : la fenêtre s'ouvre en 1440 × 900 environ, ne descend pas sous 1366 × 768, titre « Kairos », icône correcte (Dock, barre des tâches, menu des applications). | | | |
 | 1.4 | Le fichier `planning.db` est créé dans le dossier de données indiqué par l'écran **À propos** (et par `docs/INSTALLATION.md`). | | | |
-| 1.5 | **À propos** : version 1.0.0 (identique au nom de l'installateur), version de Tauri, système et architecture corrects, chemins des données et des sauvegardes exacts. | | | |
+| 1.5 | **À propos** : version 1.1.0 (identique au nom de l'installateur), version de Tauri, système et architecture corrects, chemins des données et des sauvegardes exacts. | | | |
 | 1.6 | Hors ligne strict : avec un moniteur réseau (Little Snitch / LuLu, Moniteur de ressources, `nethogs` ou `ss -tp`), **aucune** connexion sortante au démarrage ni pendant la recette. | | | |
 | 1.7 ⟳ | Mise à jour par-dessus la version précédente : les données sont conservées, les migrations s'appliquent (Réglages › *Migrations appliquées au démarrage*). | | | |
 
@@ -99,6 +99,52 @@ Club de démonstration minimal : saison 2026-2027 (lundi → samedi, 8h–22h), 
 |---|---|---|---|---|
 | 7.1 | Duplication de la saison, modification de la nouvelle : l'ancienne (archivée) est inchangée et non modifiable depuis tous les écrans. | | | |
 | 7.2 | Export des données d'un élève (dialogue « Enregistrer sous ») et suppression définitive, y compris dans les saisons archivées. | | | |
+
+## 8. Nouveautés de la v1.1 (lot L16)
+
+> Les parcours sont automatisés sous Chromium et WebKit (Playwright, voir `docs/TRACABILITE-V1.1.md`) ; cette liste vérifie ce que ni l'un ni l'autre ne garantit dans les webviews réelles : sélecteurs natifs, presse-papiers du système, lecteurs d'écran, application installée.
+
+| # | Vérification | macOS | Windows | Linux |
+|---|---|---|---|---|
+| 8.1 ⟳ | **Sauvegarde avant migration** : installer la 1.1 par-dessus une 1.0 contenant des élèves ; au premier lancement, une sauvegarde `…_avant-migration.db` apparaît dans `sauvegardes/` et dans *Réglages* (« Avant mise à jour ») ; aucun élève ni téléphone perdu ; un élève peut ensuite être enregistré avec le seul téléphone du responsable. | | | |
+| 8.2 | **Vue Jour** à 1366 × 768 puis fenêtre réduite à ~960 px : barre des jours (compte de cours, flèches, dimanche atteignable), noms des groupes entiers sur un cours d'une heure, en-tête du planning sur une ligne ; clic sur l'en-tête d'un jour en vue Semaine. | | | |
+| 8.3 | **Gestes de la grille en vue Jour et en vue Semaine** : créer par sélection, déplacer, redimensionner, dupliquer avec Alt / Option ; panneau replié rouvert à la création ou à l'ouverture d'un cours ; menu de l'application réduit, retrouvé au relancement. | | | |
+| 8.4 | **Collage depuis Excel** (Excel et LibreOffice Calc, sur chaque OS) : copier 10 lignes avec en-têtes, dont une cellule sur deux lignes et une cellule vide, puis 5 lignes sans en-têtes ; « Coller depuis Excel » › « Lire le tableau » : séparateur tabulation reconnu, accents corrects, colonnes « Colonne A, B… » sans en-têtes, aperçu, import puis annulation. Refaire depuis la fiche d'un groupe : élèves affectés au groupe. | | | |
+| 8.5 | **Toasts** : en bas à droite, au-dessus d'une fenêtre ouverte ; un succès disparaît après ~4 s mais reste tant qu'il est survolé ; une erreur reste jusqu'à « Masquer le message » ; « Annuler » d'un changement de disponibilité restaure les horaires ; au clavier, Tab depuis le dernier contrôle atteint l'action du toast, Entrée la déclenche. | | | |
+| 8.6 | **Modales** : focus sur le premier champ à l'ouverture ; fermeture directe d'une fiche non modifiée ; « Abandonner les modifications ? » sinon, avec « Continuer la saisie » par défaut (Entrée) ; panneau de cours modifié puis autre créneau sélectionné : confirmation. | | | |
+| 8.7 | **Échap dans les champs date et heure** (fiche élève « Date de naissance », nouvelle fermeture « Du », indisponibilité « À partir de ») : avec le calendrier ou le sélecteur natif **ouvert**, Échap le ferme sans fermer la fenêtre ni perdre la saisie ; calendrier fermé, un deuxième Échap ferme la fenêtre (ou demande confirmation si la saisie a changé). Anneau de focus visible sur chaque segment (jour, mois, année) au clavier. | | | |
+| 8.8 | **Bulles d'aide** : survol (~300 ms) et focus clavier (Tab ; ⌥ Tab sous macOS) sur les boutons icône de la barre d'outils, de la barre des jours et du menu réduit ; Échap ferme la bulle seule ; la bulle suit son bouton quand la page défile. | | | |
+| 8.9 | **Lecteur d'écran** — VoiceOver (macOS, **B12**), Narrateur (Windows), Orca (Linux) : chaque case à cocher (jours de la saison, « Actif », groupes de la fiche élève, propositions de l'assistant des fermetures, « La première ligne contient des élèves », « Protéger la sauvegarde par un mot de passe » de la fenêtre d'export) est annoncée par son libellé, jamais « on » ; les toasts sont lus (succès poli, erreur immédiate) ; un avertissement de doublon ou d'âge est annoncé sans déplacer le focus ; les bulles sont lues comme description des boutons icône. | | | |
+| 8.10 | **Thèmes clair et sombre** sur les nouveaux écrans (accueil du guidage, toasts, zone de message, menu Filtres, fiche au survol, mode d'emploi, collage) : textes lisibles, anneaux de focus visibles. | | | |
+| 8.11 | **Touches selon le système** dans l'application installée : l'astuce du panneau et « Tout le mode d'emploi » affichent ⌘, ⌥ et ⌫ sous macOS, Ctrl, Alt et Suppr sous Windows et Linux ; seul Ctrl/⌘ N est annoncé pour créer un cours (B4), et il fonctionne. | | | |
+
+## 9. Rejeu des personas du test d'utilisabilité
+
+> À mener par deux personnes (ou une seule, en jouant les deux profils), sur la 1.1 installée, chronomètre en main ; noter chaque hésitation, clic à côté ou message incompris. Critère : rien de ce qui aide Monique ne ralentit Alex.
+>
+> **Systèmes** : chaque parcours est joué au moins une fois sous **Windows (WebView2)**, et au moins une fois sous **macOS (WebKit)** ou **Linux (WebKitGTK)** ; noter le système et le moteur dans la colonne « Poste » (ex. « Win 11 / WebView2 »).
+
+**Monique, bénévole débutante** (base vide, sans consigne autre que « préparez le planning de la saison ») :
+
+| # | Étape | Attendu | Poste | Résultat |
+|---|---|---|---|---|
+| 9.1 | Ouvrir l'application pour la première fois. | L'accueil « Avant de construire le planning » dit quoi faire ; un seul bouton, « Créer la saison ». | | |
+| 9.2 | Créer la saison 2026-2027. | Toast « Saison « 2026-2027 » créée » avec « Étape suivante : Courts » ; pastille de l'onglet Saison cochée. | | |
+| 9.3 | Suivre les étapes : 2 courts (dont un du même nom par erreur), 3 moniteurs (deux aux mêmes initiales), 2 groupes avec tranche d'âge, 10 élèves dont un saisi deux fois et un hors tranche. | Chaque doublon et l'âge sont signalés à la saisie, sans bloquer ni déplacer les boutons ; « Enregistrer et ajouter un autre » enchaîne les élèves. | | |
+| 9.4 | Saisir les horaires de disponibilité d'un moniteur dans la frise (un glisser 14 h → 18 h, un clic simple, une fausse manœuvre annulée). | 14:00–18:00 ; le clic ne crée rien et pré-remplit le formulaire ; « Annuler » du toast répare. | | |
+| 9.5 | Placer le premier cours avec « + Nouveau cours ». | L'astuce l'indique ; moniteurs disponibles en tête ; le guidage disparaît ensuite de lui-même. | | |
+| 9.6 | Modifier un cours pour une seule semaine, puis revenir au cours habituel. | « Une semaine précise », phrase de portée lue et comprise ; « Modifié cette semaine », « Revenir au cours habituel ». | | |
+| 9.7 | Fermer une fiche modifiée par erreur avec Échap dans un champ date. | Le calendrier se ferme seul ; la fenêtre demande confirmation, rien n'est perdu. | | |
+
+**Alex, expert qui saisit vite** (club de démonstration restauré, consignes chronométrées) :
+
+| # | Étape | Attendu | Poste | Résultat |
+|---|---|---|---|---|
+| 9.8 | Coller 60 élèves depuis un tableur, sans en-têtes, dans un groupe. | Import en moins de 2 minutes, sans créer de fichier. | | |
+| 9.9 | Ajouter 5 élèves existants à un groupe au clavier seul (champ « Ajouter un élève », ↑ ↓, Entrée). | Le champ se vide et garde le focus ; aucune souris. | | |
+| 9.10 | Ouvrir puis fermer 10 fiches sans les modifier. | Aucune question de confirmation. | | |
+| 9.11 | Créer, déplacer, dupliquer (Alt) et supprimer des cours ; Ctrl/⌘ N, Suppr, Ctrl/⌘ Z. | Raccourcis annoncés conformes au système ; aucune confirmation superflue ; vue Jour pour lire les groupes. | | |
+| 9.12 | Réduire le menu, replier le panneau, filtrer par moniteur. | Grille lisible à 960 px ; « Filtres, N actifs » ; choix du menu retrouvé au relancement. | | |
 
 ## Critères de sortie
 

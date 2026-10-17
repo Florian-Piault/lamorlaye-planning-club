@@ -116,7 +116,7 @@ export function DayBar({
               <span
                 className={cn(
                   "rounded-full px-1 text-[10px]",
-                  active ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground",
+                  active ? "bg-primary-foreground text-primary" : "bg-muted text-muted-foreground",
                 )}
               >
                 {count}
@@ -141,11 +141,11 @@ export function DayBar({
           className="flex items-center gap-2 text-muted-foreground text-xs"
         >
           <span className="inline-flex items-center gap-1">
-            <House aria-hidden className="size-3 opacity-70" /> couvert
+            <House aria-hidden className="size-3" /> couvert
           </span>
           <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-1">
-            <Sun aria-hidden className="size-3 text-amber-600 dark:text-amber-400" /> extérieur
+            <Sun aria-hidden className="size-3 text-amber-700 dark:text-amber-400" /> extérieur
           </span>
         </p>
         <Button

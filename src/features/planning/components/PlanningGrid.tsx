@@ -302,10 +302,7 @@ function CourtHeader({ court, width }: { court: Court | undefined; width: number
         {icon && (
           <Icon
             aria-hidden
-            className={cn(
-              "size-3 shrink-0",
-              outdoor ? "text-amber-600 dark:text-amber-400" : "opacity-70",
-            )}
+            className={cn("size-3 shrink-0", outdoor && "text-amber-700 dark:text-amber-400")}
           />
         )}
         <span aria-hidden className="truncate">

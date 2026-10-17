@@ -391,7 +391,7 @@ function FileStep({
             onChange={(e) => setText(e.target.value)}
             rows={8}
             spellCheck={false}
-            className="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/75"
           />
           <div>
             <Button

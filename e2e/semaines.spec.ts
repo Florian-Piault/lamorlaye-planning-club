@@ -104,6 +104,8 @@ test.describe("semaines datées", () => {
     await expect(page.getByTestId("toast")).toContainText(
       "Modification de la séance du 02/11/2026",
     );
+    // Dit en mots simples, sans « exception » : description et fiche au survol (L10).
+    await expect(galaxie).toHaveAccessibleDescription(/Modifié cette semaine/);
 
     const stored = await readPlanning(page);
     expect(stored.lessons).toContainEqual(

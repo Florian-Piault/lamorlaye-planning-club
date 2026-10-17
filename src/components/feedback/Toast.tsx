@@ -306,7 +306,7 @@ function ToastView({
         <button
           type="button"
           className={cn(
-            "shrink-0 rounded font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "shrink-0 rounded font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current",
             error ? "underline underline-offset-2" : "text-sky-300 dark:text-sky-700",
           )}
           onClick={() => {
@@ -322,7 +322,7 @@ function ToastView({
         <button
           type="button"
           aria-label="Masquer le message"
-          className="shrink-0 rounded opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="shrink-0 rounded opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
           onClick={() => close("user")}
         >
           <X className="size-4" aria-hidden />

@@ -1,5 +1,13 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { createSeason, lesson, openFilters, openPlanning, slotPoint } from "./support/planning";
+import {
+  createSeason,
+  demoClub,
+  lesson,
+  openFilters,
+  openPlanning,
+  seedPlanning,
+  slotPoint,
+} from "./support/planning";
 
 /**
  * Socle UX commun (lot L9) : rien ne bouge sous le curseur (zone de message
@@ -78,6 +86,25 @@ test.describe("rien ne bouge sous le curseur", () => {
     );
     expect((await modeBar.boundingBox())?.height).toBe(barHeight);
     expect(await position(create)).toEqual(before);
+  });
+
+  test("la barre de mode garde sa hauteur quand la pastille des hachures apparaît (B7)", async ({
+    page,
+  }) => {
+    await openPlanning(page);
+    const modeBar = page.getByTestId("mode-bar");
+    const panel = page.getByRole("complementary", { name: "Panneau latéral" });
+    const before = { bar: (await modeBar.boundingBox())?.height, panel: await position(panel) };
+    // Aucun moniteur choisi : la pastille n'existe qu'au survol d'un cours.
+    await expect(page.getByTestId("hatch-info")).toHaveCount(0);
+    await lesson(page, "Galaxie vert").hover();
+    await expect(page.getByTestId("hatch-info")).toHaveText(/^Zones rayées : Karim Benali/);
+    expect({ bar: (await modeBar.boundingBox())?.height, panel: await position(panel) }).toEqual(
+      before,
+    );
+    await page.mouse.move(5, 5);
+    await expect(page.getByTestId("hatch-info")).toHaveCount(0);
+    expect((await modeBar.boundingBox())?.height).toBe(before.bar);
   });
 
   test("la pastille de la barre de mode donne son détail en bulle", async ({ page }) => {
@@ -224,6 +251,15 @@ test.describe("garde des modales", () => {
     await expect(
       page.getByRole("dialog", { name: "Nouvel élève" }).getByLabel("Prénom"),
     ).toBeFocused();
+    await page.keyboard.press("Escape");
+
+    // De même pour la fiche moniteur, où Prénom précède aussi Nom.
+    await tab(page, "Moniteurs").click();
+    await page.getByRole("button", { name: "Nouveau moniteur" }).click();
+    const instructor = page.getByRole("dialog", { name: "Nouveau moniteur" });
+    await expect(instructor.getByLabel("Prénom")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(instructor.getByLabel("Nom", { exact: true })).toBeFocused();
   });
 
   test("Échap dans un champ date ne ferme pas ; confirmation seulement si la saisie a changé", async ({
@@ -339,6 +375,12 @@ test.describe("toast commun", () => {
       .getByRole("button", { name: "Enregistrer" })
       .click();
     await expect(toast).toHaveText("Modifications enregistrées.");
+    // En bas à droite de la fenêtre, un seul à la fois : le nouveau remplace l'ancien.
+    const box = await toast.boundingBox();
+    const viewport = page.viewportSize();
+    if (!box || !viewport) throw new Error("toast introuvable");
+    expect(viewport.width - (box.x + box.width)).toBeLessThan(24);
+    expect(viewport.height - (box.y + box.height)).toBeLessThan(24);
     await toast.hover();
     await page.clock.runFor(5_000);
     await expect(toast).toBeVisible();
@@ -349,6 +391,20 @@ test.describe("toast commun", () => {
 });
 
 test.describe("toast commun du planning", () => {
+  test("un seul toast à la fois : le nouveau message remplace l'ancien", async ({ page }) => {
+    await openPlanning(page);
+    const toasts = page.getByTestId("toast");
+    await lesson(page, "Galaxie vert").click();
+    await page.keyboard.press("Delete");
+    await expect(toasts).toHaveCount(1);
+    await expect(toasts).toContainText(/^Suppression du cours/);
+    // Ctrl/⌘ Z pendant que le premier est affiché : un autre message, à sa place.
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect(toasts).toContainText(/^Annulé : /);
+    await expect(toasts).toHaveCount(1);
+    await expect(toasts).not.toContainText(/^Suppression du cours/);
+  });
+
   test("« Annuler cette action » affiche « Annulé : … »", async ({ page }) => {
     await openPlanning(page);
     await lesson(page, "Galaxie vert").click();
@@ -406,7 +462,140 @@ test.describe("erreurs de champ", () => {
     await name.fill("C");
     await expect(name).not.toHaveAttribute("aria-invalid");
   });
+
+  /**
+   * Les autres formulaires (aide commune `useFormErrors`) : un champ
+   * obligatoire laissé vide est signalé, puis son erreur disparaît dès la
+   * première frappe, avant tout nouvel enregistrement.
+   */
+  const forms: {
+    name: string;
+    open: (page: Page) => Promise<Locator>;
+    field: string;
+    submit: string;
+  }[] = [
+    {
+      name: "saison",
+      open: async (page) => {
+        await tab(page, "Saison").click();
+        return page.getByRole("form", { name: "Saison" });
+      },
+      field: "Nom",
+      submit: "Enregistrer",
+    },
+    {
+      name: "moniteur",
+      open: async (page) => {
+        await tab(page, "Moniteurs").click();
+        await page.getByRole("button", { name: "Nouveau moniteur" }).click();
+        return page.getByRole("dialog", { name: "Nouveau moniteur" });
+      },
+      field: "Prénom",
+      submit: "Créer le moniteur",
+    },
+    {
+      name: "indisponibilité",
+      open: async (page) => {
+        await tab(page, "Moniteurs").click();
+        await page.getByRole("link", { name: /Julie/ }).first().click();
+        return page.getByRole("form", { name: "Ajouter l'indisponibilité" });
+      },
+      field: "Du",
+      submit: "Ajouter l'indisponibilité",
+    },
+    {
+      name: "groupe",
+      open: async (page) => {
+        await tab(page, "Groupes").click();
+        await page.getByRole("button", { name: "Nouveau groupe" }).click();
+        return page.getByRole("dialog", { name: "Nouveau groupe" });
+      },
+      field: "Nom",
+      submit: "Créer le groupe",
+    },
+    {
+      name: "élève",
+      open: async (page) => {
+        await tab(page, "Élèves").click();
+        await page.getByRole("button", { name: "Nouvel élève" }).click();
+        return page.getByRole("dialog", { name: "Nouvel élève" });
+      },
+      field: "Prénom",
+      submit: "Créer l'élève",
+    },
+    {
+      name: "niveau",
+      open: async (page) => {
+        await tab(page, "Niveaux").click();
+        await page.getByRole("button", { name: "Nouveau niveau" }).click();
+        return page.getByRole("dialog", { name: "Nouveau niveau" });
+      },
+      field: "Libellé",
+      submit: "Enregistrer",
+    },
+  ];
+  test("l'erreur générale s'affiche en rouge dans la zone réservée, puis s'efface (B10)", async ({
+    page,
+  }) => {
+    await createSeason(page);
+    await tab(page, "Fermetures").click();
+    await page.getByRole("button", { name: "Nouvelle fermeture" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nouvelle fermeture" });
+    const save = dialog.getByRole("button", { name: "Enregistrer" });
+    const before = await position(save);
+    // Enregistrement refusé (libellé et dates vides) : erreur générale en tête de la zone.
+    await save.click();
+    const alert = dialog.getByRole("list", { name: "Messages" }).getByRole("alert");
+    await expect(alert).toBeVisible();
+    const colors = await alert.evaluate((el) => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--destructive)";
+      el.append(probe);
+      const expected = getComputedStyle(probe).color;
+      probe.remove();
+      return { actual: getComputedStyle(el).color, expected };
+    });
+    expect(colors.actual).toBe(colors.expected);
+    expect(await position(save)).toEqual(before);
+    // Une modification de la saisie l'efface aussitôt.
+    await dialog.getByLabel("Libellé").fill("Tournoi");
+    await expect(alert).toHaveCount(0);
+    expect(await position(save)).toEqual(before);
+  });
+
+  for (const form of forms) {
+    test(`même règle dans le formulaire ${form.name} (B10)`, async ({ page }) => {
+      await createSeason(page);
+      await seedPlanning(page, demoClub);
+      const scope = await form.open(page);
+      const field = scope.getByLabel(form.field, { exact: true });
+      await field.fill("");
+      await scope.getByRole("button", { name: form.submit, exact: true }).click();
+      await expect(field).toHaveAttribute("aria-invalid", "true");
+      if ((await field.getAttribute("type")) === "date") await field.fill("2026-11-02");
+      else await field.fill("A");
+      await expect(field).not.toHaveAttribute("aria-invalid");
+    });
+  }
 });
+
+/**
+ * Cases à cocher visibles de `scope` sans lien explicite avec leur libellé
+ * (`<label for>` relié à l'identifiant de la case) ni nom propre
+ * (`aria-label`) : un libellé seulement voisin est lu « on » (B12).
+ */
+function looseCheckboxes(scope: Locator): Promise<string[]> {
+  return scope.evaluate((root) =>
+    [...root.querySelectorAll<HTMLInputElement>("input[type=checkbox]")]
+      .filter((box) => box.getBoundingClientRect().width > 0)
+      .filter(
+        (box) =>
+          !box.hasAttribute("aria-label") &&
+          !(box.id && [...(box.labels ?? [])].some((label) => label.htmlFor === box.id)),
+      )
+      .map((box) => box.outerHTML.slice(0, 100)),
+  );
+}
 
 test.describe("cases à cocher", () => {
   test("chaque case est reliée à son libellé (B12)", async ({ page }) => {
@@ -422,5 +611,69 @@ test.describe("cases à cocher", () => {
     ).toBe(true);
     await form.getByText("Dimanche", { exact: true }).click();
     await expect(sunday).not.toBeChecked();
+  });
+
+  test("toutes les cases des fiches et de l'import sont nommées par leur libellé (B12)", async ({
+    page,
+  }) => {
+    await createSeason(page);
+    await seedPlanning(page, demoClub);
+    const check = async (scope: Locator, label: string) => {
+      await expect(scope.getByRole("checkbox").first(), label).toBeVisible();
+      expect(await looseCheckboxes(scope), label).toEqual([]);
+    };
+    await tab(page, "Saison").click();
+    await check(page.getByRole("form", { name: "Saison" }), "saison");
+
+    const dialogs: [string, string, string][] = [
+      ["Courts", "Nouveau court", "Nouveau court"],
+      ["Moniteurs", "Nouveau moniteur", "Nouveau moniteur"],
+      ["Niveaux", "Nouveau niveau", "Nouveau niveau"],
+      ["Groupes", "Nouveau groupe", "Nouveau groupe"],
+      ["Élèves", "Nouvel élève", "Nouvel élève"],
+      ["Fermetures", "Vacances et jours fériés…", "Vacances scolaires et jours fériés"],
+    ];
+    for (const [tabName, button, title] of dialogs) {
+      await tab(page, tabName).click();
+      await page.getByRole("button", { name: button }).click();
+      const dialog = page.getByRole("dialog", { name: title });
+      await check(dialog, title);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+    }
+    // Groupes de la fiche élève : nommés par le groupe, sa tranche et son effectif.
+    await tab(page, "Élèves").click();
+    await page.getByRole("button", { name: "Nouvel élève" }).click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "Nouvel élève" })
+        .getByRole("checkbox", { name: /^Galaxie vert/ }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await tab(page, "Moniteurs").click();
+    await page.getByRole("link", { name: /Julie/ }).first().click();
+    await check(page.getByRole("form", { name: "Ajouter l'indisponibilité" }), "indisponibilité");
+
+    await page.goto("/#/import-export");
+    await page.getByRole("button", { name: "Coller depuis Excel" }).click();
+    await page.getByLabel("Tableau à coller").fill("Martin\tLéo\t0611223344\n");
+    await page.getByRole("button", { name: "Lire le tableau" }).click();
+    await expect(
+      page.getByRole("checkbox", { name: "La première ligne contient des élèves" }),
+    ).toBeVisible();
+    await check(page.locator("main"), "import");
+
+    // Suppression définitive des données d'un élève (RGPD) : case de confirmation.
+    // (La fenêtre d'export d'une sauvegarde n'existe que dans l'application de bureau :
+    // recette RECETTE.md 8.9.)
+    await page.goto("/#/referentiels/eleves");
+    await page.getByRole("button", { name: "Données personnelles de Test Léa" }).click();
+    const privacy = page.getByRole("dialog", { name: "Données personnelles" });
+    await privacy.getByRole("button", { name: "Supprimer définitivement…" }).click();
+    await expect(
+      privacy.getByRole("checkbox", { name: /^Je confirme la suppression définitive/ }),
+    ).toBeVisible();
+    await check(privacy, "suppression des données d'un élève");
   });
 });

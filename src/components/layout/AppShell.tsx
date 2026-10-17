@@ -197,11 +197,13 @@ export function SeasonSelector({ compact = false }: { compact?: boolean }) {
   if (seasons.length === 0) return null;
   const status = readOnly ? "terminée" : "en cours";
   const selector = (
-    <div className="relative shrink-0">
+    <div className="group/season relative shrink-0">
       <div
         aria-hidden
         className={cn(
           "flex h-8 items-center gap-2 whitespace-nowrap rounded-md border px-2.5 text-xs shadow-xs",
+          // La liste native est transparente par-dessus : son focus clavier se voit ici.
+          "group-has-[select:focus-visible]/season:border-ring group-has-[select:focus-visible]/season:ring-[3px] group-has-[select:focus-visible]/season:ring-ring/75",
           compact && "@max-[50rem]:px-2",
           readOnly
             ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"

@@ -265,9 +265,7 @@ function ColorPicker({ value, others, error, initials, onChange }: ColorPickerPr
                 {isSelected ? (
                   <Check className="size-4" aria-hidden />
                 ) : (
-                  <span aria-hidden className="opacity-90">
-                    {owners[0]?.initials ?? ""}
-                  </span>
+                  <span aria-hidden>{owners[0]?.initials ?? ""}</span>
                 )}
               </button>
             </Tooltip>

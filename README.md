@@ -7,7 +7,7 @@ Application de bureau pour construire et tenir à jour le **planning des cours c
 - Grille **jours × courts** avec glisser-déposer (souris et clavier), avertissements de conflits non bloquants, semaine type et semaines datées, stages pendant les vacances.
 - Import d'élèves (CSV, Excel), PDF (semaine, planning par moniteur, feuilles d'appel), exports CSV / Excel, récapitulatif des heures des moniteurs.
 
-Spécifications : [`SPECS.md`](SPECS.md) · découpage en lots : [`LOTS-V1.md`](LOTS-V1.md) · nouveautés : [`CHANGELOG.md`](CHANGELOG.md).
+Spécifications : [`SPECS.md`](SPECS.md) · découpage en lots : [`LOTS-V1.md`](LOTS-V1.md), [`LOTS-V1.1.md`](LOTS-V1.1.md) · nouveautés : [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Installation
 

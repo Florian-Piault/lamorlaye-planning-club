@@ -64,7 +64,11 @@ export function SortableHead<K extends string>({
         className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {children}
-        <Icon className={cn("size-3.5", !active && "opacity-40")} aria-hidden />
+        {/* Tri inactif en gris (≥ 4,5:1), tri actif à la couleur du texte : forme et couleur. */}
+        <Icon
+          className={cn("size-3.5", active ? "text-foreground" : "text-muted-foreground")}
+          aria-hidden
+        />
       </button>
     </TableHead>
   );

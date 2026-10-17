@@ -107,6 +107,8 @@ export const LessonBlock = memo(function LessonBlock(props: LessonBlockProps) {
       data-cancelled={cancelled || undefined}
       data-replaced={props.replaced || undefined}
       data-modified={props.modified || undefined}
+      // Estompé exprès (filtres, cours saisi pendant un glisser) : ignoré des contrôles de contraste.
+      data-faded={isSource || isResizing || (props.dimmed && !props.selected) || undefined}
       data-one-off={props.oneOff || undefined}
       data-locked={locked || undefined}
       // Verrouillé (saison archivée), le cours reste consultable : il n'est pas « désactivé ».

@@ -1,6 +1,6 @@
 # Notice d'installation — Kairos
 
-> Version 1.0 — applicable à macOS, Windows et Linux.
+> Version 1.1 — applicable à macOS, Windows et Linux.
 
 Kairos est une application de bureau **entièrement hors ligne** : elle ne se connecte jamais à internet, ne crée aucun compte et ne se met pas à jour toute seule. Les données restent sur le poste où elle est installée.
 
@@ -12,12 +12,12 @@ Téléchargez **uniquement** les installateurs publiés dans les *Releases* du d
 
 | Système | Fichier à télécharger | Exemple de nom |
 |---|---|---|
-| macOS Apple Silicon (M1, M2…) | `.dmg` `aarch64` | `Kairos_1.0.0_aarch64.dmg` |
-| macOS Intel | `.dmg` `x64` | `Kairos_1.0.0_x64.dmg` |
-| Windows 10 / 11 (sans droits administrateur) | `.exe` | `Kairos_1.0.0_x64-setup.exe` |
-| Windows 10 / 11 (installation pour tous les utilisateurs) | `.msi` | `Kairos_1.0.0_x64_fr-FR.msi` |
-| Linux (toutes distributions) | `.AppImage` | `Kairos_1.0.0_amd64.AppImage` |
-| Linux Debian / Ubuntu | `.deb` | `Kairos_1.0.0_amd64.deb` |
+| macOS Apple Silicon (M1, M2…) | `.dmg` `aarch64` | `Kairos_1.1.0_aarch64.dmg` |
+| macOS Intel | `.dmg` `x64` | `Kairos_1.1.0_x64.dmg` |
+| Windows 10 / 11 (sans droits administrateur) | `.exe` | `Kairos_1.1.0_x64-setup.exe` |
+| Windows 10 / 11 (installation pour tous les utilisateurs) | `.msi` | `Kairos_1.1.0_x64_fr-FR.msi` |
+| Linux (toutes distributions) | `.AppImage` | `Kairos_1.1.0_amd64.AppImage` |
+| Linux Debian / Ubuntu | `.deb` | `Kairos_1.1.0_amd64.deb` |
 
 Pour savoir si votre Mac est Apple Silicon ou Intel : menu  › *À propos de ce Mac* › ligne *Puce* (Apple M…) ou *Processeur* (Intel).
 
@@ -92,14 +92,14 @@ Kairos utilise le composant **Microsoft Edge WebView2**, présent d'office sur W
 1. Rendez le fichier exécutable :
 
    ```sh
-   chmod +x "Kairos_1.0.0_amd64.AppImage"
+   chmod +x "Kairos_1.1.0_amd64.AppImage"
    ```
 
    (ou, dans le gestionnaire de fichiers : clic droit › *Propriétés* › *Permissions* › *Autoriser l'exécution*).
 2. Lancez-le par un double-clic ou depuis un terminal :
 
    ```sh
-   ./"Kairos_1.0.0_amd64.AppImage"
+   ./"Kairos_1.1.0_amd64.AppImage"
    ```
 
 Sur Ubuntu 22.04 et suivants, si l'AppImage ne démarre pas en signalant `libfuse.so.2`, installez la bibliothèque FUSE 2 : `sudo apt install libfuse2` (Ubuntu 24.04 : `sudo apt install libfuse2t64`).
@@ -107,7 +107,7 @@ Sur Ubuntu 22.04 et suivants, si l'AppImage ne démarre pas en signalant `libfus
 ### Paquet .deb (Debian, Ubuntu et dérivées)
 
 ```sh
-sudo apt install "./Kairos_1.0.0_amd64.deb"
+sudo apt install "./Kairos_1.1.0_amd64.deb"
 ```
 
 `apt` installe aussi les dépendances (WebKitGTK 4.1). L'application apparaît ensuite dans le menu des applications (catégorie *Bureautique*).

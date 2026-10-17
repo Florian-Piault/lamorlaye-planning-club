@@ -50,6 +50,10 @@ test.describe("guidage de la première utilisation", () => {
       await expect(steps.nth(i).getByText(label, { exact: true })).toBeVisible();
     }
     await expect(welcome(page).getByRole("link")).toHaveCount(1);
+    // Ce qui relie un cours, un court, un moniteur et un groupe.
+    await expect(welcome(page)).toContainText(
+      "Le planning place des cours sur les courts du club, chacun avec un moniteur et un groupe",
+    );
     await expect(welcome(page)).toContainText(
       "Niveaux et fermetures sont facultatifs et peuvent attendre.",
     );
@@ -207,6 +211,9 @@ test.describe("mode d'emploi du planning", () => {
       instructor: "● Julie Martin",
     });
     await expect(tip(page)).toHaveAttribute("data-context", "selected");
+    await expect(tip(page)).toContainText(
+      "Glissez ce cours pour le déplacer, tirez son bas pour changer sa durée.",
+    );
     await expect(tip(page)).toContainText(
       mac ? "⌫ le supprime, ⌘ Z annule." : "Suppr le supprime, Ctrl+Z annule.",
     );

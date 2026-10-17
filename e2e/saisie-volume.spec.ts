@@ -117,6 +117,16 @@ test.describe("saisie des élèves en volume", () => {
     await expect(dialog).toContainText(
       "Renseignez le téléphone de l'élève ou celui du responsable légal.",
     );
+
+    // La fiche groupe montre aussi le numéro du responsable suivi de « (resp.) ».
+    await dialog.getByRole("button", { name: "Annuler" }).click();
+    await page.getByRole("button", { name: "Abandonner" }).click();
+    await openGroup(page, "Galaxie vert");
+    await expect(
+      page
+        .getByRole("table", { name: "Élèves du groupe" })
+        .getByRole("row", { name: /Martin0 Léa/ }),
+    ).toContainText("06 99 88 77 66 (resp.)");
   });
 
   test("colle un tableau depuis Excel, l'importe puis annule l'import", async ({ page }) => {

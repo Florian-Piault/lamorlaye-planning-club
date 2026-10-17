@@ -3,8 +3,13 @@ import { type ReactNode, useId } from "react";
 
 import { cn } from "@/lib/utils";
 
+/*
+ * Anneau au focus (`focus:` et non `focus-visible:`) : un champ de saisie a
+ * toujours un focus visible, et WebKit ne reconnaît pas `:focus-visible` sur
+ * les segments d'un champ date ou heure (aucun indicateur sous macOS et Linux).
+ */
 const fieldClasses =
-  "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30";
+  "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus:border-ring focus:ring-[3px] focus:ring-ring/75 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-invalid:focus:ring-destructive/75 dark:bg-input/30";
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return <input type={type} data-slot="input" className={cn(fieldClasses, className)} {...props} />;

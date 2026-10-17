@@ -80,6 +80,11 @@ test.describe("saisons", () => {
     const seasons = page.getByRole("table", { name: "Saisons" });
     await expect(seasons.getByRole("row", { name: /2027-2028/ })).toContainText("En cours");
     await expect(seasons.getByRole("row", { name: /2026-2027/ })).toContainText("Terminée");
+    // La saison consultée est « Affichée », l'autre propose de l'afficher.
+    await expect(seasons.getByRole("row", { name: /2027-2028/ })).toContainText("Affichée");
+    await expect(
+      seasons.getByRole("button", { name: "Afficher la saison 2026-2027" }),
+    ).toBeVisible();
     await expect(page.getByLabel("Saison affichée")).toHaveValue(/.+/);
     await expect(page.getByTestId("read-only-banner")).toHaveCount(0);
 

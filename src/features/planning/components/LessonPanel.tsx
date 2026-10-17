@@ -409,7 +409,7 @@ export function LessonPanel({
               rows={2}
               value={values.note}
               onChange={(e) => set({ note: e.target.value })}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="w-full rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/75"
             />
           </div>
         </fieldset>
