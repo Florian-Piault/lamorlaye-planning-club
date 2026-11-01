@@ -66,6 +66,19 @@ export const demoClub: SeedPlanning = {
   ],
 };
 
+/**
+ * Aujourd'hui des scénarios : mercredi 04/11/2026, semaine du 02/11, ouverte
+ * (après les vacances de la Toussaint des clubs de test, du 17/10 au 01/11).
+ * « Une semaine précise » s'ouvre sur la semaine du jour : sans date figée, un
+ * scénario dépendrait du jour où il tourne.
+ */
+export const TODAY = new Date("2026-11-04T10:00:00+01:00");
+
+/** Fige la date du jour de la page (`TODAY` par défaut), avant sa première visite. */
+export async function fixToday(page: Page, date: Date = TODAY) {
+  await page.clock.setFixedTime(date);
+}
+
 export async function createSeason(page: Page) {
   await page.goto("/#/referentiels");
   const form = page.getByRole("form", { name: "Saison" });

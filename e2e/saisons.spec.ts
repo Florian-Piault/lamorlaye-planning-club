@@ -3,6 +3,7 @@ import {
   createSeason,
   demoClub,
   dragMouse,
+  fixToday,
   goToPlanning,
   grabPoint,
   lesson,
@@ -31,6 +32,10 @@ const club = {
     },
   ],
 };
+
+test.beforeEach(async ({ page }) => {
+  await fixToday(page);
+});
 
 function nav(page: Page, name: string) {
   return page

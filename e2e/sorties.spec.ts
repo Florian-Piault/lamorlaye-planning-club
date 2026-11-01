@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { type Download, expect, type Page, test } from "@playwright/test";
-import { createSeason, demoClub, goToPlanning, seedPlanning } from "./support/planning";
+import { createSeason, demoClub, fixToday, goToPlanning, seedPlanning } from "./support/planning";
 
 /**
  * Sorties (lot L6) : récapitulatif des heures, aperçu des PDF et exports
@@ -49,8 +49,7 @@ async function downloaded(download: Download): Promise<Buffer> {
 }
 
 test.beforeEach(async ({ page }) => {
-  // Aujourd'hui : mercredi 04/11/2026.
-  await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
+  await fixToday(page);
 });
 
 test.describe("sorties", () => {

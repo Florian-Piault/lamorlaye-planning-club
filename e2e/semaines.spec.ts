@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   demoClub,
   dragMouse,
+  fixToday,
   GRAB_OFFSET,
   grabPoint,
   hoverLesson,
@@ -24,7 +25,7 @@ const C1 = 0;
 const C2 = 1;
 
 test.beforeEach(async ({ page }) => {
-  await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
+  await fixToday(page);
 });
 
 function modeBar(page: Page) {
