@@ -1,4 +1,4 @@
-import { ClipboardPaste, Pencil, Plus, ShieldCheck } from "lucide-react";
+import { CalendarClock, ClipboardPaste, Pencil, Plus, ShieldCheck } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useReadOnly, useViewedSeason } from "@/app/season";
@@ -6,6 +6,7 @@ import { EmptyRow, SearchInput, SortableHead } from "@/components/data/ListContr
 import { useToast } from "@/components/feedback/Toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox, Label, Select } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -19,10 +20,12 @@ import { listGroups } from "@/db/repositories/groups";
 import { listLevels } from "@/db/repositories/levels";
 import {
   deleteStudent,
+  listSeasonStudentAvailabilities,
   listStudentIdentities,
   listStudents,
   type StudentListItem,
 } from "@/db/repositories/students";
+import type { WeeklySlot } from "@/domain/availability";
 import { studentDetails } from "@/domain/duplicates";
 import { ageOn } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
@@ -30,9 +33,11 @@ import { formatContactPhone } from "@/domain/students";
 import { formatDate } from "@/domain/time";
 import { StudentPrivacyDialog } from "@/features/rgpd/StudentPrivacyDialog";
 import { useListState } from "@/hooks/useListState";
-import { useLoader } from "@/hooks/useLoader";
+import { errorMessage, useLoader } from "@/hooks/useLoader";
 import { DeleteAction } from "../components/DeleteAction";
+import { type AvailabilitySeries, AvailabilitySeriesDialog } from "./AvailabilitySeriesDialog";
 import { newStudentEditing, StudentDialog, type StudentEditing } from "./StudentDialog";
+import { startSeries } from "./series";
 
 type SortKey = "name" | "age" | "level" | "ranking" | "groups";
 
@@ -57,6 +62,13 @@ export function StudentsTab() {
     direction: "asc",
   });
   const [editing, setEditing] = useState<StudentEditing>(null);
+  /** Filtre « Disponibilités non renseignées », combiné à la recherche. */
+  const [missingOnly, setMissingOnly] = useState(false);
+  /** Filtre « Groupe » : identifiant du groupe, ou "" pour tous. */
+  const [groupId, setGroupId] = useState("");
+  /** Lecture des plages avant l'ouverture de la série (bouton grisé, pas de double lancement). */
+  const [launching, setLaunching] = useState(false);
+  const [availabilitySeries, setAvailabilitySeries] = useState<AvailabilitySeries | null>(null);
   const levelOrder = useMemo(
     () => new Map((data?.levels ?? []).map((l) => [l.id, l.sortOrder])),
     [data],
@@ -70,44 +82,87 @@ export function StudentsTab() {
   const students = data?.students ?? [];
   const rows = useMemo(
     () =>
-      filterAndSort(data?.students ?? [], {
-        query,
-        searchFields: (s) => [
-          s.lastName,
-          s.firstName,
-          s.phone,
-          s.guardianPhone,
-          s.email,
-          s.levelLabel,
-          s.fftRanking,
-          s.guardianName,
-          ...s.groups.map((g) => g.name),
-        ],
-        sort,
-        sortValue: (s: StudentListItem, key: SortKey) => {
-          switch (key) {
-            case "name":
-              return `${s.lastName} ${s.firstName}`;
-            case "age":
-              // Tri par âge : du plus jeune au plus âgé.
-              return s.birthDate ? -Date.parse(s.birthDate) : null;
-            case "level":
-              return s.levelId ? (levelOrder.get(s.levelId) ?? null) : null;
-            case "ranking":
-              return s.fftRanking;
-            case "groups":
-              return s.groups.map((g) => g.name).join(", ");
-          }
+      filterAndSort(
+        (data?.students ?? []).filter(
+          (s) =>
+            (!missingOnly || !s.hasAvailabilities) &&
+            (groupId === "" || s.groups.some((g) => g.id === groupId)),
+        ),
+        {
+          query,
+          searchFields: (s) => [
+            s.lastName,
+            s.firstName,
+            s.phone,
+            s.guardianPhone,
+            s.email,
+            s.levelLabel,
+            s.fftRanking,
+            s.guardianName,
+            ...s.groups.map((g) => g.name),
+          ],
+          sort,
+          sortValue: (s: StudentListItem, key: SortKey) => {
+            switch (key) {
+              case "name":
+                return `${s.lastName} ${s.firstName}`;
+              case "age":
+                // Tri par âge : du plus jeune au plus âgé.
+                return s.birthDate ? -Date.parse(s.birthDate) : null;
+              case "level":
+                return s.levelId ? (levelOrder.get(s.levelId) ?? null) : null;
+              case "ranking":
+                return s.fftRanking;
+              case "groups":
+                return s.groups.map((g) => g.name).join(", ");
+            }
+          },
         },
-      }),
-    [data, query, sort, levelOrder],
+      ),
+    [data, query, sort, levelOrder, missingOnly, groupId],
   );
+
+  /** Saisie en série sur la liste telle qu'elle est filtrée et triée à cet instant. */
+  const startAvailabilitySeries = async () => {
+    const series = startSeries(rows);
+    if (!series || launching) return;
+    setLaunching(true);
+    try {
+      const slots = new Map<string, WeeklySlot[]>();
+      for (const slot of await listSeasonStudentAvailabilities(db, season.id)) {
+        slots.set(slot.studentId, [...(slots.get(slot.studentId) ?? []), slot]);
+      }
+      setAvailabilitySeries({ series, slots });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setLaunching(false);
+    }
+  };
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <SearchInput value={query} onChange={setQuery} label="Rechercher un élève" />
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <SearchInput value={query} onChange={setQuery} label="Rechercher un élève" />
+          <Label className="font-normal">
+            Groupe
+            <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+              <option value="">Tous les groupes</option>
+              {(data?.groups ?? []).map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </Select>
+          </Label>
+          <Checkbox
+            label="Disponibilités non renseignées"
+            checked={missingOnly}
+            onChange={(e) => setMissingOnly(e.target.checked)}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
           <span className="text-muted-foreground text-sm" data-testid="student-count">
             {rows.length === students.length
               ? `${students.length} élève${students.length > 1 ? "s" : ""}`
@@ -115,6 +170,19 @@ export function StudentsTab() {
           </span>
           {!readOnly && (
             <>
+              <Button
+                variant="outline"
+                disabled={rows.length === 0 || launching}
+                disabledReason={
+                  launching ? "Lecture des disponibilités…" : "Aucun élève dans la liste"
+                }
+                reasonSide="none"
+                tooltip="Un élève après l'autre, dans l'ordre de la liste affichée"
+                onClick={() => void startAvailabilitySeries()}
+              >
+                <CalendarClock aria-hidden />
+                Saisir les disponibilités en série
+              </Button>
               <Button asChild variant="outline">
                 <Link to="/import-export?import">
                   <ClipboardPaste aria-hidden />
@@ -152,6 +220,7 @@ export function StudentsTab() {
             <SortableHead sortKey="groups" sort={sort} onSort={onSort}>
               Groupes
             </SortableHead>
+            <TableHead>Disponibilités</TableHead>
             <TableHead className="w-24">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -159,7 +228,7 @@ export function StudentsTab() {
         </TableHeader>
         <TableBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={7}>
+            <EmptyRow colSpan={8}>
               {students.length === 0 ? "Aucun élève pour le moment." : "Aucun résultat."}
             </EmptyRow>
           )}
@@ -188,6 +257,11 @@ export function StudentsTab() {
         groups={data?.groups ?? []}
         levels={data?.levels ?? []}
         series
+        onSaved={reload}
+      />
+      <AvailabilitySeriesDialog
+        run={availabilitySeries}
+        onRunChange={setAvailabilitySeries}
         onSaved={reload}
       />
       <StudentPrivacyDialog
@@ -259,6 +333,13 @@ const StudentRow = memo(function StudentRow({
             </Badge>
           ))}
         </div>
+      </TableCell>
+      <TableCell className="whitespace-nowrap">
+        {student.hasAvailabilities ? (
+          "Renseignées"
+        ) : (
+          <span className="text-muted-foreground">Non renseignées</span>
+        )}
       </TableCell>
       <TableCell>
         <div className="flex">

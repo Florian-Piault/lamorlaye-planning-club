@@ -129,7 +129,7 @@ interface StudentFormProps {
 const NO_SLOTS: readonly WeeklySlot[] = [];
 
 /** Plages comparables (jour, début, fin), qu'elles viennent de la base ou de la frise. */
-function slotKeys(slots: readonly WeeklySlot[]): string[] {
+export function slotKeys(slots: readonly WeeklySlot[]): string[] {
   return slots.map((s) => `${s.weekday} ${s.startTime} ${s.endTime}`).sort();
 }
 

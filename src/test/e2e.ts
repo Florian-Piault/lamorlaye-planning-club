@@ -160,6 +160,20 @@ export async function archiveActiveSeason(): Promise<void> {
 }
 
 /**
+ * Ralentit les écritures groupées de l'application (`db.batch`, dont celle des
+ * plages d'un élève) : un geste fait pendant une écriture en cours.
+ */
+export async function slowDownBatches(ms: number): Promise<void> {
+  const { db } = await openAppDatabase();
+  const batch = db.batch.bind(db);
+  const slow = async (queries: Parameters<typeof batch>[0]) => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    return batch(queries);
+  };
+  Object.assign(db, { batch: slow });
+}
+
+/**
  * Club à la volumétrie cible (§11.5) dans la saison active : 10 courts,
  * 20 moniteurs, 60 groupes, 500 élèves, 150 cours (tests de charge).
  */
