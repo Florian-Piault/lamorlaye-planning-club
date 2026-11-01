@@ -65,6 +65,11 @@ export interface GestureContext {
   labels: ReadonlyMap<string, InstructorLabel>;
   /** Date de chaque jour affiché (semaine datée) : indisponibilités datées des avertissements. */
   dateOf: DateOfWeekday;
+  /**
+   * Groupe déjà choisi (filtre « Groupe ») : un cours créé à la souris est
+   * pour ce groupe, dont les élèves indisponibles sont ombrés (§4.4).
+   */
+  createGroupId: string | null;
 }
 
 export interface GestureHandlers {
@@ -216,7 +221,7 @@ export function useGridGestures({
           courtId: drag.courtId,
           start: range.start,
           durationMinutes: range.end - range.start,
-          groupId: null,
+          groupId: drag.groupId,
           instructorId: null,
         };
         break;
@@ -306,6 +311,7 @@ export function useGridGestures({
             weekday: selection.weekday,
             courtId: selection.courtId,
             anchorY: selection.anchorY,
+            groupId: latest.current.context.createGroupId,
             candidate: null,
             warnings: [],
           },
@@ -368,6 +374,8 @@ export function useGridGestures({
         kind: "move",
         lessonId: lesson.id,
         instructorId: lesson.instructorId,
+        groupId: lesson.groupId,
+        durationMinutes: lesson.durationMinutes,
         grabOffset: 0,
         duplicate: false,
         keyboard: true,
@@ -399,6 +407,8 @@ export function useGridGestures({
           ? {
               kind: "move",
               ...base,
+              groupId: lesson.groupId,
+              durationMinutes: lesson.durationMinutes,
               grabOffset: yToMinute(geometry, boardPoint(activator).y) - lesson.start,
               duplicate: activator.altKey,
             }

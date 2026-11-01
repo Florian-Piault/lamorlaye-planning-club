@@ -15,16 +15,23 @@ import {
   gridLines,
   hatchRects,
   type Rect,
+  shadeRects,
   slotRect,
 } from "../grid/geometry";
-import type { CandidateLesson } from "../grid/view";
+import { type CandidateLesson, type StudentShadeBand, shadeTier } from "../grid/view";
 import {
   HoverCardStore,
   type LessonCard,
   lessonDescription,
   lessonDescriptionId,
 } from "../hoverCard";
-import { hatchedInstructorId, type InteractionStore, useInteraction } from "../interaction";
+import {
+  hatchedInstructorId,
+  type InteractionStore,
+  shadedDuration,
+  shadedGroupId,
+  useInteraction,
+} from "../interaction";
 import { LessonBlock, LessonContent } from "./LessonBlock";
 import { LessonHoverCard } from "./LessonHoverCard";
 
@@ -74,6 +81,11 @@ interface PlanningGridProps {
     instructorId: string,
     weekday: number,
   ) => readonly { start: number; end: number }[];
+  /**
+   * Bandes ombrées des élèves d'un groupe (§4.4), pour un cours de cette durée
+   * (déplacement) ou par morceau de journée (création, `null`) ; jours fermés exclus.
+   */
+  shadeBandsOf: (groupId: string, durationMinutes: number | null) => readonly StudentShadeBand[];
   lookOf: (candidate: CandidateLesson) => CandidateLook;
   onOpenLesson: (id: string) => void;
   onBoardPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
@@ -98,6 +110,7 @@ export function PlanningGrid({
   scrollerRef,
   boardRef,
   unavailableOn,
+  shadeBandsOf,
   lookOf,
   onOpenLesson,
   onBoardPointerDown,
@@ -144,6 +157,11 @@ export function PlanningGrid({
           >
             <GridLines geometry={geometry} />
             <ClosureLayer geometry={geometry} closedDays={closedDays} />
+            <StudentShadeLayer
+              geometry={geometry}
+              interaction={interaction}
+              shadeBandsOf={shadeBandsOf}
+            />
             <HatchLayer
               geometry={geometry}
               interaction={interaction}
@@ -367,6 +385,61 @@ const GridLines = memo(function GridLines({ geometry }: { geometry: GridGeometry
     </div>
   );
 });
+
+/**
+ * Ombrage des élèves (§4.4) : aplat ambré, sans motif, pour ne pas le
+ * confondre avec les hachures du moniteur, dessinées par-dessus. Opacité par
+ * palier (`shadeTier`) : plus foncé quand plus d'élèves sont indisponibles.
+ */
+const SHADE_OPACITY = { 1: 0.14, 2: 0.24, 3: 0.36, 4: 0.5 } as const;
+
+/**
+ * Bandes ombrées pendant le déplacement ou la création d'un cours d'un groupe.
+ * Le groupe et la durée ne changent qu'au début et à la fin du geste : les
+ * bandes sont calculées une fois par geste, pas à chaque mouvement du pointeur.
+ */
+function StudentShadeLayer({
+  geometry,
+  interaction,
+  shadeBandsOf,
+}: {
+  geometry: GridGeometry;
+  interaction: InteractionStore;
+  shadeBandsOf: PlanningGridProps["shadeBandsOf"];
+}) {
+  const groupId = useInteraction(interaction, shadedGroupId);
+  const durationMinutes = useInteraction(interaction, shadedDuration);
+  const rects = useMemo(
+    () => (groupId ? shadeRects(geometry, shadeBandsOf(groupId, durationMinutes)) : []),
+    [geometry, groupId, durationMinutes, shadeBandsOf],
+  );
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-[1]">
+      {rects.map((rect) => {
+        const tier = shadeTier(rect.band.count);
+        return (
+          <div
+            key={rect.key}
+            data-testid="student-shade"
+            data-weekday={rect.band.weekday}
+            data-start={rect.band.start}
+            data-end={rect.band.end}
+            data-count={rect.band.count}
+            data-tier={tier}
+            className="absolute bg-amber-500"
+            style={{
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
+              opacity: SHADE_OPACITY[tier],
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 const HATCH =
   "repeating-linear-gradient(45deg, var(--muted-foreground) 0 1.5px, transparent 1.5px 9px)";

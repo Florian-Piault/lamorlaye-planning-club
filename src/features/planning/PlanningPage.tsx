@@ -81,6 +81,7 @@ import {
   type GridGeometry,
   HOUR_HEIGHT,
   layoutItems,
+  SNAP_MINUTES,
 } from "./grid/geometry";
 import {
   activeItems,
@@ -114,12 +115,20 @@ import {
   NEW_LESSON_ID,
   noFilters,
   type PlanningFilters,
+  type StudentShadeBand,
   semaineTypeDate,
   slotWarnings,
+  studentShadeBands,
   warningMessages,
   weekLessons,
 } from "./grid/view";
-import { hatchedInstructorId, InteractionStore, useInteraction } from "./interaction";
+import {
+  hatchedInstructorId,
+  InteractionStore,
+  shadedDuration,
+  shadedGroupId,
+  useInteraction,
+} from "./interaction";
 import { loadPlanningReferences, type PlanningReferences } from "./references";
 import { PlanningStore, usePlanningSnapshot } from "./store";
 import { useGridGestures } from "./useGridGestures";
@@ -641,6 +650,47 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
     [instructorsById, dayStart, dayEnd, dateOf],
   );
 
+  // Ombrage des élèves pendant le glisser (§4.4) : membres du groupe, avec leurs plages.
+  const studentsOf = useCallback(
+    (groupId: string) =>
+      (conflictIndex.members.get(groupId) ?? []).flatMap((id) => {
+        const student = conflictIndex.students.get(id);
+        return student ? [student] : [];
+      }),
+    [conflictIndex],
+  );
+  // Bandes ombrées d'un geste, sur les jours affichés et ouverts (pas de teinte
+  // sur un jour fermé). Grille et barre de mode lisent le même calcul, gardé
+  // pour le geste en cours : une fois par geste.
+  const shadeBandsOf = useMemo(() => {
+    const closed = new Set(closedDayList.map((day) => day.weekday));
+    const open = weekdays.filter((weekday) => !closed.has(weekday));
+    let last: { key: string; bands: readonly StudentShadeBand[] } | null = null;
+    return (groupId: string, durationMinutes: number | null): readonly StudentShadeBand[] => {
+      const key = `${groupId}|${durationMinutes ?? ""}`;
+      if (last?.key !== key) {
+        const bands = studentShadeBands(
+          studentsOf(groupId),
+          open,
+          dayStart,
+          dayEnd,
+          durationMinutes,
+          SNAP_MINUTES,
+        );
+        last = { key, bands };
+      }
+      return last.bands;
+    };
+  }, [closedDayList, weekdays, dayStart, dayEnd, studentsOf]);
+  // Nom du groupe ombré pour la barre de mode, seulement si une bande est visible.
+  const shadedGroupName = useCallback(
+    (groupId: string, durationMinutes: number | null) =>
+      shadeBandsOf(groupId, durationMinutes).length > 0
+        ? (groupsById.get(groupId)?.name ?? null)
+        : null,
+    [shadeBandsOf, groupsById],
+  );
+
   const lookOf = useCallback(
     (candidate: CandidateLesson): CandidateLook => {
       const group = candidate.groupId ? groupsById.get(candidate.groupId) : undefined;
@@ -889,6 +939,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
       index: conflictIndex,
       labels,
       dateOf,
+      createGroupId: filters.groupId,
     },
     handlers: {
       onMove: (id, target, duplicate) => {
@@ -921,6 +972,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           start: candidate.start,
           durationMinutes: candidate.durationMinutes,
           courtId: candidate.courtId ?? "",
+          groupId: candidate.groupId ?? "",
         }),
       onBoardClick: () =>
         guardPanel(() => {
@@ -1326,6 +1378,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
           interaction={interaction}
           names={legendEntries}
           laterChanges={mode.kind === "type" ? laterChangesSummary(lessons, referenceDate) : null}
+          shadedGroupName={shadedGroupName}
         />
         <DayBar
           weekdays={allWeekdays}
@@ -1357,6 +1410,7 @@ function PlanningWorkspace({ season, refs, store, onReferencesChanged }: Workspa
             scrollerRef={scrollerRef}
             boardRef={boardRef}
             unavailableOn={unavailableOn}
+            shadeBandsOf={shadeBandsOf}
             lookOf={lookOf}
             onOpenLesson={openLesson}
             onBoardPointerDown={gestures.onBoardPointerDown}
@@ -1424,15 +1478,20 @@ function ModeBar({
   interaction,
   names,
   laterChanges,
+  shadedGroupName,
 }: {
   readOnly: boolean;
   mode: PlanningMode;
   interaction: InteractionStore;
   names: readonly LegendEntry[];
   laterChanges: { label: string; detail: string } | null;
+  shadedGroupName: (groupId: string, durationMinutes: number | null) => string | null;
 }) {
   const hatched = useInteraction(interaction, hatchedInstructorId);
   const entry = hatched ? names.find((n) => n.id === hatched) : undefined;
+  const shaded = useInteraction(interaction, shadedGroupId);
+  const shadedMinutes = useInteraction(interaction, shadedDuration);
+  const shadedName = shaded ? shadedGroupName(shaded, shadedMinutes) : null;
   const name = mode.kind === "type" ? "Planning habituel" : weekName(mode.monday);
   const scope = readOnly
     ? "Consultation seulement (saison terminée)"
@@ -1477,6 +1536,14 @@ function ModeBar({
           >
             Zones rayées : {entry.name}
             {entry.noAvailability && " (aucune disponibilité)"}
+          </ModePill>
+        )}
+        {shadedName && (
+          <ModePill
+            testId="shade-info"
+            detail={`Zones ombrées : des élèves de ${shadedName} ne sont pas disponibles (plus c'est foncé, plus ils sont nombreux)`}
+          >
+            Zones ombrées : élèves de {shadedName}
           </ModePill>
         )}
       </div>

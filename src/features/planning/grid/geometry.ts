@@ -377,6 +377,34 @@ export function hatchRects(
   );
 }
 
+/**
+ * Bandes d'ombrage des élèves (§4.4) : comme les hachures, une bande par
+ * morceau de journée, sur toute la largeur du jour ; les jours non affichés
+ * sont ignorés.
+ */
+export function shadeRects<T extends { weekday: number; start: number; end: number }>(
+  g: GridGeometry,
+  bands: readonly T[],
+): (Rect & { key: string; band: T })[] {
+  const dayWidth = g.courtIds.length * g.columnWidth;
+  return bands.flatMap((band) => {
+    const dayIndex = g.weekdays.indexOf(band.weekday);
+    const start = Math.max(band.start, g.dayStart);
+    const end = Math.min(band.end, g.dayEnd);
+    if (dayIndex < 0 || end <= start) return [];
+    return [
+      {
+        key: `${band.weekday}-${start}`,
+        band,
+        left: dayIndex * dayWidth,
+        width: dayWidth,
+        top: minuteToY(g, start),
+        height: minuteToY(g, end) - minuteToY(g, start),
+      },
+    ];
+  });
+}
+
 /** Graduations de l'axe : heures pleines et demi-heures. */
 export function gridLines(g: GridGeometry): { minute: number; y: number; half: boolean }[] {
   const lines: { minute: number; y: number; half: boolean }[] = [];

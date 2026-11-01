@@ -25,7 +25,7 @@ import {
 } from "@/db/schema";
 import { createClosure, emptyPlanningState } from "@/domain/commands";
 import { errorMessage } from "@/hooks/useLoader";
-import { seedVolumeData } from "./volumetry";
+import { seedVolumeData, TARGET_VOLUME } from "./volumetry";
 
 export interface SeedInstructor {
   firstName: string;
@@ -163,11 +163,50 @@ export async function archiveActiveSeason(): Promise<void> {
  * Club à la volumétrie cible (§11.5) dans la saison active : 10 courts,
  * 20 moniteurs, 60 groupes, 500 élèves, 150 cours (tests de charge).
  */
-export async function seedVolume(): Promise<{ firstGroup: string; lessons: number }> {
+export async function seedVolume(
+  options: { studentAvailability?: boolean } = {},
+): Promise<{ firstGroup: string; lessons: number }> {
   const { db, season } = await activeSeason();
   const data = await seedVolumeData(db, season.id);
+  if (options.studentAvailability) {
+    // L'élève de rang i est dans le groupe i mod 60 : le profil suit le rang
+    // dans le groupe (i / 60), pour que chaque groupe mélange les profils.
+    const rows = data.students.flatMap((student, i) =>
+      (
+        VOLUME_STUDENT_SLOTS[Math.floor(i / TARGET_VOLUME.groups) % VOLUME_STUDENT_SLOTS.length] ??
+        []
+      ).map(([weekday, startTime, endTime]) => ({
+        studentId: student.id,
+        weekday,
+        startTime,
+        endTime,
+      })),
+    );
+    for (let i = 0; i < rows.length; i += 200) {
+      await db.insert(studentAvailabilities).values(rows.slice(i, i + 200));
+    }
+  }
   return { firstGroup: data.groups[0]?.name ?? "", lessons: data.lessons.length };
 }
+
+/**
+ * Plages des élèves du jeu de charge (`seedVolume({ studentAvailability: true })`),
+ * par rang dans le groupe modulo 4 : un sur quatre sans plage (disponible partout),
+ * les autres sur des profils différents, pour que les groupes aient des
+ * créneaux ombrés à plusieurs paliers (§4.4).
+ */
+const VOLUME_STUDENT_SLOTS: [number, string, string][][] = [
+  [],
+  [1, 2, 3, 4, 5, 6].map((weekday) => [weekday, "17:00", "21:00"]),
+  [
+    [3, "09:00", "18:00"],
+    [6, "09:00", "13:00"],
+  ],
+  [
+    ...[1, 2, 4, 5].map((weekday): [number, string, string] => [weekday, "16:30", "20:00"]),
+    [6, "09:00", "12:00"],
+  ],
+];
 
 /** Insère les référentiels et les cours dans la saison active. */
 export async function seedPlanning(spec: SeedPlanning): Promise<void> {

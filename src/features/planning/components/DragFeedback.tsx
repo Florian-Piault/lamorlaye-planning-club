@@ -34,7 +34,8 @@ export function DragFeedback({ interaction, courtName, instructor, groupName }: 
       heading = `Durée : ${hoursLabel(candidate?.durationMinutes ?? 0)}`;
       break;
     case "select":
-      heading = "Nouveau cours";
+      // Groupe déjà choisi (filtre « Groupe ») : le nouveau cours sera pour lui.
+      heading = drag.groupId ? `Nouveau cours : ${groupName(drag.groupId)}` : "Nouveau cours";
       break;
     case "instructor":
       heading = candidate

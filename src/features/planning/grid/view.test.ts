@@ -20,6 +20,8 @@ import {
   noAvailabilityMessage,
   noFilters,
   semaineTypeDate,
+  shadeTier,
+  studentShadeBands,
   toggleId,
   totalMinutes,
   warningMessages,
@@ -369,5 +371,74 @@ describe("choix du moniteur", () => {
         )?.status,
       ).toBe("busy");
     });
+  });
+});
+
+describe("ombrage des élèves pendant le glisser (§4.4)", () => {
+  const slot = (weekday: number, startTime: string, endTime: string) => ({
+    weekday,
+    startTime,
+    endTime,
+  });
+  // Léa : mercredi seulement. Tom et Zoé : mercredi, et jeudi matin.
+  const lea = { availabilities: [slot(3, "08:00", "22:00")] };
+  const tom = { availabilities: [slot(3, "08:00", "22:00"), slot(4, "08:00", "12:00")] };
+  const zoe = { availabilities: [slot(3, "08:00", "22:00"), slot(4, "08:00", "12:00")] };
+  const free = { availabilities: [] };
+
+  it("à la création, compte les élèves indisponibles par morceau de journée, sans ombrer le mercredi", () => {
+    expect(studentShadeBands([lea, tom, zoe, free], [3, 4], 8 * 60, 22 * 60)).toEqual([
+      { weekday: 4, start: 8 * 60, end: 12 * 60, count: 1 },
+      { weekday: 4, start: 12 * 60, end: 22 * 60, count: 3 },
+    ]);
+  });
+
+  it("n'ombre rien quand aucun élève n'a de plage", () => {
+    expect(studentShadeBands([free, free], [1, 2, 3], 8 * 60, 22 * 60)).toEqual([]);
+  });
+
+  it("fusionne les morceaux voisins de même nombre et borne à l'amplitude", () => {
+    const a = { availabilities: [slot(1, "07:00", "10:00"), slot(1, "10:00", "11:00")] };
+    const b = { availabilities: [slot(1, "09:00", "23:00")] };
+    expect(studentShadeBands([a, b], [1], 8 * 60, 22 * 60)).toEqual([
+      { weekday: 1, start: 8 * 60, end: 9 * 60, count: 1 },
+      { weekday: 1, start: 11 * 60, end: 22 * 60, count: 1 },
+    ]);
+  });
+
+  it("au déplacement, compte les élèves gênés par un cours de cette durée à chaque heure de début", () => {
+    // Tom : lundi 11:00–22:00 ; Léa : lundi 08:00–12:00. Un cours de 2 h à
+    // 10:30 gêne les deux, alors qu'aucun moment de la journée ne les gêne ensemble.
+    const tomMonday = { availabilities: [slot(1, "11:00", "22:00")] };
+    const leaMonday = { availabilities: [slot(1, "08:00", "12:00")] };
+    const students = [tomMonday, leaMonday];
+    expect(studentShadeBands(students, [1], 8 * 60, 22 * 60)).toEqual([
+      { weekday: 1, start: 8 * 60, end: 11 * 60, count: 1 },
+      { weekday: 1, start: 12 * 60, end: 22 * 60, count: 1 },
+    ]);
+    // Heures de début de 08:00 à 20:00 ; la dernière bande va jusqu'à 22:00.
+    expect(studentShadeBands(students, [1], 8 * 60, 22 * 60, 120)).toEqual([
+      { weekday: 1, start: 8 * 60, end: 10 * 60 + 15, count: 1 },
+      { weekday: 1, start: 10 * 60 + 15, end: 11 * 60, count: 2 },
+      { weekday: 1, start: 11 * 60, end: 22 * 60, count: 1 },
+    ]);
+  });
+
+  it("au déplacement, ombre un créneau libre plus court que le cours", () => {
+    // Une heure de libre, pour un cours de 2 h : aucune heure de début ne convient.
+    const narrow = { availabilities: [slot(1, "14:00", "15:00")] };
+    expect(studentShadeBands([narrow], [1], 8 * 60, 22 * 60, 120)).toEqual([
+      { weekday: 1, start: 8 * 60, end: 22 * 60, count: 1 },
+    ]);
+    // Une plage qui couvre le cours : de 14:00 à 15:00, rien n'est ombré.
+    const wide = { availabilities: [slot(1, "14:00", "17:00")] };
+    expect(studentShadeBands([wide], [1], 8 * 60, 22 * 60, 120)).toEqual([
+      { weekday: 1, start: 8 * 60, end: 14 * 60, count: 1 },
+      { weekday: 1, start: 15 * 60 + 15, end: 22 * 60, count: 1 },
+    ]);
+  });
+
+  it("assombrit par paliers", () => {
+    expect([1, 2, 3, 4, 5, 12].map(shadeTier)).toEqual([1, 2, 3, 3, 4, 4]);
   });
 });

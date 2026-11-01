@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { hatchedInstructorId, InteractionStore } from "./interaction";
+import {
+  hatchedInstructorId,
+  InteractionStore,
+  shadedDuration,
+  shadedGroupId,
+} from "./interaction";
 
 describe("état des interactions", () => {
   it("ne prévient les abonnés que si une valeur change", () => {
@@ -38,6 +43,7 @@ describe("état des interactions", () => {
         weekday: 1,
         courtId: "c1",
         anchorY: 0,
+        groupId: null,
         candidate: null,
         warnings: [],
       },
@@ -55,6 +61,8 @@ describe("état des interactions", () => {
         kind: "move",
         lessonId: "l1",
         instructorId: "glissé",
+        groupId: null,
+        durationMinutes: 60,
         grabOffset: 0,
         duplicate: false,
         candidate: null,
@@ -64,5 +72,32 @@ describe("état des interactions", () => {
     expect(hatchedInstructorId(store.get())).toBe("glissé");
     store.update({ drag: null, panelInstructorId: null });
     expect(hatchedInstructorId(store.get())).toBe("survolé");
+  });
+
+  it("ombre le groupe du cours déplacé (sur sa durée) ou du cours créé, pas celui d'un redimensionnement (§4.4)", () => {
+    const store = new InteractionStore();
+    expect(shadedGroupId(store.get())).toBeNull();
+    const base = { instructorId: "m1", candidate: null, warnings: [] };
+    store.update({
+      drag: {
+        kind: "move",
+        lessonId: "l1",
+        groupId: "g1",
+        durationMinutes: 60,
+        grabOffset: 0,
+        duplicate: false,
+        ...base,
+      },
+    });
+    expect(shadedGroupId(store.get())).toBe("g1");
+    expect(shadedDuration(store.get())).toBe(60);
+    store.update({ drag: { kind: "resize", lessonId: "l1", ...base } });
+    expect(shadedGroupId(store.get())).toBeNull();
+    const select = { kind: "select" as const, weekday: 4, courtId: "c1", anchorY: 0 };
+    store.update({ drag: { ...select, groupId: "g2", candidate: null, warnings: [] } });
+    expect(shadedGroupId(store.get())).toBe("g2");
+    expect(shadedDuration(store.get())).toBeNull();
+    store.update({ drag: { ...select, groupId: null, candidate: null, warnings: [] } });
+    expect(shadedGroupId(store.get())).toBeNull();
   });
 });

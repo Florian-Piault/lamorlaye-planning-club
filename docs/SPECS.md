@@ -153,6 +153,7 @@ Maquette de référence : `maquettes/vue-semaine.html`, onglet A ; lisibilité �
 - La grille reste épurée par défaut.
 - Au **survol ou au déplacement d'un cours**, ou au **clic sur un moniteur de la légende**, les créneaux où ce moniteur est **indisponible** sont hachurés.
 - Un seul moniteur est hachuré à la fois, par ordre de priorité : celui du cours glissé, celui choisi dans le panneau du cours ouvert, celui du cours survolé, celui épinglé dans la légende.
+- **Ombrage des élèves (v1.2)** : pendant le **déplacement d'un cours** (souris ou clavier), ou pendant la **sélection d'un créneau** quand un groupe est choisi dans le filtre « Groupe » (§4.3), les créneaux où des élèves du groupe sont **indisponibles** sont ombrés, sur toute la largeur du jour. Au déplacement, la durée du cours est connue : l'ombrage indique, pour chaque heure de début possible (pas de 15 min), combien d'élèves un cours de cette durée commençant là gênerait ; il se lit au haut du fantôme. À la création, la durée n'est pas encore connue : l'ombrage indique combien d'élèves sont indisponibles à chaque moment de la journée (découpée aux bornes de leurs plages), sans tenir compte de la durée du futur cours. Même règle que le contrôle des élèves indisponibles (§7) : un élève sans plage est disponible partout. L'ombrage est un **aplat ambré sans motif**, distinct des hachures rayées du moniteur, et les deux s'affichent ensemble. Il fonce par paliers selon le nombre d'élèves indisponibles : 1, 2, 3 ou 4, 5 et plus. Une pastille « Zones ombrées : élèves de … » l'accompagne dans la barre du mode, seulement si une bande est visible. Les jours fermés ne sont pas ombrés. L'ombrage est calculé **une fois, au début du geste** (il ne dépend pas du pointeur) et disparaît à sa fin (relâché ou Échap). Rien n'est ombré au redimensionnement, au glisser d'une pastille de moniteur, ni quand aucun élève du groupe n'est gêné.
 
 ### 4.5 Guidage et mode d'emploi (v1.1)
 
@@ -174,7 +175,7 @@ Prototypes retenus (variantes C) : `.plan/ux-v1-1/prototypes/guidage-premiere-ut
 
 Deux points d'entrée ouvrant le **même panneau latéral** d'édition :
 
-1. **Sélection à la souris sur la grille** : cliquer-glisser verticalement dans la sous-colonne d'un court. Jour, heure de début, durée et court sont pré-remplis.
+1. **Sélection à la souris sur la grille** : cliquer-glisser verticalement dans la sous-colonne d'un court. Jour, heure de début, durée et court sont pré-remplis ; le groupe aussi quand un groupe est choisi dans le filtre « Groupe ». La sélection est alors ombrée pour ses élèves (§4.4), et l'infobulle de la sélection montre en temps réel les avertissements de ce groupe sur le créneau (§7), dont « N élève(s) hors disponibilités ».
 2. **Bouton « Nouveau cours »** : panneau vide.
 
 Le panneau contient : groupe (liste avec recherche + création rapide d'un groupe), moniteur, jour, heure de début, durée, court, note. La liste des moniteurs présente trois groupes, dans cet ordre :
