@@ -3,21 +3,28 @@
  * chacun produit un message affiché sur le cours et dans le panneau
  * « Avertissements ».
  *
- * Les six contrôles :
+ * Les sept contrôles :
  * 1. court déjà occupé sur tout ou partie du créneau ;
  * 2. moniteur ayant déjà un cours sur le créneau ;
  * 3. moniteur hors de ses disponibilités (récurrentes ou datées) ;
  * 4. élèves inscrits dans deux cours simultanés (de groupes différents : un
  *    groupe encadré par deux moniteurs sur deux courts n'est pas un conflit) ;
  * 5. effectif du groupe supérieur au maximum ;
- * 6. âge d'un élève hors de la tranche du groupe.
+ * 6. âge d'un élève hors de la tranche du groupe ;
+ * 7. élèves du groupe hors de leurs disponibilités (un seul avertissement par
+ *    créneau, qui les liste ; un élève sans plage est disponible partout).
  *
  * Les contrôles portent sur des créneaux (`PlanningSlot`) : cours de la
  * semaine type (`date` nulle) ou occurrences actives d'une semaine datée.
  * Deux créneaux se chevauchent s'ils ont lieu le même jour et que leurs
  * intervalles `[début, fin[` se recoupent.
  */
-import { type Interval, intervalsOfDay } from "./availability";
+import {
+  type Interval,
+  intervalsOfDay,
+  unavailableStudents,
+  type WeeklySlot,
+} from "./availability";
 import { type GroupLimits, groupAlerts } from "./groups";
 import type { InstructorAvailabilityData } from "./instructorAvailability";
 import type { LessonRecord, Occurrence } from "./occurrences";
@@ -93,10 +100,19 @@ export interface ConflictReferences {
   courts: readonly { id: string; name: string }[];
   instructors: readonly ({ id: string; firstName: string } & InstructorAvailabilityData)[];
   groups: readonly ({ id: string; name: string } & GroupLimits)[];
-  students: readonly { id: string; birthDate: string | null }[];
+  students: readonly ConflictStudent[];
   memberships: readonly { groupId: string; studentId: string }[];
   /** Date de calcul des âges (en pratique, le début de la saison). */
   referenceDate: string;
+}
+
+/** Élève tel que le voient les contrôles : âge (6) et disponibilités (7). */
+export interface ConflictStudent {
+  id: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string | null;
+  availabilities: readonly WeeklySlot[];
 }
 
 interface IndexedInstructor {
@@ -111,6 +127,7 @@ export interface ConflictIndex {
   groupNames: Map<string, string>;
   instructors: Map<string, IndexedInstructor>;
   members: Map<string, readonly string[]>;
+  students: Map<string, ConflictStudent>;
   /** Messages d'effectif et d'âge, par groupe. */
   groupMessages: Map<string, { overCapacity: string | null; ageRange: string | null }>;
 }
@@ -151,6 +168,7 @@ export function createConflictIndex(refs: ConflictReferences): ConflictIndex {
     groupNames: new Map(refs.groups.map((g) => [g.id, g.name])),
     instructors,
     members,
+    students: studentsById,
     groupMessages,
   };
 }
@@ -165,13 +183,16 @@ export type ConflictKind =
   | "instructor_unavailable"
   | "students_overlap"
   | "over_capacity"
-  | "age_range";
+  | "age_range"
+  | "students_unavailable";
 
 export interface Conflict {
   kind: ConflictKind;
   message: string;
   /** Créneaux en cause (chevauchements). */
   slotIds: string[];
+  /** Élèves en cause, « Prénom Nom » (élèves hors disponibilités). */
+  students?: string[];
 }
 
 /** 14 h 00 → « 14h00 ». */
@@ -233,6 +254,29 @@ function studentsConflict(count: number, slotIds: string[]): Conflict {
   };
 }
 
+const byName = (a: ConflictStudent, b: ConflictStudent) =>
+  a.lastName.localeCompare(b.lastName, "fr") || a.firstName.localeCompare(b.firstName, "fr");
+
+/** 7. Élèves du groupe hors de leurs disponibilités : un seul conflit pour le créneau. */
+function studentsAvailabilityConflict(slot: PlanningSlot, index: ConflictIndex): Conflict | null {
+  if (!slot.groupId) return null;
+  const members = (index.members.get(slot.groupId) ?? []).flatMap((id) => {
+    const student = index.students.get(id);
+    return student ? [student] : [];
+  });
+  const absent = unavailableStudents(members, slot);
+  if (absent.length === 0) return null;
+  return {
+    kind: "students_unavailable",
+    message:
+      absent.length === 1
+        ? "1 élève hors disponibilités"
+        : `${absent.length} élèves hors disponibilités`,
+    slotIds: [],
+    students: [...absent].sort(byName).map((s) => `${s.firstName} ${s.lastName}`),
+  };
+}
+
 function groupConflicts(slot: PlanningSlot, index: ConflictIndex): Conflict[] {
   const messages = slot.groupId ? index.groupMessages.get(slot.groupId) : undefined;
   const result: Conflict[] = [];
@@ -288,6 +332,8 @@ function finish(slot: PlanningSlot, state: SlotState, index: ConflictIndex): Con
     conflicts.push(studentsConflict(state.sharedStudents.size, state.studentSlotIds));
   }
   conflicts.push(...groupConflicts(slot, index));
+  const students = studentsAvailabilityConflict(slot, index);
+  if (students) conflicts.push(students);
   return conflicts;
 }
 

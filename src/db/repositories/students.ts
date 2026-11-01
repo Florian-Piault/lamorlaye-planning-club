@@ -1,8 +1,18 @@
 import { asc, eq } from "drizzle-orm";
+import { normalizeSlots, type WeeklySlot } from "@/domain/availability";
 import { nameKey, type StudentCandidate } from "@/domain/duplicates";
 import type { StudentInput } from "@/domain/validation";
 import type { Db } from "../client";
-import { groupStudents, groups, levels, type Student, seasons, students } from "../schema";
+import {
+  groupStudents,
+  groups,
+  levels,
+  type Student,
+  type StudentAvailability,
+  seasons,
+  studentAvailabilities,
+  students,
+} from "../schema";
 
 export interface StudentGroupRef {
   id: string;
@@ -12,11 +22,13 @@ export interface StudentGroupRef {
 export interface StudentListItem extends Student {
   levelLabel: string | null;
   groups: StudentGroupRef[];
+  /** Disponibilités renseignées (au moins une plage) : colonne et filtre de la liste. */
+  hasAvailabilities: boolean;
 }
 
-/** Élèves de la saison avec leur niveau et leurs groupes. */
+/** Élèves de la saison avec leur niveau, leurs groupes et l'état de leurs disponibilités. */
 export async function listStudents(db: Db, seasonId: string): Promise<StudentListItem[]> {
-  const [rows, memberships] = await Promise.all([
+  const [rows, memberships, withSlots] = await Promise.all([
     db
       .select({ student: students, levelLabel: levels.label })
       .from(students)
@@ -29,7 +41,13 @@ export async function listStudents(db: Db, seasonId: string): Promise<StudentLis
       .innerJoin(groups, eq(groups.id, groupStudents.groupId))
       .where(eq(groups.seasonId, seasonId))
       .orderBy(asc(groups.name)),
+    db
+      .selectDistinct({ studentId: studentAvailabilities.studentId })
+      .from(studentAvailabilities)
+      .innerJoin(students, eq(students.id, studentAvailabilities.studentId))
+      .where(eq(students.seasonId, seasonId)),
   ]);
+  const filled = new Set(withSlots.map((r) => r.studentId));
   const byStudent = new Map<string, StudentGroupRef[]>();
   for (const { studentId, id, name } of memberships) {
     const list = byStudent.get(studentId) ?? [];
@@ -40,7 +58,50 @@ export async function listStudents(db: Db, seasonId: string): Promise<StudentLis
     ...student,
     levelLabel: levelLabel ?? null,
     groups: byStudent.get(student.id) ?? [],
+    hasAvailabilities: filled.has(student.id),
   }));
+}
+
+/** Plages hebdomadaires de tous les élèves de la saison (contrôles du planning, §7). */
+export async function listSeasonStudentAvailabilities(
+  db: Db,
+  seasonId: string,
+): Promise<StudentAvailability[]> {
+  const rows = await db
+    .select({ slot: studentAvailabilities })
+    .from(studentAvailabilities)
+    .innerJoin(students, eq(students.id, studentAvailabilities.studentId))
+    .where(eq(students.seasonId, seasonId))
+    .orderBy(asc(studentAvailabilities.weekday), asc(studentAvailabilities.startTime));
+  return rows.map((r) => r.slot);
+}
+
+/** Plages hebdomadaires d'un élève, par jour puis heure de début. */
+export async function getStudentAvailabilities(
+  db: Db,
+  studentId: string,
+): Promise<StudentAvailability[]> {
+  return db
+    .select()
+    .from(studentAvailabilities)
+    .where(eq(studentAvailabilities.studentId, studentId))
+    .orderBy(asc(studentAvailabilities.weekday), asc(studentAvailabilities.startTime));
+}
+
+/**
+ * Remplace toutes les plages d'un élève (une seule transaction), fusionnées
+ * par jour comme celles des moniteurs. Aucune plage : disponible partout.
+ */
+export async function replaceStudentAvailabilities(
+  db: Db,
+  studentId: string,
+  slots: readonly WeeklySlot[],
+): Promise<void> {
+  const normalized = normalizeSlots(slots);
+  await db.batch([
+    db.delete(studentAvailabilities).where(eq(studentAvailabilities.studentId, studentId)),
+    ...normalized.map((slot) => db.insert(studentAvailabilities).values({ studentId, ...slot })),
+  ]);
 }
 
 /** Fiche d'un élève de n'importe quelle saison, pour la détection des doublons. */
@@ -123,7 +184,7 @@ export async function updateStudent(
   ]);
 }
 
-/** Supprime un élève, ainsi que son appartenance à ses groupes. */
+/** Supprime un élève, ainsi que son appartenance à ses groupes et ses plages. */
 export async function deleteStudent(db: Db, id: string): Promise<void> {
   await db.delete(students).where(eq(students.id, id));
 }

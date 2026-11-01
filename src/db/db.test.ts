@@ -45,6 +45,7 @@ describe("base de données", () => {
       "lessons",
       "levels",
       "seasons",
+      "student_availabilities",
       "student_erasures",
       "students",
     ]);

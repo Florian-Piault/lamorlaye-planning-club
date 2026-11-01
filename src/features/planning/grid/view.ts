@@ -197,9 +197,19 @@ export function explainConflicts(
   );
 }
 
+/**
+ * Texte affiché d'un avertissement : le message, suivi des élèves en cause
+ * s'il y en a (« 2 élèves hors disponibilités : Léa Martin, Tom Petit »).
+ */
+function warningText(conflict: Conflict): string {
+  return conflict.students?.length
+    ? `${conflict.message} : ${conflict.students.join(", ")}`
+    : conflict.message;
+}
+
 /** Messages distincts (deux cours du même moniteur à la même heure donnent le même message). */
 export function warningMessages(conflicts: readonly Conflict[]): string[] {
-  return [...new Set(conflicts.map((c) => c.message))];
+  return [...new Set(conflicts.map(warningText))];
 }
 
 export function noAvailabilityMessage(firstName: string): string {

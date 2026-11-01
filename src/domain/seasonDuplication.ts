@@ -2,7 +2,8 @@
  * Nouvelle saison par duplication (docs/SPECS.md §8.1).
  *
  * Sont copiés : courts, moniteurs (avec leurs disponibilités récurrentes),
- * groupes (avec leur composition), élèves et semaine type. Ne sont **pas**
+ * groupes (avec leur composition), élèves (avec leurs disponibilités) et
+ * semaine type. Ne sont **pas**
  * copiés : exceptions, cours ponctuels, indisponibilités datées et fermetures.
  *
  * Chaque ligne copiée reçoit un nouvel UUID et toutes les références sont
@@ -22,6 +23,7 @@ import type {
   InstructorAvailability,
   Lesson,
   Student,
+  StudentAvailability,
 } from "@/db/schema";
 import { isLessonEffectiveOn } from "./occurrences";
 import type { SeasonFormValues } from "./validation";
@@ -33,6 +35,7 @@ export interface SeasonSnapshot {
   availabilities: readonly InstructorAvailability[];
   groups: readonly Group[];
   students: readonly Student[];
+  studentAvailabilities: readonly StudentAvailability[];
   memberships: readonly Pick<GroupStudent, "groupId" | "studentId">[];
   lessons: readonly Lesson[];
 }
@@ -44,6 +47,7 @@ export interface DuplicationPlan {
   availabilities: InstructorAvailability[];
   groups: Group[];
   students: Student[];
+  studentAvailabilities: StudentAvailability[];
   memberships: GroupStudent[];
   lessons: Lesson[];
 }
@@ -133,6 +137,10 @@ export function planSeasonDuplication(
     id: newIdOf(studentIds, s.id),
     seasonId: target.seasonId,
   }));
+  const studentAvailabilities = source.studentAvailabilities.flatMap((a) => {
+    const studentId = studentIds.get(a.studentId);
+    return studentId ? [{ ...a, ...stamps, id: ctx.newId(), studentId }] : [];
+  });
   const memberships = source.memberships.flatMap((m) => {
     const groupId = groupIds.get(m.groupId);
     const studentId = studentIds.get(m.studentId);
@@ -158,7 +166,16 @@ export function planSeasonDuplication(
       },
     ];
   });
-  return { courts, instructors, availabilities, groups, students, memberships, lessons };
+  return {
+    courts,
+    instructors,
+    availabilities,
+    groups,
+    students,
+    studentAvailabilities,
+    memberships,
+    lessons,
+  };
 }
 
 export function summarizeDuplication(

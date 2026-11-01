@@ -254,6 +254,29 @@ export const students = sqliteTable(
   ],
 );
 
+/**
+ * Plages hebdomadaires de disponibilité d'un élève, sur le modèle de celles
+ * des moniteurs. Un élève sans aucune plage est considéré disponible partout.
+ */
+export const studentAvailabilities = sqliteTable(
+  "student_availabilities",
+  {
+    id: id(),
+    studentId: text()
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    weekday: integer().notNull(),
+    startTime: text().notNull(),
+    endTime: text().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("student_availabilities_student_idx").on(t.studentId),
+    check("student_availabilities_weekday_check", weekdayCheck("weekday")),
+    check("student_availabilities_times_check", sql`${t.startTime} < ${t.endTime}`),
+  ],
+);
+
 /** Composition des groupes (relation N-N groupe ↔ élève). */
 export const groupStudents = sqliteTable(
   "group_students",
@@ -465,6 +488,14 @@ export const studentsRelations = relations(students, ({ one, many }) => ({
   season: one(seasons, { fields: [students.seasonId], references: [seasons.id] }),
   level: one(levels, { fields: [students.levelId], references: [levels.id] }),
   memberships: many(groupStudents),
+  availabilities: many(studentAvailabilities),
+}));
+
+export const studentAvailabilitiesRelations = relations(studentAvailabilities, ({ one }) => ({
+  student: one(students, {
+    fields: [studentAvailabilities.studentId],
+    references: [students.id],
+  }),
 }));
 
 export const groupStudentsRelations = relations(groupStudents, ({ one }) => ({
@@ -513,6 +544,7 @@ export type Group = typeof groups.$inferSelect;
 export type NewGroup = typeof groups.$inferInsert;
 export type Student = typeof students.$inferSelect;
 export type NewStudent = typeof students.$inferInsert;
+export type StudentAvailability = typeof studentAvailabilities.$inferSelect;
 export type GroupStudent = typeof groupStudents.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type NewLesson = typeof lessons.$inferInsert;

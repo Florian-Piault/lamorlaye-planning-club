@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  incompatibleLessons,
   isAvailableAt,
   mergeIntervals,
   normalizeSlots,
@@ -99,5 +100,30 @@ describe("plages hebdomadaires", () => {
         slot(4, "17:00", "18:30"),
       ]),
     ).toBe(4 * 60 + 90);
+  });
+});
+
+describe("compatibilité d'un élève avec les cours d'un groupe", () => {
+  // Mercredi 14h00–15h00 et samedi 10h00–11h30, en minutes.
+  const wednesday = { id: "mer", weekday: 3, start: 840, end: 900 };
+  const saturday = { id: "sam", weekday: 6, start: 600, end: 690 };
+
+  it("donne les cours qui ne tiennent pas entièrement dans une plage", () => {
+    const slots = [slot(3, "13:00", "18:00"), slot(6, "10:00", "11:00")];
+    // Le samedi déborde d'une demi-heure : seul ce cours est fautif.
+    expect(incompatibleLessons(slots, [wednesday, saturday])).toEqual([saturday]);
+    expect(incompatibleLessons([slot(1, "08:00", "20:00")], [wednesday, saturday])).toEqual([
+      wednesday,
+      saturday,
+    ]);
+    expect(incompatibleLessons([slot(3, "14:00", "15:00")], [wednesday])).toEqual([]);
+  });
+
+  it("rend compatible tout élève d'un groupe sans cours", () => {
+    expect(incompatibleLessons([slot(1, "08:00", "09:00")], [])).toEqual([]);
+  });
+
+  it("rend compatible un élève sans plage, quels que soient les cours", () => {
+    expect(incompatibleLessons([], [wednesday, saturday])).toEqual([]);
   });
 });

@@ -20,6 +20,7 @@ import {
   lessons,
   levels,
   seasons,
+  studentAvailabilities,
   students,
 } from "@/db/schema";
 import { createClosure, emptyPlanningState } from "@/domain/commands";
@@ -64,19 +65,39 @@ export interface SeedPlanning {
   instructors: SeedInstructor[];
   groups: SeedGroup[];
   lessons: SeedLesson[];
+  /**
+   * Plages de disponibilité des élèves, par prénom : `[jour, "HH:MM", "HH:MM"]`.
+   * Un élève absent de la liste n'a aucune plage (disponible partout).
+   */
+  studentAvailability?: Record<string, [number, string, string][]>;
   /** Périodes de fermeture (bornes incluses). */
   closures?: { label: string; startDate: string; endDate: string }[];
   /** Indisponibilités datées (`AAAA-MM-JJTHH:MM`, fin exclue). */
   unavailabilities?: { instructor: string; startsAt: string; endsAt: string; reason?: string }[];
   /**
    * Exceptions sur les séances du premier cours du groupe `group` à la date
-   * `occurrenceDate` : annulation (pluie) ou remplacement par `instructor`.
+   * `occurrenceDate` : annulation (pluie), remplacement par `instructor` ou
+   * modification (`date`, `startTime`, `durationMinutes`, `court` : nouvelles
+   * valeurs, les autres restent celles du cours).
    */
   exceptions?: {
-    kind: "cancellation" | "replacement";
+    kind: "cancellation" | "replacement" | "modification";
     group: string;
     occurrenceDate: string;
     instructor?: string;
+    date?: string;
+    startTime?: string;
+    durationMinutes?: number;
+    court?: string;
+  }[];
+  /** Cours ponctuels (sans cours de la semaine type), pour le groupe `group`. */
+  oneOffs?: {
+    group: string;
+    date: string;
+    startTime: string;
+    durationMinutes: number;
+    court: string;
+    instructor: string;
   }[];
 }
 
@@ -212,6 +233,12 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
       await db.insert(groupStudents).values({ groupId, studentId: id(`student:${firstName}`) });
     }
   }
+  for (const [firstName, slots] of Object.entries(spec.studentAvailability ?? {})) {
+    const studentId = id(`student:${firstName}`);
+    for (const [weekday, startTime, endTime] of slots) {
+      await db.insert(studentAvailabilities).values({ studentId, weekday, startTime, endTime });
+    }
+  }
   const rows = spec.lessons.map((lesson) => ({
     id: crypto.randomUUID(),
     seasonId: season.id,
@@ -250,6 +277,23 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
       occurrenceDate: e.occurrenceDate,
       instructorId: e.instructor ? id(`instructor:${e.instructor}`) : null,
       cancellationReason: e.kind === "cancellation" ? "rain" : null,
+      date: e.date ?? null,
+      startTime: e.startTime ?? null,
+      durationMinutes: e.durationMinutes ?? null,
+      courtId: e.court ? id(`court:${e.court}`) : null,
+    });
+  }
+  for (const o of spec.oneOffs ?? []) {
+    await db.insert(lessonExceptions).values({
+      id: crypto.randomUUID(),
+      seasonId: season.id,
+      kind: "one_off",
+      date: o.date,
+      startTime: o.startTime,
+      durationMinutes: o.durationMinutes,
+      courtId: id(`court:${o.court}`),
+      instructorId: id(`instructor:${o.instructor}`),
+      groupId: id(`group:${o.group}`),
     });
   }
 }

@@ -34,7 +34,7 @@ Les termes métier sont ceux du code et du modèle de données ; l'interface aff
 | Référentiels | Le club (menu, page) ; Fiches du club (onglets) | Saison, courts, moniteurs, niveaux, groupes, élèves et fermetures de la saison. |
 | Court | Court | Terrain sur lequel se déroule un cours. Un cours occupe un court. |
 | Moniteur | Moniteur | Enseignant qui assure les cours. Identifié par une couleur. |
-| Plage (de disponibilité) | Horaire de disponibilité ; section « Disponible chaque semaine » | Créneau hebdomadaire pendant lequel un moniteur peut assurer des cours. « Créneau » reste réservé aux cours. |
+| Plage (de disponibilité) | Horaire de disponibilité ; section « Disponible chaque semaine » ; « hors disponibilités » | Créneau hebdomadaire pendant lequel un moniteur peut assurer des cours, ou un élève venir au club. « Créneau » reste réservé aux cours. Sans aucune plage, un moniteur est disponible nulle part, un élève partout. |
 | Groupe | Groupe | Ensemble d'élèves suivant un même cours collectif. |
 | Composition | Élèves du groupe | Élèves inscrits dans un groupe. |
 | Effectif | Nombre d'élèves ; « Groupe trop plein » en cas de dépassement | Nombre d'élèves d'un groupe, comparé à son maximum. |
@@ -86,6 +86,7 @@ Tous les enregistrements portent un **UUID** comme identifiant ainsi que les cha
 - Pour les mineurs : nom et téléphone du responsable légal.
 - **Niveau proposé** (v1.1) : celui du premier groupe coché, tant que l'utilisatrice n'a pas choisi le niveau (même modèle que les initiales suggérées du moniteur).
 - Un élève peut appartenir à **plusieurs groupes**.
+- **Disponibilités** (`.plan/disponibilites-eleves/spec.md`) : plages hebdomadaires récurrentes (jour + heure de début + heure de fin, plusieurs par jour possibles), sur le modèle de celles du moniteur (§3.3), sans indisponibilités datées. Elles sont fusionnées par jour (chevauchantes ou contiguës) à l'enregistrement. Un créneau est couvert s'il tient **entièrement** dans une plage du même jour, comme pour le moniteur ; mais **un élève sans aucune plage est disponible partout**, pour que la saisie puisse être progressive sans avertissements. Les plages suivent l'élève : supprimées avec lui (y compris par l'effacement RGPD, §11.6), recopiées avec lui à la duplication d'une saison (§8.1), en lecture seule dans une saison terminée.
 
 ### 3.5 bis Référentiel des niveaux
 - Liste ordonnée et modifiable dans les réglages (libellé, ordre, actif).
@@ -226,6 +227,7 @@ Aucun conflit n'est bloquant : tout est autorisé mais **signalé** (bordure rou
 | Élève inscrit dans deux cours simultanés | « 2 élèves ont un autre cours sur ce créneau » |
 | Effectif du groupe supérieur au maximum | « 9 / 8 élèves » |
 | Âge d'un élève hors tranche du groupe | « 1 élève hors tranche d'âge » |
+| Élèves du groupe hors de leurs disponibilités (§3.5 ; un seul avertissement par cours, élèves sans plage jamais comptés ; cours du planning habituel et séances actives d'une semaine précise, modifiées et cours ponctuels compris, d'après leur jour de semaine ; séance annulée ignorée) | « 2 élèves hors disponibilités : Léa Martin, Tom Petit » (noms triés par nom puis prénom, partout où le message s'affiche : fiche du cours au survol, panneau « Avertissements », panneau du cours, infobulle du glisser, description accessible du cours) |
 | Groupe hors tranche coché dans la fiche élève (ou date qui met hors tranche un groupe coché) | « Léa aura 11 ans, Galaxie vert est pour les 6–8 ans » |
 | Élève déjà inscrit dans la saison (même nom + prénom sans casse ni accents ; dates comparées si les deux sont connues) | « Un élève Martin Léa (né(e) le 03/05/2015, Galaxie vert) existe déjà » + « Ouvrir sa fiche » |
 | Élève inscrit seulement dans une saison passée (information) | « Léa Martin était inscrit(e) en 2025-2026. » + « Reprendre ses coordonnées » |
@@ -256,7 +258,7 @@ Les onglets Saison, Courts, Moniteurs, Groupes et Élèves portent la pastille d
 
 ### 8.1 Saisons
 
-- Création d'une saison vierge ou **par duplication** de la précédente : copie des courts, moniteurs (avec disponibilités récurrentes), groupes, élèves et semaine type ; **les exceptions, indisponibilités datées et fermetures ne sont pas copiées**.
+- Création d'une saison vierge ou **par duplication** de la précédente : copie des courts, moniteurs (avec disponibilités récurrentes), groupes, élèves (avec leurs disponibilités) et semaine type ; **les exceptions, indisponibilités datées et fermetures ne sont pas copiées**.
 - Les saisons passées restent consultables en **lecture seule**.
 
 ## 9. Import / export
@@ -323,7 +325,7 @@ Les onglets Saison, Courts, Moniteurs, Groupes et Élèves portent la pastille d
 
 ### 11.6 Données personnelles (RGPD)
 - Données d'élèves (dont mineurs) stockées uniquement en local sur le poste du responsable.
-- Fonctions de suppression définitive d'un élève et d'export de ses données.
+- Fonctions de suppression définitive d'un élève et d'export de ses données. L'export contient, pour chaque saison, ses plages de disponibilité (« disponibilités » : jour, début, fin) ; la suppression définitive les efface avec lui. Les sauvegardes, copies de la base entière, les contiennent aussi.
 - Recommandation : chiffrement du disque du poste (FileVault / BitLocker / LUKS) ; option de chiffrement des fichiers de sauvegarde exportés par mot de passe.
 
 ## 12. Choix technique

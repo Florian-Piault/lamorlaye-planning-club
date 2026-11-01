@@ -116,12 +116,14 @@ describe("export des données", () => {
       season: season("2027-2028", "2027-09-01", "active"),
       levelLabel: "Galaxie vert",
       groups: [{ name: "Galaxie vert 1", levelLabel: "Galaxie vert" }],
+      availabilities: [{ weekday: 3, startTime: "14:00", endTime: "18:00" }],
     },
     {
       student: student({ id: "a" }),
       season: season("2026-2027", "2026-09-01", "archived"),
       levelLabel: null,
       groups: [],
+      availabilities: [],
     },
   ];
 
@@ -144,6 +146,10 @@ describe("export des données", () => {
     });
     expect(document.saisons[1]?.groupes).toEqual([
       { nom: "Galaxie vert 1", niveau: "Galaxie vert" },
+    ]);
+    expect(document.saisons[0]?.disponibilités).toEqual([]);
+    expect(document.saisons[1]?.disponibilités).toEqual([
+      { jour: "Mercredi", début: "14:00", fin: "18:00" },
     ]);
   });
 

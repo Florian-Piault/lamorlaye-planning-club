@@ -1,9 +1,15 @@
 /**
- * Plages hebdomadaires récurrentes de disponibilité des moniteurs (docs/SPECS.md §3.3).
+ * Plages hebdomadaires récurrentes de disponibilité des moniteurs et des
+ * élèves (docs/SPECS.md §3.3, §3.5).
  *
  * Les plages sont manipulées comme des intervalles semi-ouverts
  * `[début, fin[` en minutes depuis minuit. Après chaque modification, les
  * plages d'un même jour sont fusionnées (chevauchantes ou contiguës).
+ *
+ * Une seule règle de couverture pour tous : un créneau est couvert s'il tient
+ * entièrement dans une plage du même jour (`isAvailableDuring`). Seul le cas
+ * « aucune plage » diffère : un moniteur est alors indisponible partout, un
+ * élève disponible partout (`isStudentAvailableDuring`).
  */
 import { minutesToTime, timeToMinutes, weekdayLabel } from "./time";
 
@@ -169,6 +175,52 @@ export function overlapsAvailability(
   end: number,
 ): boolean {
   return intervalsOfDay(slots, weekday).some((i) => i.start < end && start < i.end);
+}
+
+// ---------------------------------------------------------------------------
+// Disponibilités des élèves (§3.5, §7)
+// ---------------------------------------------------------------------------
+
+/**
+ * L'élève est-il disponible sur `[start, end[` ? Même règle que pour les
+ * moniteurs, sauf qu'un élève sans aucune plage est disponible partout.
+ */
+export function isStudentAvailableDuring(
+  slots: readonly WeeklySlot[],
+  weekday: number,
+  start: number,
+  end: number,
+): boolean {
+  return slots.length === 0 || isAvailableDuring(slots, weekday, start, end);
+}
+
+/** Créneau hebdomadaire d'un cours : jour et minutes `[start, end[`. */
+export interface WeeklyRange {
+  weekday: number;
+  start: number;
+  end: number;
+}
+
+/**
+ * Cours d'un groupe qui ne tiennent pas dans les plages de l'élève : vide si
+ * l'élève est compatible avec le groupe. Un groupe sans cours, ou un élève
+ * sans plage, ne donne jamais de cours fautif.
+ */
+export function incompatibleLessons<T extends WeeklyRange>(
+  slots: readonly WeeklySlot[],
+  lessons: readonly T[],
+): T[] {
+  return lessons.filter((l) => !isStudentAvailableDuring(slots, l.weekday, l.start, l.end));
+}
+
+/** Élèves indisponibles sur un créneau (leur nombre sert à l'avertissement et à l'ombrage). */
+export function unavailableStudents<T extends { availabilities: readonly WeeklySlot[] }>(
+  students: readonly T[],
+  range: WeeklyRange,
+): T[] {
+  return students.filter(
+    (s) => !isStudentAvailableDuring(s.availabilities, range.weekday, range.start, range.end),
+  );
 }
 
 // ---------------------------------------------------------------------------

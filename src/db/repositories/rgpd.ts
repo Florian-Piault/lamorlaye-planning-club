@@ -1,7 +1,15 @@
 import { asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { groupPeople, type Person, type StudentRecord, samePerson } from "@/domain/rgpd";
 import type { Db } from "../client";
-import { groupStudents, groups, levels, seasons, studentErasures, students } from "../schema";
+import {
+  groupStudents,
+  groups,
+  levels,
+  seasons,
+  studentAvailabilities,
+  studentErasures,
+  students,
+} from "../schema";
 
 /**
  * Données personnelles des élèves (RGPD, §11.6) : recherche de toutes les
@@ -48,18 +56,21 @@ export async function findStudentRecords(db: Db, studentId: string): Promise<Stu
     candidates.map((c) => ({ ...c.student, row: c })),
   ).map((m) => m.row);
   if (matches.length === 0) return [];
-  const memberships = await db
-    .select({ studentId: groupStudents.studentId, name: groups.name, levelLabel: levels.label })
-    .from(groupStudents)
-    .innerJoin(groups, eq(groups.id, groupStudents.groupId))
-    .leftJoin(levels, eq(levels.id, groups.levelId))
-    .where(
-      inArray(
-        groupStudents.studentId,
-        matches.map((m) => m.student.id),
-      ),
-    )
-    .orderBy(asc(groups.name));
+  const ids = matches.map((m) => m.student.id);
+  const [memberships, slots] = await Promise.all([
+    db
+      .select({ studentId: groupStudents.studentId, name: groups.name, levelLabel: levels.label })
+      .from(groupStudents)
+      .innerJoin(groups, eq(groups.id, groupStudents.groupId))
+      .leftJoin(levels, eq(levels.id, groups.levelId))
+      .where(inArray(groupStudents.studentId, ids))
+      .orderBy(asc(groups.name)),
+    db
+      .select()
+      .from(studentAvailabilities)
+      .where(inArray(studentAvailabilities.studentId, ids))
+      .orderBy(asc(studentAvailabilities.weekday), asc(studentAvailabilities.startTime)),
+  ]);
   return matches.map(({ student: row, season, levelLabel }) => ({
     student: row,
     season: {
@@ -73,12 +84,16 @@ export async function findStudentRecords(db: Db, studentId: string): Promise<Stu
     groups: memberships
       .filter((m) => m.studentId === row.id)
       .map((m) => ({ name: m.name, levelLabel: m.levelLabel ?? null })),
+    availabilities: slots
+      .filter((s) => s.studentId === row.id)
+      .map(({ weekday, startTime, endTime }) => ({ weekday, startTime, endTime })),
   }));
 }
 
 /**
  * Effacement définitif de fiches d'élèves (droit à l'effacement) : retrait de
- * tous leurs groupes puis suppression, en une seule transaction.
+ * tous leurs groupes puis suppression, en une seule transaction. Leurs plages
+ * de disponibilité partent avec eux (suppression en cascade).
  *
  * C'est la seule écriture autorisée sur une saison archivée : les élèves sont
  * d'abord inscrits dans `student_erasures`, que les déclencheurs de lecture

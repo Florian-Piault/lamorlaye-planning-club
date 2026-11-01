@@ -20,7 +20,13 @@ import { addGroupMember, listGroups, listMemberships, removeGroupMember } from "
 import { listInstructors, replaceAvailabilities, updateInstructor } from "./instructors";
 import { loadPlanningState, persistCommand } from "./planning";
 import { duplicateSeason, getActiveSeason, listSeasons, loadSeasonSnapshot } from "./seasons";
-import { deleteStudent, listStudents, updateStudent } from "./students";
+import {
+  deleteStudent,
+  getStudentAvailabilities,
+  listStudents,
+  replaceStudentAvailabilities,
+  updateStudent,
+} from "./students";
 
 let app: AppDatabase;
 let db: Db;
@@ -128,6 +134,31 @@ describe("nouvelle saison par duplication", () => {
     expect(memberships).toHaveLength(3);
   });
 
+  it("recopie les plages de disponibilité de chaque élève sur sa copie", async () => {
+    const { season } = await duplicateSeason(db, origin.id, nextInput);
+    const byName = async (seasonId: string) =>
+      new Map((await listStudents(db, seasonId)).map((s) => [s.firstName, s]));
+    const [source, copy] = [await byName(origin.id), await byName(season.id)];
+    const slotsOf = async (id: string | undefined) =>
+      (await getStudentAvailabilities(db, id ?? "")).map((a) => ({
+        id: a.id,
+        studentId: a.studentId,
+        slot: [a.weekday, a.startTime, a.endTime],
+      }));
+    const original = await slotsOf(source.get("Léa")?.id);
+    const copied = await slotsOf(copy.get("Léa")?.id);
+    expect(copied.map((a) => a.slot)).toEqual([
+      [3, "14:00", "18:00"],
+      [6, "09:00", "12:00"],
+    ]);
+    expect(copied.map((a) => a.slot)).toEqual(original.map((a) => a.slot));
+    expect(copied.every((a) => a.studentId === copy.get("Léa")?.id)).toBe(true);
+    expect(copied.map((a) => a.id)).not.toContain(original[0]?.id);
+    // Un élève sans plage reste sans plage (disponible partout).
+    expect(copy.get("Tom")?.hasAvailabilities).toBe(false);
+    expect(copy.get("Léa")?.hasAvailabilities).toBe(true);
+  });
+
   it("ne reprend que les versions de cours en vigueur en fin de saison, sur toute la nouvelle saison", async () => {
     const { season } = await duplicateSeason(db, origin.id, nextInput);
     const { lessons: copied, exceptions, closures } = await loadPlanningState(db, season.id);
@@ -188,6 +219,7 @@ describe("nouvelle saison par duplication", () => {
       active: false,
     });
     await replaceAvailabilities(db, instructor.id, []);
+    await replaceStudentAvailabilities(db, lea.id, []);
     await removeGroupMember(db, group.id, lea.id);
     await addGroupMember(db, group.id, lea.id);
     await updateStudent(

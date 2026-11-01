@@ -7,7 +7,7 @@ import {
   replaceAvailabilities,
 } from "@/db/repositories/instructors";
 import { createSeason } from "@/db/repositories/seasons";
-import { createStudent } from "@/db/repositories/students";
+import { createStudent, replaceStudentAvailabilities } from "@/db/repositories/students";
 import { closures, lessonExceptions, lessons } from "@/db/schema";
 
 /** Crée la saison 2026-2027 (active). */
@@ -24,7 +24,8 @@ export async function seedSeason(db: Db, name = "2026-2027") {
 
 /**
  * Saison 2026-2027 complète : 2 courts, 2 moniteurs (plages et une
- * indisponibilité), 2 groupes, 3 élèves (dont un dans les deux groupes), et
+ * indisponibilité), 2 groupes, 3 élèves (dont un dans les deux groupes ; Léa
+ * a des plages de disponibilité, les autres aucune), et
  * une semaine type avec :
  * - `current` : cours en vigueur toute la saison ;
  * - `closed` / `next` : un cours modifié « à partir du 04/01/2027 » (deux versions) ;
@@ -83,6 +84,10 @@ export async function seedFullSeason(db: Db, seasonId: string) {
   const lea = await createStudent(db, seasonId, student("Léa", "2017-05-04"), [galaxie, ados]);
   const tom = await createStudent(db, seasonId, student("Tom", "2016-01-12"), [galaxie]);
   const zoe = await createStudent(db, seasonId, student("Zoé", null), []);
+  await replaceStudentAvailabilities(db, lea, [
+    { weekday: 3, startTime: "14:00", endTime: "18:00" },
+    { weekday: 6, startTime: "09:00", endTime: "12:00" },
+  ]);
 
   const lesson = (
     id: string,

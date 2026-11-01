@@ -82,9 +82,9 @@ Un élève sans aucune plage est considéré comme disponible partout. La saisie
 ## Implementation Decisions
 
 - **Vocabulaire.** Le terme métier est « Élève », pas « adhérent ». On reprend la notion de « Plage (de disponibilité) » du glossaire et on l'étend aux élèves. Les libellés affichés s'alignent sur ceux des moniteurs (« Disponible chaque semaine », « Horaire de disponibilité »). Le badge et l'avertissement disent « hors disponibilités ». Il faut mettre à jour le glossaire et les §3.5, §4.4, §7, §8 et §11.6 de `docs/SPECS.md`.
-- **Schéma.** Une nouvelle table de plages hebdomadaires d'élève, calquée sur celle des moniteurs : élève, jour de semaine (1 à 7), heure de début, heure de fin. Elle dépend de l'élève avec suppression en cascade et s'ajoute par une migration qui ne recrée aucune table existante. Pas d'indisponibilités datées pour les élèves.
+- **Schéma.** Une nouvelle table de plages hebdomadaires d'élève, calquée sur celle des moniteurs : élève, jour de semaine (1 à 7), heure de début, heure de fin. Elle dépend de l'élève avec suppression en cascade et s'ajoute par une migration qui ne recrée aucune table existante. Pas d'indisponibilités datées pour les élèves. Comme les autres tables d'une saison, elle est en lecture seule dans une saison terminée (déclencheurs de la migration), sauf pour l'effacement RGPD (L17).
 - **Règle de disponibilité.** Elle est partagée avec les moniteurs. Les plages sont des intervalles semi-ouverts `[début, fin[` en minutes, fusionnés par jour. Un créneau est couvert s'il tient entièrement dans une plage du même jour. Un élève sans aucune plage est disponible partout. C'est la seule différence avec les moniteurs, qui eux sont indisponibles partout quand ils n'ont pas de plage.
-- **Contrôle de conflit.** On ajoute un 7e contrôle aux conflits du §7, « élèves hors disponibilités ». Il porte sur les créneaux du planning (cours du planning habituel ou séances actives d'une semaine précise) et produit **un seul conflit par créneau**. Ce conflit indique le nombre d'élèves concernés et leur liste. Le message type est « N élève(s) hors disponibilités ». Le contrôle n'est jamais bloquant.
+- **Contrôle de conflit.** On ajoute un 7e contrôle aux conflits du §7, « élèves hors disponibilités ». Il porte sur les créneaux du planning (cours du planning habituel ou séances actives d'une semaine précise) et produit **un seul conflit par créneau**. Ce conflit indique le nombre d'élèves concernés et leur liste. Le message type est « N élève(s) hors disponibilités ». Partout où il s'affiche (fiche au survol, panneau « Avertissements », panneau du cours, infobulle du glisser, description accessible du cours), il est suivi des noms : « 2 élèves hors disponibilités : Léa Martin, Tom Petit », triés par nom puis prénom (amendé en L17 : un seul endroit pour les noms, plutôt qu'un détail propre à la fiche). Le contrôle n'est jamais bloquant.
 - **Compatibilité d'un élève avec un groupe.** Un élève est compatible si chaque cours du groupe dans le planning habituel, à la date de référence de celui-ci, tient dans ses plages. Un groupe sans cours rend tout le monde compatible. L'incompatibilité indique le ou les cours qui coincent.
 - **Composition.** Les candidats compatibles passent en tête, dans l'ordre actuel à l'intérieur de chaque catégorie. Les incompatibles portent un badge avec le cours fautif. Un membre incompatible est signalé dans « Élèves du groupe », à côté des alertes d'âge et d'effectif existantes. L'ajout reste toujours possible.
 - **Ombrage de la grille.** Pendant un glisser (déplacement ou création), on calcule pour le groupe du cours le nombre d'élèves indisponibles sur chaque créneau visible. On l'affiche comme un ombrage gradué, visuellement distinct des hachures du moniteur (§4.4). Les deux aides peuvent s'afficher ensemble. Le calcul ne doit pas dégrader la fluidité du glisser exigée au §11.5.
@@ -106,7 +106,7 @@ Un élève sans aucune plage est considéré comme disponible partout. La saisie
   - avertissement agrégé sur un cours, dans la fiche au survol et dans le panneau « Avertissements » ;
   - avertissement sur une séance modifiée ou un cours ponctuel en semaine précise ;
   - ombrage pendant le glisser ;
-  - reprise des plages à la duplication de saison.
+  - reprise des plages à la duplication de saison (prouvée en L17 par les tests du dépôt `seasonDuplication`, sur une vraie base SQLite ; aucun écran ne montre les plages avant L18).
   
   Modèles existants : `e2e/referentiels.spec.ts`, `e2e/grille.spec.ts`, `e2e/planning.spec.ts`, `e2e/saisons.spec.ts`, `e2e/saisie-volume.spec.ts`.
 - **Tests unitaires existants des conflits.** On ajoute à ceux de `conflicts` les cas du 7e contrôle :
@@ -115,7 +115,7 @@ Un élève sans aucune plage est considéré comme disponible partout. La saisie
   - agrégation par créneau ;
   - séance annulée ignorée.
 - **Tests unitaires existants de duplication et de RGPD.** Ceux de `seasonDuplication` et de `rgpd` s'étendent pour vérifier la reprise des plages et leur présence dans l'export.
-- **Aucun nouveau module de test dédié.** La compatibilité d'un élève avec un groupe et le calcul de l'ombrage sont couverts par les e2e de la composition et de la grille.
+- **Aucun nouveau module de test dédié.** La compatibilité d'un élève avec un groupe (`incompatibleLessons`) est une fonction pure : ses cas (cours fautifs, groupe sans cours, élève sans plage) s'ajoutent au test existant de `availability`, comme le veut `docs/CODING_STANDARDS.md` (amendé en L17). Le calcul de l'ombrage est couvert par les e2e de la grille.
 - Performance : on vérifie l'ombrage sur le jeu `seedVolume` si le scénario de charge existant (`e2e/charge.perf.spec.ts`) s'y prête.
 
 ## Out of Scope

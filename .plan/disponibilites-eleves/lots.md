@@ -9,7 +9,7 @@
 - **Points de test** (spec, « Testing Decisions ») :
   - Les **parcours Playwright** couvrent ce qui se voit. Les données se posent par `seedPlanning` (`src/test/e2e.ts`), étendu en L17 pour accepter des plages par élève. Les aides vont dans `e2e/support/`.
   - Les **tests unitaires existants** de `conflicts`, `seasonDuplication` et `rgpd` reçoivent les nouveaux cas.
-  - Pas de nouveau fichier de test unitaire dédié. La compatibilité d'un élève avec un groupe et le calcul de l'ombrage sont prouvés par les parcours de la composition et de la grille.
+  - Pas de nouveau fichier de test unitaire dédié. La compatibilité d'un élève avec un groupe est testée dans le test existant de `availability` (ajouté en L17) ; le calcul de l'ombrage est prouvé par les parcours de la grille.
 - **Règles avant écrans.** L17 pose le schéma, le dépôt, la règle « sans plage = disponible partout » et le 7e contrôle de conflit. Les lots d'écran ne touchent ensuite ni au schéma, ni au domaine, ni au store du planning. Cela les garde sur des fichiers disjoints.
 - **Isolation** : chaque copie de travail lance ses e2e sur son propre `E2E_PORT`. Les tests ne touchent jamais la base réelle du poste.
 - Chaque lot amende la section de `docs/SPECS.md` qu'il touche, ainsi que la traçabilité (`docs/TRACABILITE*.md`). Un lot qui s'écarte de la spec amende aussi `spec.md` dans le même commit.
@@ -169,7 +169,7 @@ Vagues possibles :
 
 ## Risques
 
-- **Pas de test unitaire de la compatibilité ni de l'ombrage** (choix de la spec) : L17, L20 et L21 en dépendent. `docs/CODING_STANDARDS.md` demande que la logique qui mérite un test soit une fonction pure testée en Vitest. Si les e2e de L20 ou L21 deviennent fragiles ou lents à diagnostiquer, il faut ajouter les cas aux tests de `conflicts` ou de `availability` existants et amender la spec.
+- **Pas de test unitaire de l'ombrage** (choix de la spec) : L21 en dépend. La compatibilité, elle, est testée en Vitest dans `availability` depuis L17. `docs/CODING_STANDARDS.md` demande que la logique qui mérite un test soit une fonction pure testée en Vitest. Si les e2e de L21 deviennent fragiles ou lents à diagnostiquer, il faut ajouter les cas aux tests de `conflicts` ou de `availability` existants et amender la spec.
 - **Performance de l'ombrage** (L21) : un groupe complet sur une semaine visible, avec 300 élèves en base, recalculé pendant le glisser. Le précalcul une fois par geste est la parade. Si le seuil n'est pas tenu, on se replie sur un ombrage par colonne de jour plutôt que par créneau.
 - **Frise partagée** (L18) : rendre la frise indépendante du type de personne peut régresser la saisie des moniteurs. Les parcours existants de `referentiels.spec.ts` font barrière ; L18 ne doit pas toucher à leurs attentes.
 - **Bruit d'avertissements à la mise en service** (L17) : la règle « sans plage = disponible » l'évite. Un test e2e vérifie qu'aucun nouvel avertissement n'apparaît sans saisie.

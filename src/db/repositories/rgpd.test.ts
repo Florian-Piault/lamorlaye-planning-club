@@ -5,7 +5,13 @@ import { openTestDatabase } from "@/test/database";
 import { seedFullSeason, seedSeason } from "@/test/fixtures";
 import type { AppDatabase, Db } from "..";
 import { isReadOnlyViolation } from "../readOnly";
-import { groupStudents, type Season, studentErasures, students } from "../schema";
+import {
+  groupStudents,
+  type Season,
+  studentAvailabilities,
+  studentErasures,
+  students,
+} from "../schema";
 import { listGroupMembers } from "./groups";
 import { eraseStudents, findStudentRecords, listPeople } from "./rgpd";
 import { duplicateSeason } from "./seasons";
@@ -109,7 +115,13 @@ describe("RGPD : export des données", () => {
         { nom: "Ados", niveau: null },
         { nom: "Galaxie vert", niveau: null },
       ],
+      disponibilités: [
+        { jour: "Mercredi", début: "14:00", fin: "18:00" },
+        { jour: "Samedi", début: "09:00", fin: "12:00" },
+      ],
     });
+    // Les plages de la saison d'origine (archivée) figurent aussi dans l'export.
+    expect(document.saisons[0]?.disponibilités).toHaveLength(2);
     const text = new TextDecoder().decode(studentExportBytes(records, "2027-10-01T08:00:00.000Z"));
     expect(JSON.parse(text)).toEqual(document);
     expect(text).toContain('\n  "personne": {');
@@ -120,6 +132,8 @@ describe("RGPD : suppression définitive", () => {
   it("efface l'élève de toutes les saisons, y compris de ses groupes", async () => {
     const lea = await copyOf("Léa");
     const ids = (await findStudentRecords(db, lea.id)).map((r) => r.student.id);
+    // Deux plages par fiche, dans la saison archivée et dans la saison en cours.
+    expect(await db.select().from(studentAvailabilities)).toHaveLength(4);
     expect(await eraseStudents(db, ids)).toBe(2);
 
     expect(await findStudentRecords(db, lea.id)).toEqual([]);
@@ -127,6 +141,8 @@ describe("RGPD : suppression définitive", () => {
     expect(remaining.map((s) => s.firstName).sort()).toEqual(["Tom", "Tom", "Zoé", "Zoé"]);
     const memberships = await db.select().from(groupStudents);
     expect(memberships.some((m) => ids.includes(m.studentId))).toBe(false);
+    // Ses plages, saison archivée comprise, sont emportées par la cascade.
+    expect(await db.select().from(studentAvailabilities)).toEqual([]);
     expect(memberships).toHaveLength(2);
     expect((await listGroupMembers(db, seeded.groups.galaxie)).map((s) => s.firstName)).toEqual([
       "Tom",
