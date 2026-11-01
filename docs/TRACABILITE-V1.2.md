@@ -1,15 +1,16 @@
 # Traçabilité disponibilités des élèves → lots → tests
 
-> Référence : [spec des disponibilités des élèves](../.plan/disponibilites-eleves/spec.md) (45 user stories), [`.plan/disponibilites-eleves/lots.md`](../.plan/disponibilites-eleves/lots.md) (lots L17 à L22). État aux lots L17 à L21. Les versions précédentes restent dans [`TRACABILITE.md`](TRACABILITE.md) (v1.0) et [`TRACABILITE-V1.1.md`](TRACABILITE-V1.1.md) (v1.1).
+> Référence : [spec des disponibilités des élèves](../.plan/disponibilites-eleves/spec.md) (45 user stories), [`.plan/disponibilites-eleves/lots.md`](../.plan/disponibilites-eleves/lots.md) (lots L17 à L22). État au lot L22 : tous les lots sont livrés. Les versions précédentes restent dans [`TRACABILITE.md`](TRACABILITE.md) (v1.0) et [`TRACABILITE-V1.1.md`](TRACABILITE-V1.1.md) (v1.1).
 >
-> Chaque user story est rattachée au lot qui l'implémente et aux tests qui le vérifient. Une story dont le lot n'est pas encore livré porte « à venir ».
+> Chaque user story est rattachée au lot qui l'implémente et aux tests qui le vérifient. Les noms de tests cités ont été relevés dans le code au lot L22.
 
 **Légende** (comme pour la v1.1)
 
 - `E:` Playwright (`e2e/*.spec.ts`), sous Chromium et WebKit — `pnpm test:e2e`. Nom du test entre guillemets, `›` sépare le `describe` du test.
 - `V:` Vitest (`src/**/*.test.ts`) — `pnpm test`.
 - `P:` mesure de temps (`e2e/*.perf.spec.ts`), seuils `perfLimit` — `pnpm test:perf`, hors `pnpm check`.
-- `M:` recette manuelle (`docs/RECETTE.md`).
+- `R:` Rust (`src-tauri/src/*.rs`, modules `tests`) — `cargo test`, hors `pnpm check`.
+- `M:` recette manuelle (`docs/RECETTE.md`, numéro de ligne).
 
 ## User stories
 
@@ -74,7 +75,7 @@
 | # | Story (résumé) | Tests |
 |---|---|---|
 | 36 | Pendant le déplacement d'un cours, créneaux ombrés où des élèves du groupe sont indisponibles | E: `ombrage-eleves.spec.ts` « ombrage des élèves pendant le glisser › le déplacement d'un cours ombre les jours où ses élèves sont indisponibles, plus fort à trois qu'à une » (cours d'une heure : le jeudi, Léa seule gênée jusqu'à 11:00, les trois après ; mercredi non ombré ; bande sur toute la largeur du jour ; pastille « Zones ombrées : élèves de Galaxie vert ») ; « … › le déplacement au clavier ombre aussi, jusqu'à la fin du geste » ; « … › sans plage pour aucun élève du groupe, le glisser n'ombre rien » ; « … › sans bande visible, pas de pastille, même si des élèves ont des plages » ; « … › les jours fermés ne sont pas ombrés » ; V: `src/features/planning/grid/view.test.ts` « ombrage des élèves pendant le glisser (§4.4) › au déplacement, compte les élèves gênés par un cours de cette durée à chaque heure de début » (Tom 11:00–22:00 et Léa 08:00–12:00 : un cours de 2 h à 10:30 les gêne tous deux), « … › au déplacement, ombre un créneau libre plus court que le cours », « … › n'ombre rien quand aucun élève n'a de plage » ; même règle que le 7e contrôle (`unavailableStudents`) |
-| 37 | Plus foncé quand plus d'élèves sont indisponibles | E: test « le déplacement d'un cours ombre… » de la story 36 (jeudi : 1 élève jusqu'à 11:00, 3 après ; palier et opacité affichée plus forts) ; P: `charge.perf.spec.ts` « volumétrie cible avec les plages des élèves › garde un glisser-déposer fluide avec l'ombrage des élèves » (plusieurs paliers sur le jeu de charge) ; V: `view.test.ts` « ombrage des élèves… › assombrit par paliers » |
+| 37 | Plus foncé quand plus d'élèves sont indisponibles | E: test « le déplacement d'un cours ombre… » de la story 36 (jeudi : 1 élève jusqu'à 11:00, 3 après ; palier et opacité affichée plus forts) ; P: `charge.perf.spec.ts` « volumétrie cible avec les plages des élèves (§4.4, lot L21) › garde un glisser-déposer fluide avec l'ombrage des élèves » (plusieurs paliers sur le jeu de charge) ; V: `view.test.ts` « ombrage des élèves… › assombrit par paliers » |
 | 38 | Même ombrage à la création d'un cours pour un groupe déjà choisi | E: `ombrage-eleves.spec.ts` « … › la création d'un cours pour le groupe choisi dans le filtre est ombrée, pas sans groupe choisi » (sans filtre : rien, pas d'avertissement d'élèves ; filtre « Galaxie vert » : jeudi ombré, infobulle « Nouveau cours : Galaxie vert » avec « 3 élèves hors disponibilités », panneau ouvert avec ce groupe) ; V: `view.test.ts` « … › à la création, compte les élèves indisponibles par morceau de journée, sans ombrer le mercredi », « … › fusionne les morceaux voisins de même nombre et borne à l'amplitude » ; `src/features/planning/interaction.test.ts` « état des interactions › ombre le groupe du cours déplacé (sur sa durée) ou du cours créé, pas celui d'un redimensionnement (§4.4) » |
 | 39 | Distinct des hachures du moniteur, les deux ensemble | E: `ombrage-eleves.spec.ts` « … › l'ombrage n'est pas une hachure et s'affiche avec celles du moniteur » (hachures rayées de Karim et aplats sans motif des élèves pendant le même geste, jeudi à la fois hachuré et ombré, deux pastilles « Zones rayées » et « Zones ombrées ») |
 | 40 | L'ombrage disparaît à la fin du geste | E: test « le déplacement d'un cours ombre… » (relâché : cours déplacé, plus aucune bande ni pastille) ; test « le déplacement au clavier… » (Échap : ni bande ni pastille) ; test de la story 39 (Échap : ni bande ni hachure) ; test de la story 38 (relâché : panneau ouvert, plus d'ombrage) |
@@ -87,11 +88,15 @@
 | 42 | Plages recopiées à la duplication d'une saison | V: `src/db/repositories/seasonDuplication.test.ts` « nouvelle saison par duplication › recopie les plages de disponibilité de chaque élève sur sa copie », « … › la nouvelle saison est modifiable sans aucun effet sur l'origine » (plages de la copie effacées, celles de l'origine intactes) ; `src/domain/seasonDuplication.test.ts` « planSeasonDuplication › réécrit les références et ignore celles hors de la saison d'origine » |
 | 43 | L'export RGPD contient les disponibilités | V: `src/db/repositories/rgpd.test.ts` « RGPD : export des données › exporte toutes les fiches d'un élève en JSON lisible » (saison en cours et saison archivée) ; `src/domain/rgpd.test.ts` « export des données › présente la personne et ses fiches par saison… » |
 | 44 | La suppression définitive efface les disponibilités | V: `rgpd.test.ts` (dépôt) « RGPD : suppression définitive › efface l'élève de toutes les saisons, y compris de ses groupes » (4 plages, puis aucune) ; `migrations.test.ts` « migration 0006 : … › emporte les plages avec l'élève et protège celles d'une saison archivée » (cascade, effacement RGPD permis en saison archivée) |
-| 45 | Sauvegardes et restaurations incluent les disponibilités | Par construction : la sauvegarde copie le fichier SQLite entier, où vit la table `student_availabilities` (V: `src/db/db.test.ts`, liste des tables). Recette en L22. |
+| 45 | Sauvegardes et restaurations incluent les disponibilités | La sauvegarde copie le fichier SQLite entier, où vit la table `student_availabilities` (V: `src/db/db.test.ts` « base de données › crée toutes les tables du modèle avec UUID et horodatages »). R: `backup.rs` `sauvegarde_et_restaure_les_plages_des_eleves` (base au vrai schéma, migrations de `src/db/migrations` : plages d'élève retrouvées dans la sauvegarde automatique, dans l'export en clair et, après effacement, dans la base restaurée depuis l'export chiffré) *(L22)* ; M: 10.4–10.6 (dialogues natifs, rechargement après restauration) |
 
 ## Données et migration (L17)
 
 - Migration `0006_student_availabilities` : V: `migrations.test.ts` « migration 0006 : disponibilités des élèves › ajoute la table sans toucher aux élèves ni aux groupes » (aucune ligne perdue, clé étrangère `ON DELETE CASCADE`), « … › refuse un jour hors de 1 à 7 et une plage dont le début n'est pas avant la fin » (contrôles `student_availabilities_weekday_check` et `student_availabilities_times_check`) ; les suites « migration 0005 : … » et « sauvegarde avant mise à jour » attendent désormais 0005 puis 0006 depuis une base v1.0.
+
+## Libellés (L22)
+
+- Revue de cohérence avec le glossaire (`docs/SPECS.md` §2, « Plage (de disponibilité) ») : E: `vocabulaire.spec.ts` « vocabulaire › aucun terme retiré n'apparaît sur les écrans principaux » parcourt aussi la liste des élèves filtrée sur « Disponibilités non renseignées » et la fenêtre « Saisie des disponibilités en série » *(L22)* ; la fiche élève de création (section « Disponible chaque semaine », sans horaire) y était déjà vue. Sur ces écrans, aucun terme retiré (dont « plage » et « hachure ») n'apparaît.
 
 ## Couvertures partielles
 
@@ -100,5 +105,6 @@
   - l'annonce au lecteur d'écran du nom et de la progression de chaque élève, premier compris (région `role="status"` montée vide puis remplie) ;
   - le bouton de lancement grisé pendant la lecture des plages (lecture trop brève pour être saisie par un parcours) ;
   - l'annonce de l'erreur d'écriture : elle passe par la zone de messages commune, dont seul l'affichage est vérifié.
-- **Story 45** : pas de test de sauvegarde et restauration propre aux plages ; recette prévue en L22.
+- **Libellés (L22)** : le test de vocabulaire ne parcourt ni la grille pendant un glisser (pastille « Zones ombrées »), ni la composition d'un groupe (badge et bulle « Hors disponibilités : … »), ni les avertissements « N élèves hors disponibilités » de la grille, ni une fiche élève avec des horaires. Ces libellés n'ont été vérifiés que par recherche dans `src`, sans « plage » ni « hachure » à l'écran.
+- **Story 45** : le test Rust prouve la copie, le chiffrement et la restauration du fichier, pas le parcours de l'écran (dialogues natifs, rechargement de l'interface) ; ce parcours est la recette 10.4 à 10.6. Le test Rust tourne hors `pnpm check`.
 - **Story 41** : « une fois par geste » est garanti par conception, sans preuve. Le calque d'ombrage et la pastille ne s'abonnent qu'au groupe et à la durée du geste, qui ne changent qu'au début et à la fin du geste, et lisent un même calcul gardé pour ce geste. Aucun test ne compte les calculs : le test de `interaction.test.ts` ne simule aucun mouvement et le test de charge ne compte que les bandes. La mesure de charge ne distingue pas le coût de l'ombrage de celui du début du glisser, du même ordre sans ombrage. Elle tourne hors `pnpm check`.

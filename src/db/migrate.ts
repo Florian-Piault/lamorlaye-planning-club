@@ -13,7 +13,14 @@ export interface Migration {
   sql: string;
 }
 
-const migrationFiles = import.meta.glob<string>("./migrations/*.sql", {
+// Pas de paramètre de type (le type se déduit de `?raw`). La clé du cache
+// disque de Vitest (`node_modules/.vitest-cache`) tient compte du texte du
+// fichier et de la configuration, mais pas des fichiers visés par le glob. Vitest
+// n'écarte donc de ce cache qu'un module dont le texte contient « glob » suivi
+// directement de la parenthèse. Avec un paramètre de type entre les deux, une
+// migration ajoutée restait invisible des tests tant que le cache n'était pas
+// vidé. Garde-fou : « migrations embarquées » dans `migrations.test.ts`.
+const migrationFiles = import.meta.glob("./migrations/*.sql", {
   query: "?raw",
   import: "default",
   eager: true,

@@ -1,12 +1,26 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
 import { App } from "./App";
 import { openTestDatabase } from "./test/database";
 
 describe("coque de l'application", () => {
+  // Les écrans sont chargés à la demande (`React.lazy`). Sous Vitest, le premier
+  // chargement d'un écran transforme tout son graphe de modules : dans la suite
+  // complète, celui du planning dépassait parfois le délai d'une seconde des
+  // `findBy…`. On attend ici ce chargement réel, sous le délai des crochets ;
+  // les tests passent toujours par `lazy` et `Suspense`, qui lisent alors le
+  // module déjà chargé.
+  beforeAll(async () => {
+    await Promise.all([
+      import("@/features/planning/PlanningPage"),
+      import("@/features/reglages/ReglagesPage"),
+      import("@/features/about/AboutPage"),
+    ]);
+  });
+
   it("affiche la navigation et ouvre l'écran Réglages", async () => {
     render(<App openDatabase={openTestDatabase} />);
 

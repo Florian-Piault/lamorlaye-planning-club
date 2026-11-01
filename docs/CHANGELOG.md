@@ -4,6 +4,28 @@ Toutes les évolutions notables de Kairos sont consignées ici. Le format suit [
 
 ## [Non publié]
 
+Disponibilités des élèves (spec `.plan/disponibilites-eleves/spec.md`, lots L17 à L22 de `.plan/disponibilites-eleves/lots.md`, traçabilité `docs/TRACABILITE-V1.2.md`). Nouvelle table des plages d'élève (migration automatique `0006`, précédée d'une sauvegarde « Avant mise à jour ») ; aucune table existante n'est modifiée.
+
+### Ajouté
+
+- **Horaires de disponibilité des élèves** (L18) : section « Disponible chaque semaine » dans la fiche élève, en création comme en modification, avec la même frise et le même formulaire « Jour / De / À » que pour les moniteurs. Les horaires s'enregistrent avec la fiche, sous la garde de saisie commune ; « Effacer tous les horaires », « Défaire la modification » et « Refaire la modification » valent tant que la fiche est ouverte. **Un élève sans horaire est considéré disponible partout** (« Aucun horaire : considéré disponible partout. »), à l'inverse d'un moniteur : rien ne change sur le planning tant que rien n'est saisi.
+- **Liste des élèves** (L19) : colonne « Disponibilités » (« Renseignées » / « Non renseignées »), case « Disponibilités non renseignées » et filtre « Groupe », combinables à la recherche.
+- **Saisie des disponibilités en série** (L19) : depuis la liste filtrée, un élève à la fois avec son nom, ses groupes et « Élève n / N » ; « Enregistrer et suivant » (⌘ ↩ / Ctrl+Entrée), « Passer », « Terminer » ; toast de bilan à la fin ou à l'arrêt ; tout au clavier.
+- **Avertissement « N élèves hors disponibilités »** (L17), 7e contrôle du planning : un seul par cours, suivi des noms (« 2 élèves hors disponibilités : Léa Martin, Tom Petit ») dans la fiche au survol, le panneau « Avertissements », le panneau du cours et l'infobulle du glisser ; planning habituel et semaines précises (séances modifiées et cours ponctuels compris, séances annulées ignorées). Jamais bloquant.
+- **Composition des groupes** (L20) : parmi les élèves à ajouter, ceux qui sont disponibles pour tous les cours du groupe passent en tête ; les autres portent le badge « hors disponibilités », avec en bulle le cours qui coince (« Hors disponibilités : mercredi 14:00–15:00 »). L'ajout reste possible ; les membres concernés sont signalés dans « Élèves du groupe ».
+- **Ombrage pendant le glisser** (L21) : en déplaçant un cours, ou en sélectionnant un créneau quand un groupe est choisi dans le filtre « Groupe », les moments où des élèves du groupe ne sont pas disponibles sont ombrés en aplat ambré, plus foncé selon leur nombre (1, 2, 3–4, 5 et plus), avec la pastille « Zones ombrées : élèves de … ». Distinct des zones rayées du moniteur, avec lesquelles il peut s'afficher ; il disparaît à la fin du geste.
+- Duplication de saison, export RGPD (« disponibilités » de chaque saison), suppression définitive et sauvegardes couvrent les horaires des élèves (L17).
+
+### Modifié
+
+- La frise des disponibilités devient un composant commun aux moniteurs et aux élèves ; la saisie côté moniteur ne change pas (L18).
+- Filtre « Groupe » de la grille : la sélection d'un créneau pré-remplit ce groupe dans « Nouveau cours » et montre ses avertissements dans l'infobulle (L21).
+
+### Limites connues
+
+- Pas d'indisponibilités datées pour les élèves (vacances, stage), ni d'horaires dans l'import et les exports Excel ou CSV.
+- Défaire / refaire des horaires d'un élève ne vaut que tant que sa fiche est ouverte : rien ne s'annule après « Enregistrer ».
+
 ## [1.1.0] - 2026-10-17
 
 Corrections UX issues du test d'utilisabilité à deux personas (spec `.plan/ux-v1-1/spec.md`, lots L9 à L16 de `.plan/ux-v1-1/lots.md`). Le modèle métier ne change pas, à une exception près : le téléphone de l'élève devient facultatif (migration automatique, précédée d'une sauvegarde « Avant mise à jour »).

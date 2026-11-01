@@ -854,6 +854,128 @@ mod tests {
         });
     }
 
+    /// Base au vrai schéma de l'application (migrations de `src/db/migrations`,
+    /// dans l'ordre) : un élève d'une saison en cours avec deux plages de
+    /// disponibilité (§3.5).
+    async fn database_with_student_availabilities(path: &Path) {
+        let mut conn = SqliteConnectOptions::new()
+            .filename(path)
+            .create_if_missing(true)
+            .connect()
+            .await
+            .unwrap();
+        let migrations = Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/db/migrations");
+        let mut files: Vec<PathBuf> = fs::read_dir(&migrations)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|p| p.extension().is_some_and(|e| e == "sql"))
+            .collect();
+        files.sort();
+        assert!(
+            files
+                .iter()
+                .any(|p| p.ends_with("0006_student_availabilities.sql")),
+            "migration des plages d'élève trouvée"
+        );
+        sqlx::query(
+            "CREATE TABLE __migrations (tag TEXT PRIMARY KEY NOT NULL, applied_at TEXT NOT NULL)",
+        )
+        .execute(&mut conn)
+        .await
+        .unwrap();
+        for file in &files {
+            for statement in fs::read_to_string(file)
+                .unwrap()
+                .split("--> statement-breakpoint")
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                sqlx::raw_sql(statement).execute(&mut conn).await.unwrap();
+            }
+            let tag = file.file_stem().unwrap().to_str().unwrap();
+            sqlx::query("INSERT INTO __migrations VALUES (?, '2026-11-01T00:00:00Z')")
+                .bind(tag)
+                .execute(&mut conn)
+                .await
+                .unwrap();
+        }
+        for sql in [
+            "INSERT INTO seasons (id, name, start_date, end_date) VALUES ('s1', '2026-2027', '2026-09-01', '2027-06-30')",
+            "INSERT INTO students (id, season_id, last_name, first_name) VALUES ('e1', 's1', 'Martin', 'Léa')",
+            "INSERT INTO student_availabilities (id, student_id, weekday, start_time, end_time) VALUES
+               ('p1', 'e1', 3, '14:00', '18:00'), ('p2', 'e1', 6, '09:00', '12:00')",
+        ] {
+            sqlx::query(sql).execute(&mut conn).await.unwrap();
+        }
+        conn.close().await.unwrap();
+    }
+
+    async fn student_availabilities(path: &Path) -> Vec<String> {
+        let mut conn = connect(path, true).await.unwrap();
+        let rows = sqlx::query(
+            "SELECT st.first_name || ' ' || st.last_name || ' : ' || a.weekday || ' '
+                    || a.start_time || '–' || a.end_time
+             FROM student_availabilities a JOIN students st ON st.id = a.student_id
+             ORDER BY a.weekday",
+        )
+        .fetch_all(&mut conn)
+        .await
+        .unwrap();
+        conn.close().await.unwrap();
+        rows.iter().map(|r| r.get::<String, _>(0)).collect()
+    }
+
+    #[test]
+    fn sauvegarde_et_restaure_les_plages_des_eleves() {
+        tauri::async_runtime::block_on(async {
+            let dir = temp_dir("plages-eleves");
+            let database = dir.join("planning.db");
+            database_with_student_availabilities(&database).await;
+            let expected = vec!["Léa Martin : 3 14:00–18:00", "Léa Martin : 6 09:00–12:00"];
+            assert_eq!(student_availabilities(&database).await, expected);
+
+            // Sauvegarde automatique, export en clair et export chiffré.
+            let automatic = create_backup(
+                &database,
+                &dir.join("sauvegardes"),
+                BackupReason::Closing,
+                0,
+            )
+            .await
+            .unwrap();
+            validate_backup(&automatic).await.unwrap();
+            assert_eq!(student_availabilities(&automatic).await, expected);
+            let plain = dir.join("export.db");
+            export_backup(&database, &plain, None).await.unwrap();
+            let encrypted = dir.join("export.pcenc");
+            export_backup(&database, &encrypted, encryption("correct horse"))
+                .await
+                .unwrap();
+
+            // Restauration de l'export chiffré sur une base dont les plages ont été effacées.
+            {
+                let mut conn = connect(&database, false).await.unwrap();
+                sqlx::query("DELETE FROM student_availabilities")
+                    .execute(&mut conn)
+                    .await
+                    .unwrap();
+                conn.close().await.unwrap();
+            }
+            assert!(student_availabilities(&database).await.is_empty());
+            let staged = dir.join("planning.db.restauration");
+            stage_backup(&encrypted, &staged, Some("correct horse"))
+                .await
+                .unwrap();
+            replace_database_file(&database, &staged).unwrap();
+            assert_eq!(student_availabilities(&database).await, expected);
+
+            // L'export en clair se restaure de même.
+            stage_backup(&plain, &staged, None).await.unwrap();
+            assert_eq!(student_availabilities(&staged).await, expected);
+            let _ = fs::remove_dir_all(&dir);
+        });
+    }
+
     #[test]
     fn applique_la_rotation_dans_le_dossier() {
         let dir = temp_dir("prune");

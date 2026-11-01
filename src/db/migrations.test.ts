@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readdirSync } from "node:fs";
 import initSqlJs from "sql.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SqlDriver, SqlStatement } from "./driver";
@@ -90,6 +91,20 @@ async function v1Database(): Promise<SqlDriver> {
 }
 
 const dump = (d: SqlDriver, table: string) => d.query(`SELECT * FROM ${table} ORDER BY id`);
+
+describe("migrations embarquées", () => {
+  it("comprennent tous les fichiers de src/db/migrations, dans l'ordre", () => {
+    // Liste lue sur le disque à chaque exécution : si elle diffère, `migrate.ts`
+    // vient d'un cache de transformation périmé (voir le commentaire de
+    // `import.meta.glob` dans `migrate.ts`).
+    const files = readdirSync(new URL("./migrations", import.meta.url))
+      .filter((name) => name.endsWith(".sql"))
+      .map((name) => name.replace(/\.sql$/, ""))
+      .sort();
+    expect(files).toContain("0006_student_availabilities");
+    expect(bundledMigrations.map((m) => m.tag)).toEqual(files);
+  });
+});
 
 describe("migration 0005 : téléphone de l'élève facultatif", () => {
   it("migre une base v1.0 sans perte", async () => {
