@@ -9,7 +9,7 @@
 - **Points de test** (spec, « Testing Decisions ») :
   - Les **parcours Playwright** couvrent ce qui se voit. Les données se posent par `seedPlanning` (`src/test/e2e.ts`), étendu en L17 pour accepter des plages par élève. Les aides vont dans `e2e/support/`.
   - Les **tests unitaires existants** de `conflicts`, `seasonDuplication` et `rgpd` reçoivent les nouveaux cas.
-  - Pas de nouveau fichier de test unitaire dédié. La compatibilité d'un élève avec un groupe est testée dans le test existant de `availability` (ajouté en L17) ; le calcul de l'ombrage est prouvé par les parcours de la grille.
+  - Pas de nouveau fichier de test unitaire dédié. La compatibilité d'un élève avec un groupe est testée dans le test existant de `availability` (ajouté en L17). Seule exception, en L20 : `src/features/referentiels/groupes/composition.test.ts`, pour la présentation de la composition (version des cours en vigueur, tri avant la coupe, alerte) ; le calcul de l'ombrage est prouvé par les parcours de la grille.
 - **Règles avant écrans.** L17 pose le schéma, le dépôt, la règle « sans plage = disponible partout » et le 7e contrôle de conflit. Les lots d'écran ne touchent ensuite ni au schéma, ni au domaine, ni au store du planning. Cela les garde sur des fichiers disjoints.
 - **Isolation** : chaque copie de travail lance ses e2e sur son propre `E2E_PORT`. Les tests ne touchent jamais la base réelle du poste.
 - Chaque lot amende la section de `docs/SPECS.md` qu'il touche, ainsi que la traçabilité (`docs/TRACABILITE*.md`). Un lot qui s'écarte de la spec amende aussi `spec.md` dans le même commit.

@@ -115,7 +115,7 @@ Un élève sans aucune plage est considéré comme disponible partout. La saisie
   - agrégation par créneau ;
   - séance annulée ignorée.
 - **Tests unitaires existants de duplication et de RGPD.** Ceux de `seasonDuplication` et de `rgpd` s'étendent pour vérifier la reprise des plages et leur présence dans l'export.
-- **Aucun nouveau module de test dédié.** La compatibilité d'un élève avec un groupe (`incompatibleLessons`) est une fonction pure : ses cas (cours fautifs, groupe sans cours, élève sans plage) s'ajoutent au test existant de `availability`, comme le veut `docs/CODING_STANDARDS.md` (amendé en L17). Le calcul de l'ombrage est couvert par les e2e de la grille.
+- **Aucun nouveau module de test dédié.** La compatibilité d'un élève avec un groupe (`incompatibleLessons`) est une fonction pure : ses cas (cours fautifs, groupe sans cours, élève sans plage) s'ajoutent au test existant de `availability`, comme le veut `docs/CODING_STANDARDS.md` (amendé en L17). Exception (amendé en L20) : la présentation de la composition, extraite en fonctions pures dans `src/features/referentiels/groupes/composition.ts`, a son test `composition.test.ts` : choix de la version des cours en vigueur (« Appliquer à partir de ») et date ramenée dans la saison, tri des candidats avant la coupe à 8, texte joint de plusieurs cours fautifs, accord et tri accentué de l'alerte des membres. Le calcul de l'ombrage est couvert par les e2e de la grille.
 - Performance : on vérifie l'ombrage sur le jeu `seedVolume` si le scénario de charge existant (`e2e/charge.perf.spec.ts`) s'y prête.
 
 ## Out of Scope

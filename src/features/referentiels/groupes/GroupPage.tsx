@@ -43,12 +43,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useDatabase } from "@/db/DatabaseProvider";
 import {
   addGroupMember,
   deleteGroup,
   getGroup,
   getGroupUsage,
+  listGroupLessons,
   listGroupMembers,
   listGroups,
   removeGroupMember,
@@ -57,10 +59,13 @@ import {
 } from "@/db/repositories/groups";
 import { listLevels } from "@/db/repositories/levels";
 import {
+  listSeasonStudentAvailabilities,
   listStudentIdentities,
   listStudents,
   type StudentListItem,
 } from "@/db/repositories/students";
+import type { WeeklySlot } from "@/domain/availability";
+import { todayInParis } from "@/domain/dates";
 import { homonymKeys, nameKey, studentDetails } from "@/domain/duplicates";
 import { ageOn, groupAlerts, isInAgeRange } from "@/domain/groups";
 import { filterAndSort } from "@/domain/search";
@@ -70,6 +75,14 @@ import { cn } from "@/lib/utils";
 import { DeleteAction } from "../components/DeleteAction";
 import { StatusBadge } from "../components/StatusBadge";
 import { newStudentEditing, StudentDialog, type StudentEditing } from "../eleves/StudentDialog";
+import {
+  blockingLessons,
+  blockingSummary,
+  blockingText,
+  groupLessonRanges,
+  rankCandidates,
+  unavailableMembersMessage,
+} from "./composition";
 import { GroupForm, groupValues } from "./GroupForm";
 
 const MAX_RESULTS = 8;
@@ -164,15 +177,24 @@ export function GroupPage() {
   const location = useLocation();
   const toast = useToast();
   const load = useCallback(async () => {
-    const [group, members, students, levels, groups, identities] = await Promise.all([
-      getGroup(db, id),
-      listGroupMembers(db, id),
-      listStudents(db, season.id),
-      listLevels(db),
-      listGroups(db, season.id),
-      listStudentIdentities(db),
-    ]);
-    return { group, members, students, levels, groups, identities };
+    const [group, members, students, levels, groups, identities, lessons, slots] =
+      await Promise.all([
+        getGroup(db, id),
+        listGroupMembers(db, id),
+        listStudents(db, season.id),
+        listLevels(db),
+        listGroups(db, season.id),
+        listStudentIdentities(db),
+        listGroupLessons(db, id),
+        listSeasonStudentAvailabilities(db, season.id),
+      ]);
+    const availabilities = new Map<string, WeeklySlot[]>();
+    for (const slot of slots) {
+      const list = availabilities.get(slot.studentId) ?? [];
+      list.push(slot);
+      availabilities.set(slot.studentId, list);
+    }
+    return { group, members, students, levels, groups, identities, lessons, availabilities };
   }, [db, id, season.id]);
   const { data, loading, reload } = useLoader(load);
   const [query, setQuery] = useState("");
@@ -213,6 +235,16 @@ export function GroupPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const memberIds = useMemo(() => new Set(data?.members.map((m) => m.id)), [data]);
+  // Compatibilité avec les cours du groupe, au planning habituel (§8) : cours qui coincent par élève.
+  const blocking = useMemo(() => {
+    const ranges = groupLessonRanges(data?.lessons ?? [], season, todayInParis());
+    const result = new Map<string, string[]>();
+    for (const [studentId, slots] of data?.availabilities ?? []) {
+      const lessons = blockingLessons(slots, ranges);
+      if (lessons.length > 0) result.set(studentId, lessons);
+    }
+    return result;
+  }, [data, season]);
   // Homonymes de la saison : désignés avec leur date de naissance et leurs groupes.
   const homonyms = useMemo(() => homonymKeys(data?.students ?? []), [data]);
   const search = useCallback(
@@ -230,6 +262,11 @@ export function GroupPage() {
   const candidates = useMemo(
     () => search((data?.students ?? []).filter((s) => !memberIds.has(s.id))),
     [data, memberIds, search],
+  );
+  // Proposés : compatibles en tête (ordre alphabétique gardé dans chaque catégorie), puis coupés.
+  const shown = useMemo(
+    () => rankCandidates(candidates, (s) => !blocking.has(s.id), MAX_RESULTS),
+    [candidates, blocking],
   );
   // Sans résultat : l'élève est peut-être déjà dans le groupe (pas de création proposée).
   const alreadyMember = useMemo(
@@ -266,7 +303,7 @@ export function GroupPage() {
   type SearchOption = { id: string; label: string; pick: () => void };
   const options: SearchOption[] =
     candidates.length > 0
-      ? candidates.slice(0, MAX_RESULTS).map((student) => ({
+      ? shown.map((student) => ({
           id: `${listId}-${student.id}`,
           label: `${student.lastName} ${student.firstName}`,
           pick: () => add(student.id),
@@ -333,6 +370,10 @@ export function GroupPage() {
 
   const members = data.members;
   const alerts = groupAlerts(group, members, season.startDate);
+  const unavailableMembers = unavailableMembersMessage(members.filter((m) => blocking.has(m.id)));
+  const alertMessages = unavailableMembers
+    ? [...alerts.messages, unavailableMembers]
+    : alerts.messages;
 
   return (
     <div className="flex flex-col gap-6">
@@ -402,7 +443,7 @@ export function GroupPage() {
           <CardContent className="flex flex-col gap-4">
             <MessageZone
               label="Alertes"
-              messages={[...errorMessages(error), ...warnings(alerts.messages)]}
+              messages={[...errorMessages(error), ...warnings(alertMessages)]}
             />
 
             <DndContext
@@ -510,7 +551,7 @@ export function GroupPage() {
                                 {option.label}
                               </div>
                             ))}
-                          {candidates.slice(0, MAX_RESULTS).map((student, index) => {
+                          {shown.map((student, index) => {
                             const name = `${student.lastName} ${student.firstName}`;
                             const details = homonyms.has(nameKey(student))
                               ? studentDetails({
@@ -519,13 +560,18 @@ export function GroupPage() {
                                 })
                               : "";
                             const option = options[index];
+                            const lessons = blocking.get(student.id);
+                            const unavailable = lessons ? blockingText(lessons) : "";
+                            const label = details ? `${name} (${details})` : name;
                             return (
                               <CandidateOption
                                 key={student.id}
                                 optionId={option?.id ?? student.id}
                                 studentId={student.id}
                                 name={name}
-                                label={details ? `${name} (${details})` : name}
+                                label={
+                                  unavailable ? `${label}, ${unavailable.toLowerCase()}` : label
+                                }
                                 selected={option !== undefined && option === enterTarget}
                                 onPick={() => add(student.id)}
                               >
@@ -548,7 +594,28 @@ export function GroupPage() {
                                       {details}
                                     </span>
                                   )}
+                                  {/* Toujours affiché : lisible aussi en parcourant la liste au clavier (↑/↓), sans survol. */}
+                                  {lessons && (
+                                    <span
+                                      data-testid="blocking-lessons"
+                                      className="block text-amber-800 text-xs dark:text-amber-300"
+                                    >
+                                      Cours en cause : {blockingSummary(lessons)}
+                                    </span>
+                                  )}
                                 </span>
+                                {unavailable && (
+                                  // Bulle déjà lue dans le nom de l'option : pas de double annonce.
+                                  <Tooltip content={unavailable} describe={false}>
+                                    <Badge
+                                      variant="outline"
+                                      data-testid="unavailable-badge"
+                                      className="shrink-0 border-amber-600/40 text-amber-800 dark:text-amber-300"
+                                    >
+                                      hors disponibilités
+                                    </Badge>
+                                  </Tooltip>
+                                )}
                               </CandidateOption>
                             );
                           })}

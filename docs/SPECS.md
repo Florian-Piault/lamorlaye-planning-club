@@ -244,7 +244,12 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 
 Les onglets Saison, Courts, Moniteurs, Groupes et Élèves portent la pastille d'étape du guidage de la première utilisation, et l'accueil « Avant de construire le planning » remplace l'état vide « Aucune saison » (§4.5).
 
-- Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif).
+- Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif, disponibilités).
+- **Disponibilités dans la composition** (§3.5) : un élève est compatible avec le groupe si chaque cours du groupe au planning habituel, à sa date de référence (aujourd'hui, ramené dans la saison, comme sur la grille), tient dans ses plages. Un élève sans plage, ou tout élève d'un groupe sans cours, est compatible.
+  - Parmi les élèves trouvés par « Ajouter un élève », les compatibles passent en tête, l'ordre alphabétique étant gardé dans chaque catégorie.
+  - Au plus 8 élèves sont proposés : le tri a lieu avant la coupe, un compatible loin dans l'alphabet reste donc proposé.
+  - Un élève incompatible porte le badge « hors disponibilités ». Sa bulle d'aide nomme le ou les cours qui coincent (« Hors disponibilités : mercredi 14:00–15:00 »), repris dans le nom accessible de l'option. Sous son nom, une ligne toujours visible les répète (« Cours en cause : mercredi 14:00–15:00 »), pour qu'on les lise aussi en parcourant la liste au clavier. L'ajout reste possible, par clic, Entrée ou glisser.
+  - Dans « Élèves du groupe », les membres incompatibles sont signalés dans la zone de messages réservée, à côté des alertes d'âge et d'effectif, sous la forme de l'avertissement du §7 : « 2 élèves hors disponibilités : Léa Martin, Tom Petit », noms triés par nom puis prénom.
 - **Saisie en volume** (v1.1) :
   - fiche élève : « Enregistrer et ajouter un autre » (en création) enregistre, confirme par un toast « Léa Martin ajouté(e) » et rouvre une fiche vide qui **garde les groupes cochés et le niveau** ; Entrée enregistre comme « Créer l'élève » ;
   - fiche groupe, champ « Ajouter un élève » : vidé après chaque ajout, focus conservé ; Entrée ajoute le résultat unique ou celui en surbrillance (↑/↓) ; sans résultat, « Créer « Léa Martin » » (ou Entrée) ouvre la fiche élève pré-remplie (premier mot : prénom, reste : nom), groupe coché et niveau proposé, puis revient à la fiche du groupe ;

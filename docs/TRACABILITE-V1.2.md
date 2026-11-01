@@ -1,6 +1,6 @@
 # Traçabilité disponibilités des élèves → lots → tests
 
-> Référence : [spec des disponibilités des élèves](../.plan/disponibilites-eleves/spec.md) (45 user stories), [`.plan/disponibilites-eleves/lots.md`](../.plan/disponibilites-eleves/lots.md) (lots L17 à L22). État au lot L17. Les versions précédentes restent dans [`TRACABILITE.md`](TRACABILITE.md) (v1.0) et [`TRACABILITE-V1.1.md`](TRACABILITE-V1.1.md) (v1.1).
+> Référence : [spec des disponibilités des élèves](../.plan/disponibilites-eleves/spec.md) (45 user stories), [`.plan/disponibilites-eleves/lots.md`](../.plan/disponibilites-eleves/lots.md) (lots L17 à L22). État aux lots L17 et L20. Les versions précédentes restent dans [`TRACABILITE.md`](TRACABILITE.md) (v1.0) et [`TRACABILITE-V1.1.md`](TRACABILITE-V1.1.md) (v1.1).
 >
 > Chaque user story est rattachée au lot qui l'implémente et aux tests qui le vérifient. Une story dont le lot n'est pas encore livré porte « à venir ».
 
@@ -28,7 +28,13 @@
 
 | # | Story (résumé) | Tests |
 |---|---|---|
-| 21 à 27 | Tri des candidats, badge, membres incompatibles, groupe sans cours | à venir (L20). L17 pose `incompatibleLessons` (`src/domain/availability.ts`), V: `src/domain/availability.test.ts` « compatibilité d'un élève avec les cours d'un groupe › donne les cours qui ne tiennent pas entièrement dans une plage », « … › rend compatible tout élève d'un groupe sans cours », « … › rend compatible un élève sans plage, quels que soient les cours ». |
+| 21 | Les compatibles en tête des élèves à ajouter | E: `composition-disponibilites.spec.ts` « composition d'un groupe selon les disponibilités › les candidats compatibles passent en tête ; l'incompatible porte le badge et sa bulle cite le cours » (Bruno, libre le mercredi après-midi, et Chloé, sans plage, avant Alice, première par ordre alphabétique mais libre seulement le samedi) ; V: `src/features/referentiels/groupes/composition.test.ts` « élèves proposés par la recherche › trie avant de couper : un compatible 9e par ordre alphabétique reste proposé », « … › garde l'ordre reçu dans chaque catégorie » ; « cours du groupe au planning habituel › ne retient que la version en vigueur à la date du jour » (cours à deux versions, « Appliquer à partir de »), « … › ramène la date dans la saison, comme la grille » |
+| 22 | Badge « hors disponibilités » sur l'incompatible | E: même test que la story 21 (un seul badge, sur l'option d'Alice) |
+| 23 | Ajout possible d'un élève incompatible | E: `composition-disponibilites.spec.ts` « composition d'un groupe selon les disponibilités › l'élève incompatible peut être ajouté ; il est signalé sans que les boutons bougent » (par clic) ; `composition-disponibilites.spec.ts` « composition d'un groupe selon les disponibilités › l'élève incompatible s'ajoute aussi par Entrée » (champ vidé, focus gardé) |
+| 24 | Membres incompatibles signalés dans « Élèves du groupe » | E: les deux tests de la story 23 (« 1 élève hors disponibilités : Alice Test » dans la liste « Alertes » ; zone réservée : le lien « Importer ou coller une liste » et le bouton « Retirer » du membre déjà inscrit gardent leur position) ; V: `src/features/referentiels/groupes/composition.test.ts` « alerte des membres hors disponibilités › accorde le nombre », « … › trie par nom puis prénom, accents compris » (Émery avant Faure), « … › ne dit rien sans membre incompatible » |
+| 25 | Le badge dit quel cours coince (jour et heure) | E: test de la story 21 (bulle « Hors disponibilités : mercredi 14:00–15:00 » au survol, reprise dans le nom accessible de l'option ; au clavier, ↑/↓ jusqu'à Alice : option active, ligne visible « Cours en cause : mercredi 14:00–15:00 ») ; V: `src/features/referentiels/groupes/composition.test.ts` « cours du groupe au planning habituel › joint dans la bulle tous les cours qui coincent » |
+| 26 | Élève sans plage compatible | E: test de la story 21 (Chloé, sans plage, en tête et sans badge) ; V: `src/domain/availability.test.ts` « compatibilité d'un élève avec les cours d'un groupe › rend compatible un élève sans plage, quels que soient les cours » |
+| 27 | Groupe sans cours : tout le monde compatible | E: `composition-disponibilites.spec.ts` « composition d'un groupe selon les disponibilités › sur un groupe sans cours, aucun candidat ne porte le badge » (Alice, libre seulement le samedi, proposée sans badge à son rang alphabétique) ; V: `availability.test.ts` « … › rend compatible tout élève d'un groupe sans cours » |
 
 ### Grille du planning (L17)
 
