@@ -21,6 +21,7 @@ import {
   lessons,
   type Season,
   seasons,
+  studentAvailabilities,
   students,
 } from "../schema";
 import { countWhere } from "./common";
@@ -95,6 +96,7 @@ export async function loadSeasonSnapshot(db: Db, seasonId: string): Promise<Seas
     availabilityRows,
     groupRows,
     studentRows,
+    studentSlotRows,
     memberships,
     lessonRows,
   ] = await Promise.all([
@@ -112,6 +114,11 @@ export async function loadSeasonSnapshot(db: Db, seasonId: string): Promise<Seas
     db.select().from(groups).where(eq(groups.seasonId, seasonId)),
     db.select().from(students).where(eq(students.seasonId, seasonId)),
     db
+      .select({ slot: studentAvailabilities })
+      .from(studentAvailabilities)
+      .innerJoin(students, eq(students.id, studentAvailabilities.studentId))
+      .where(eq(students.seasonId, seasonId)),
+    db
       .select({ groupId: groupStudents.groupId, studentId: groupStudents.studentId })
       .from(groupStudents)
       .innerJoin(groups, eq(groups.id, groupStudents.groupId))
@@ -128,6 +135,7 @@ export async function loadSeasonSnapshot(db: Db, seasonId: string): Promise<Seas
     availabilities: availabilityRows.map((r) => r.slot),
     groups: groupRows,
     students: studentRows,
+    studentAvailabilities: studentSlotRows.map((r) => r.slot),
     memberships,
     lessons: lessonRows,
   };
@@ -144,7 +152,8 @@ function chunked<T>(rows: readonly T[], insert: (part: T[]) => BatchItem<"sqlite
 
 /**
  * Nouvelle saison par duplication de `sourceId` (§8.1) : courts, moniteurs et
- * disponibilités récurrentes, groupes et composition, élèves, semaine type.
+ * disponibilités récurrentes, groupes et composition, élèves et leurs
+ * disponibilités, semaine type.
  * Une seule transaction : archivage de la saison active, création de la
  * nouvelle saison (active) et copie de toutes les lignes, ou rien.
  */
@@ -172,6 +181,7 @@ export async function duplicateSeason(
     ...chunked(plan.availabilities, (part) => db.insert(instructorAvailabilities).values(part)),
     ...chunked(plan.groups, (part) => db.insert(groups).values(part)),
     ...chunked(plan.students, (part) => db.insert(students).values(part)),
+    ...chunked(plan.studentAvailabilities, (part) => db.insert(studentAvailabilities).values(part)),
     ...chunked(plan.memberships, (part) => db.insert(groupStudents).values(part)),
     ...chunked(plan.lessons, (part) => db.insert(lessons).values(part)),
   ]);

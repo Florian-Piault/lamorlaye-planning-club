@@ -9,15 +9,19 @@
  * l'effacement portent sur toutes ses fiches, saisons archivées comprises.
  */
 import type { Season, Student } from "@/db/schema";
+import type { WeeklySlot } from "./availability";
 import { normalizeText } from "./search";
 import { identityKey } from "./studentImport";
+import { weekdayLabel } from "./time";
 
-/** Fiche d'un élève dans une saison, avec son niveau et ses groupes. */
+/** Fiche d'un élève dans une saison, avec son niveau, ses groupes et ses disponibilités. */
 export interface StudentRecord {
   student: Student;
   season: Pick<Season, "id" | "name" | "startDate" | "endDate" | "status">;
   levelLabel: string | null;
   groups: { name: string; levelLabel: string | null }[];
+  /** Plages hebdomadaires de disponibilité (aucune : disponible partout). */
+  availabilities: readonly WeeklySlot[];
 }
 
 /** Fiches désignant la même personne que `student`. */
@@ -93,7 +97,7 @@ export function buildStudentExport(records: readonly StudentRecord[], exportedAt
     personne: first
       ? { nom: first.lastName, prénom: first.firstName, dateDeNaissance: first.birthDate }
       : null,
-    saisons: sorted.map(({ student, season, levelLabel, groups }) => ({
+    saisons: sorted.map(({ student, season, levelLabel, groups, availabilities }) => ({
       saison: {
         nom: season.name,
         début: season.startDate,
@@ -116,6 +120,11 @@ export function buildStudentExport(records: readonly StudentRecord[], exportedAt
         modifiéeLe: student.updatedAt,
       },
       groupes: groups.map((g) => ({ nom: g.name, niveau: g.levelLabel })),
+      disponibilités: availabilities.map((a) => ({
+        jour: weekdayLabel(a.weekday),
+        début: a.startTime,
+        fin: a.endTime,
+      })),
     })),
   };
 }

@@ -19,9 +19,9 @@ import {
 } from "@/db/repositories/instructors";
 import type { WeeklySlot } from "@/domain/availability";
 import { errorMessage, useLoader } from "@/hooks/useLoader";
+import { AvailabilityEditor } from "../components/AvailabilityEditor";
 import { DeleteAction } from "../components/DeleteAction";
 import { StatusBadge } from "../components/StatusBadge";
-import { AvailabilityEditor } from "./AvailabilityEditor";
 import { InstructorForm, instructorValues } from "./InstructorForm";
 import { UnavailabilitySection } from "./UnavailabilitySection";
 

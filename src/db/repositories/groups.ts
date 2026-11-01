@@ -6,6 +6,7 @@ import {
   type Group,
   groupStudents,
   groups,
+  type Lesson,
   lessonExceptions,
   lessons,
   levels,
@@ -59,6 +60,15 @@ export async function listGroupMembers(db: Db, groupId: string): Promise<Student
     .where(eq(groupStudents.groupId, groupId))
     .orderBy(asc(students.lastName), asc(students.firstName));
   return rows.map((r) => r.student);
+}
+
+/** Cours du groupe dans le planning habituel, toutes versions (compatibilité des élèves, §8). */
+export async function listGroupLessons(db: Db, groupId: string): Promise<Lesson[]> {
+  return db
+    .select()
+    .from(lessons)
+    .where(eq(lessons.groupId, groupId))
+    .orderBy(asc(lessons.weekday), asc(lessons.startTime));
 }
 
 /** Composition de tous les groupes de la saison (contrôle des élèves en double, §7). */

@@ -40,10 +40,10 @@ const refs: ConflictReferences = {
     { id: "g3", name: "Adultes", maxSize: 6, minAge: null, maxAge: null },
   ],
   students: [
-    { id: "e1", birthDate: "2017-03-01" },
-    { id: "e2", birthDate: "2016-05-01" },
-    { id: "e3", birthDate: "2020-01-01" },
-    { id: "e4", birthDate: null },
+    { id: "e1", firstName: "Léa", lastName: "Martin", birthDate: "2017-03-01", availabilities: [] },
+    { id: "e2", firstName: "Tom", lastName: "Petit", birthDate: "2016-05-01", availabilities: [] },
+    { id: "e3", firstName: "Zoé", lastName: "Roux", birthDate: "2020-01-01", availabilities: [] },
+    { id: "e4", firstName: "Hugo", lastName: "Blanc", birthDate: null, availabilities: [] },
   ],
   memberships: [
     { groupId: "g1", studentId: "e1" },
@@ -85,7 +85,7 @@ describe("chevauchements", () => {
   });
 });
 
-describe("les six contrôles", () => {
+describe("les sept contrôles", () => {
   it("1. court déjà occupé", () => {
     const conflicts = detectConflicts(
       [
@@ -206,6 +206,162 @@ describe("les six contrôles", () => {
   });
 });
 
+describe("7. élèves hors disponibilités", () => {
+  const wednesday = (startTime: string, endTime: string) => [{ weekday: 3, startTime, endTime }];
+  const saturdayOnly = [{ weekday: 6, startTime: "09:00", endTime: "12:00" }];
+  /**
+   * g4 : Inès (mercredi 14h–15h), trois élèves du samedi matin et un élève sans
+   * plage ; g5 : Inès et l'élève sans plage ; g6 : l'élève sans plage seul.
+   */
+  const studentIndex = createConflictIndex({
+    ...refs,
+    groups: [
+      ...refs.groups,
+      { id: "g4", name: "Mercredi", maxSize: 8, minAge: null, maxAge: null },
+      { id: "g5", name: "Inès et Sans", maxSize: 8, minAge: null, maxAge: null },
+      { id: "g6", name: "Sans plage", maxSize: 8, minAge: null, maxAge: null },
+    ],
+    students: [
+      ...refs.students,
+      {
+        id: "s1",
+        firstName: "Inès",
+        lastName: "Garnier",
+        birthDate: null,
+        availabilities: wednesday("14:00", "15:00"),
+      },
+      {
+        id: "s2",
+        firstName: "Jules",
+        lastName: "Faure",
+        birthDate: null,
+        availabilities: saturdayOnly,
+      },
+      {
+        id: "s3",
+        firstName: "Anna",
+        lastName: "Faure",
+        birthDate: null,
+        availabilities: saturdayOnly,
+      },
+      {
+        id: "s4",
+        firstName: "Noé",
+        lastName: "Andre",
+        birthDate: null,
+        availabilities: saturdayOnly,
+      },
+      { id: "s5", firstName: "Sans", lastName: "Plage", birthDate: null, availabilities: [] },
+    ],
+    memberships: [
+      ...refs.memberships,
+      ...["s1", "s2", "s3", "s4", "s5"].map((studentId) => ({ groupId: "g4", studentId })),
+      { groupId: "g5", studentId: "s1" },
+      { groupId: "g5", studentId: "s5" },
+      { groupId: "g6", studentId: "s5" },
+    ],
+  });
+  const studentConflicts = (s: PlanningSlot) =>
+    detectSlotConflicts(s, [], studentIndex).filter((c) => c.kind === "students_unavailable");
+
+  it("signale un cours qui déborde d'une plage, même partiellement, et pas un cours couvert", () => {
+    expect(studentConflicts(slot({ id: "a", groupId: "g5" }))).toEqual([]);
+    expect(
+      studentConflicts(slot({ id: "a", groupId: "g5", start: 14 * 60 + 30, end: 15 * 60 + 30 })),
+    ).toEqual([
+      {
+        kind: "students_unavailable",
+        message: "1 élève hors disponibilités",
+        slotIds: [],
+        students: ["Inès Garnier"],
+      },
+    ]);
+    // Un autre jour que celui de sa plage : hors disponibilités aussi.
+    expect(
+      studentConflicts(slot({ id: "a", groupId: "g5", weekday: 4 })).map((c) => c.students),
+    ).toEqual([["Inès Garnier"]]);
+  });
+
+  it("ne signale jamais un élève sans plage", () => {
+    for (const weekday of [1, 3, 7]) {
+      expect(
+        studentConflicts(slot({ id: "a", groupId: "g6", weekday, start: 6 * 60, end: 23 * 60 })),
+      ).toEqual([]);
+    }
+  });
+
+  it("donne un seul conflit par créneau, qui liste tous les élèves indisponibles", () => {
+    const conflicts = detectConflicts([slot({ id: "a", groupId: "g4" })], studentIndex);
+    const found = (conflicts.get("a") ?? []).filter((c) => c.kind === "students_unavailable");
+    expect(found).toEqual([
+      {
+        kind: "students_unavailable",
+        message: "3 élèves hors disponibilités",
+        slotIds: [],
+        students: ["Noé Andre", "Anna Faure", "Jules Faure"],
+      },
+    ]);
+  });
+
+  it("contrôle les séances d'une semaine précise : annulée ignorée, modifiée et ponctuelle contrôlées", () => {
+    const lessons = [
+      lesson({ id: "mer", groupId: "g5", courtId: "c1", startTime: "14:00" }),
+      lesson({ id: "jeu", groupId: "g5", courtId: "c2", weekday: 4, startTime: "10:00" }),
+    ];
+    const week = (exceptions: Parameters<typeof weekOccurrences>[0]["exceptions"]) =>
+      detectConflicts(
+        slotsFromOccurrences(
+          weekOccurrences({ lessons, exceptions, closures: [], season: SEASON }, "2026-11-09"),
+        ),
+        studentIndex,
+      );
+    const kinds = (conflicts: Map<string, { kind: string }[]>, id: string) =>
+      (conflicts.get(id) ?? []).map((c) => c.kind);
+    // Sans exception : le cours du jeudi est hors des plages d'Inès.
+    expect(kinds(week([]), "jeu@2026-11-12")).toEqual(["students_unavailable"]);
+    // Séance annulée : plus aucun avertissement.
+    const cancelled = week([
+      exception({
+        id: "x",
+        kind: "cancellation",
+        lessonId: "jeu",
+        occurrenceDate: "2026-11-12",
+        cancellationReason: "rain",
+      }),
+    ]);
+    expect(cancelled.has("jeu@2026-11-12")).toBe(false);
+    // Séance du mercredi décalée à 15h : elle sort de la plage.
+    const modified = week([
+      exception({
+        id: "x",
+        kind: "modification",
+        lessonId: "mer",
+        occurrenceDate: "2026-11-11",
+        date: "2026-11-11",
+        startTime: "15:00",
+      }),
+    ]);
+    expect(kinds(modified, "mer@2026-11-11")).toEqual(["students_unavailable"]);
+    // Cours ponctuel du groupe le vendredi, hors plage.
+    const oneOff = week([
+      exception({
+        id: "p",
+        kind: "one_off",
+        date: "2026-11-13",
+        startTime: "14:00",
+        durationMinutes: 60,
+        courtId: "c1",
+        instructorId: "m1",
+        groupId: "g5",
+      }),
+    ]);
+    const [oneOffSlot] = [...oneOff.entries()].filter(
+      ([id]) => !id.startsWith("mer") && !id.startsWith("jeu"),
+    );
+    expect(oneOffSlot?.[1].map((c) => c.message)).toEqual(["1 élève hors disponibilités"]);
+  });
+});
+
 describe("aperçu pendant un glisser", () => {
   it("ignore le cours déplacé lui-même parmi les autres", () => {
     const others = [
@@ -308,7 +464,11 @@ describe("performance", () => {
     }));
     const students = Array.from({ length: 500 }, (_, i) => ({
       id: `e${i}`,
+      firstName: `Prénom ${i}`,
+      lastName: `Nom ${i}`,
       birthDate: `${2008 + (i % 15)}-0${1 + (i % 9)}-15`,
+      // Un élève sur deux a des plages (le samedi matin) : le 7e contrôle travaille.
+      availabilities: i % 2 === 0 ? [{ weekday: 6, startTime: "09:00", endTime: "12:00" }] : [],
     }));
     const memberships = students.flatMap((s, i) => [
       { groupId: `g${i % 60}`, studentId: s.id },

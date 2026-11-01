@@ -1,6 +1,6 @@
 # Recette manuelle — moteurs web et installateurs
 
-> À dérouler **avant chaque version** (SPECS §12.2, lots L8 et L16) sur les installateurs produits par la CI, sur les trois systèmes. Les tests automatiques (Vitest, Playwright sous Chromium et WebKit) ne couvrent ni les installateurs, ni les dialogues natifs, ni WebView2 et WebKitGTK eux-mêmes, ni la sauvegarde à la fermeture : c'est l'objet de cette liste.
+> À dérouler **avant chaque version** (SPECS §12.2, lots L8, L16 et L22) sur les installateurs produits par la CI, sur les trois systèmes. Les tests automatiques (Vitest, Playwright sous Chromium et WebKit) ne couvrent ni les installateurs, ni les dialogues natifs, ni WebView2 et WebKitGTK eux-mêmes, ni la sauvegarde à la fermeture : c'est l'objet de cette liste.
 
 ## Mode opératoire
 
@@ -145,6 +145,23 @@ Club de démonstration minimal : saison 2026-2027 (lundi → samedi, 8h–22h), 
 | 9.10 | Ouvrir puis fermer 10 fiches sans les modifier. | Aucune question de confirmation. | | |
 | 9.11 | Créer, déplacer, dupliquer (Alt) et supprimer des cours ; Ctrl/⌘ N, Suppr, Ctrl/⌘ Z. | Raccourcis annoncés conformes au système ; aucune confirmation superflue ; vue Jour pour lire les groupes. | | |
 | 9.12 | Réduire le menu, replier le panneau, filtrer par moniteur. | Grille lisible à 960 px ; « Filtres, N actifs » ; choix du menu retrouvé au relancement. | | |
+
+## 10. Disponibilités des élèves (lot L22)
+
+> Les parcours sont automatisés sous Chromium et WebKit (Playwright, voir `docs/TRACABILITE-V1.2.md`). La copie, le chiffrement et la restauration d'une base qui contient des plages d'élève sont vérifiés côté Rust (`cargo test`, `src-tauri/src/backup.rs` : `sauvegarde_et_restaure_les_plages_des_eleves`), hors `pnpm check`. Cette liste vérifie le parcours complet dans l'application installée : dialogues natifs, rechargement après restauration, migration d'une vraie base.
+>
+> **Préparation** : dans la saison en cours, un groupe d'**exactement trois élèves**, tous **sans horaire** de disponibilité, avec un seul cours au planning habituel, par exemple « Galaxie vert » le mercredi de 14 h à 15 h. Noter le nom des trois élèves.
+
+| # | Vérification | macOS | Windows | Linux |
+|---|---|---|---|---|
+| 10.1 ⟳ | **Mise à jour par-dessus la 1.1** contenant des élèves : une sauvegarde `…_avant-migration.db` apparaît (« Avant mise à jour ») ; *Réglages* › *Migrations appliquées au démarrage* liste `0006_student_availabilities` ; aucun élève perdu ; la colonne « Disponibilités » de l'onglet Élèves dit « Non renseignées » pour tous ; la grille n'affiche **aucun** avertissement « hors disponibilités ». | | | |
+| 10.2 | **Saisie en série** : *Le club* › *Élèves*, filtre « Groupe » sur le groupe préparé et case « Disponibilités non renseignées », puis « Saisir les disponibilités en série ». Pour les trois élèves, au clavier : un horaire chacun (par exemple le jeudi de 17:00 à 19:00 pour tous, et en plus le mercredi de 14:00 à 16:00 pour un seul), ⌘ ↩ / Ctrl+Entrée. Toast « Saisie en série terminée : 3 élèves enregistrés. » ; les trois élèves quittent le filtre et passent à « Renseignées ». | | | |
+| 10.3 | **Avertissement et ombrage** : *Planning*, planning habituel. Le cours du mercredi porte « 2 élèves hors disponibilités : … » (fiche au survol, panneau « Avertissements »). Faire glisser ce cours sans le lâcher : les jours sont ombrés en aplat ambré, plus foncé là où plus d'élèves sont gênés, avec la pastille « Zones ombrées : élèves de … » ; le jeudi à 17:00 n'est pas ombré. Déposer le cours le jeudi à 17:00 : ombrage et pastille disparaissent, l'avertissement aussi (survol et panneau). Refaire le glisser au clavier (Espace, flèches, Espace). | | | |
+| 10.4 | Ramener le cours au mercredi de 14:00 à 15:00 (glisser ou panneau du cours) : il porte de nouveau « 2 élèves hors disponibilités : … ». **Exporter une sauvegarde** non chiffrée (*Réglages* › *Sauvegardes* › *Exporter une sauvegarde*, dialogue natif, sur une clé USB). Effacer ensuite les horaires d'un des deux élèves cités (« Effacer tous les horaires », Enregistrer) : il redevient « Non renseignées » et le cours ne porte plus que « 1 élève hors disponibilités : … ». **Restaurer** le fichier exporté : une sauvegarde « avant-restauration » est créée, l'application se recharge ; l'élève est de nouveau « Renseignées », sa fiche montre ses horaires dans la frise et la liste, et le cours porte de nouveau « 2 élèves hors disponibilités », avec les deux mêmes noms. | | | |
+| 10.5 | Même parcours que 10.4 avec un **export chiffré** (`.pcenc`, mot de passe) : un mauvais mot de passe est refusé sans rien modifier (toujours « 1 élève hors disponibilités ») ; le bon restaure les horaires des trois élèves (« Renseignées » pour les trois, « 2 élèves hors disponibilités » sur le cours). | | | |
+| 10.6 | **Sauvegarde à la fermeture** : avec le cours du mercredi à « 2 élèves hors disponibilités », quitter l'application, puis la relancer. Effacer les horaires d'un des deux élèves cités (« Effacer tous les horaires », Enregistrer) : « Non renseignées », et « 1 élève hors disponibilités » sur le cours. *Restaurer une sauvegarde* en choisissant le dernier fichier `planning-…_fermeture.db` du dossier `sauvegardes/` : l'élève est de nouveau « Renseignées », sa fiche montre ses horaires, et le cours porte de nouveau « 2 élèves hors disponibilités ». | | | |
+| 10.7 | **Saison suivante et RGPD** : dupliquer la saison : dans la nouvelle, les trois élèves gardent leurs horaires ; dans l'ancienne (terminée), leur fiche les montre sans pouvoir les modifier. Exporter les données personnelles d'un des élèves (dialogue « Enregistrer sous ») : le fichier contient ses « disponibilités » pour chaque saison. | | | |
+| 10.8 | **Lecteur d'écran** (VoiceOver, Narrateur, Orca) dans la saisie en série : le nom de l'élève et « élève n / N » sont annoncés à chaque élève, le premier compris ; une erreur d'écriture est lue. | | | |
 
 ## Critères de sortie
 

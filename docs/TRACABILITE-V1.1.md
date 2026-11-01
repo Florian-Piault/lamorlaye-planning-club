@@ -1,6 +1,6 @@
 # Traçabilité spec UX v1.1 → lots → tests
 
-> Référence : [spec UX v1.1](../.plan/ux-v1-1/spec.md) (89 user stories, bugs B1 à B12), [`.plan/ux-v1-1/lots.md`](../.plan/ux-v1-1/lots.md). État à la version 1.1.0 (lot L16, 17/10/2026). La traçabilité de la v1.0 (`docs/SPECS.md` → lots L0 à L8) reste dans [`TRACABILITE.md`](TRACABILITE.md).
+> Référence : [spec UX v1.1](../.plan/ux-v1-1/spec.md) (89 user stories, bugs B1 à B12), [`.plan/ux-v1-1/lots.md`](../.plan/ux-v1-1/lots.md). État à la version 1.1.0 (lot L16, 17/10/2026). La traçabilité de la v1.0 (`docs/SPECS.md` → lots L0 à L8) reste dans [`TRACABILITE.md`](TRACABILITE.md) ; celle des disponibilités des élèves (lots L17 à L22) est dans [`TRACABILITE-V1.2.md`](TRACABILITE-V1.2.md).
 >
 > Chaque user story et chaque bug est rattaché au lot qui l'implémente et aux tests qui le vérifient. Ce qui ne peut pas être vérifié automatiquement renvoie à la recette manuelle ([`RECETTE.md`](RECETTE.md), sections 8 et 9).
 

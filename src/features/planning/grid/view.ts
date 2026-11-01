@@ -4,6 +4,7 @@
  * filtres et avertissements. Fonctions pures.
  */
 import type { Lesson } from "@/db/schema";
+import { intervalsOfDay, unavailableStudents, type WeeklySlot } from "@/domain/availability";
 import {
   type Conflict,
   type ConflictIndex,
@@ -197,9 +198,19 @@ export function explainConflicts(
   );
 }
 
+/**
+ * Texte affiché d'un avertissement : le message, suivi des élèves en cause
+ * s'il y en a (« 2 élèves hors disponibilités : Léa Martin, Tom Petit »).
+ */
+function warningText(conflict: Conflict): string {
+  return conflict.students?.length
+    ? `${conflict.message} : ${conflict.students.join(", ")}`
+    : conflict.message;
+}
+
 /** Messages distincts (deux cours du même moniteur à la même heure donnent le même message). */
 export function warningMessages(conflicts: readonly Conflict[]): string[] {
-  return [...new Set(conflicts.map((c) => c.message))];
+  return [...new Set(conflicts.map(warningText))];
 }
 
 export function noAvailabilityMessage(firstName: string): string {
@@ -275,6 +286,114 @@ export function candidateWarnings(
 ): Conflict[] {
   const slot = candidateSlot(candidate, dateOf);
   return explainConflicts(slot, detectSlotConflicts(slot, slots, index), instructors);
+}
+
+// ---------------------------------------------------------------------------
+// Ombrage des élèves pendant le glisser (§4.4)
+// ---------------------------------------------------------------------------
+
+/** Bande d'un jour où `count` élèves du groupe sont indisponibles. */
+export interface StudentShadeBand {
+  weekday: number;
+  start: number;
+  end: number;
+  count: number;
+}
+
+/**
+ * Bandes d'ombrage des élèves d'un groupe sur les jours `weekdays`, entre
+ * `dayStart` et `dayEnd` (minutes), avec la même règle que le contrôle 7 : un
+ * élève sans plage est disponible partout. Les bandes voisines de même nombre
+ * sont fusionnées ; celles où tout le monde est disponible sont omises.
+ *
+ * - Durée connue (`durationMinutes`, déplacement d'un cours) : pour chaque
+ *   heure de début possible, au pas `step` et dans les bornes du déplacement
+ *   (`moveTarget`), le nombre d'élèves indisponibles pour un cours de cette
+ *   durée commençant là. La bande d'une heure de début va jusqu'à la suivante,
+ *   la dernière jusqu'à la fin de l'amplitude (le fantôme ne descend pas plus
+ *   bas) : l'ombrage se lit au haut du fantôme.
+ * - Durée inconnue (création, `null`) : par morceau de journée, découpé aux
+ *   bornes des plages des élèves ; un morceau indique combien d'élèves sont
+ *   indisponibles à ce moment, pas pour un cours entier qui le déborde.
+ *
+ * Ne dépend pas du pointeur : calculé une fois par geste.
+ */
+export function studentShadeBands(
+  students: readonly { availabilities: readonly WeeklySlot[] }[],
+  weekdays: readonly number[],
+  dayStart: number,
+  dayEnd: number,
+  durationMinutes: number | null = null,
+  step = 15,
+): StudentShadeBand[] {
+  const constrained = students.filter((s) => s.availabilities.length > 0);
+  if (constrained.length === 0 || dayEnd <= dayStart) return [];
+  if (durationMinutes !== null) {
+    return lessonStartBands(constrained, weekdays, dayStart, dayEnd, durationMinutes, step);
+  }
+  return weekdays.flatMap((weekday) => {
+    const cuts = new Set([dayStart, dayEnd]);
+    for (const student of constrained) {
+      for (const interval of intervalsOfDay(student.availabilities, weekday)) {
+        for (const minute of [interval.start, interval.end]) {
+          if (minute > dayStart && minute < dayEnd) cuts.add(minute);
+        }
+      }
+    }
+    const points = [...cuts].sort((a, b) => a - b);
+    const bands: StudentShadeBand[] = [];
+    for (let i = 0; i + 1 < points.length; i++) {
+      const start = points[i] as number;
+      const end = points[i + 1] as number;
+      const count = unavailableStudents(constrained, { weekday, start, end }).length;
+      if (count === 0) continue;
+      const last = bands.at(-1);
+      if (last && last.end === start && last.count === count) last.end = end;
+      else bands.push({ weekday, start, end, count });
+    }
+    return bands;
+  });
+}
+
+/** Ombrage d'un déplacement : une bande par heure de début possible du cours. */
+function lessonStartBands(
+  students: readonly { availabilities: readonly WeeklySlot[] }[],
+  weekdays: readonly number[],
+  dayStart: number,
+  dayEnd: number,
+  durationMinutes: number,
+  step: number,
+): StudentShadeBand[] {
+  // Mêmes heures de début que `moveTarget` : au pas, bornées à l'amplitude.
+  const latest = Math.max(dayStart, dayEnd - durationMinutes);
+  const starts = new Set([dayStart, latest]);
+  for (let minute = Math.ceil(dayStart / step) * step; minute < latest; minute += step) {
+    starts.add(minute);
+  }
+  const points = [...starts].sort((a, b) => a - b);
+  return weekdays.flatMap((weekday) => {
+    const bands: StudentShadeBand[] = [];
+    points.forEach((start, i) => {
+      const end = points[i + 1] ?? dayEnd;
+      const slot = { weekday, start, end: start + durationMinutes };
+      const count = unavailableStudents(students, slot).length;
+      if (count === 0 || end <= start) return;
+      const last = bands.at(-1);
+      if (last && last.end === start && last.count === count) last.end = end;
+      else bands.push({ weekday, start, end, count });
+    });
+    return bands;
+  });
+}
+
+/**
+ * Palier d'intensité de l'ombrage, de 1 à 4 : 1 élève, 2 élèves, 3 ou 4
+ * élèves, 5 élèves et plus.
+ */
+export function shadeTier(count: number): 1 | 2 | 3 | 4 {
+  if (count >= 5) return 4;
+  if (count >= 3) return 3;
+  return count >= 2 ? 2 : 1;
 }
 
 // ---------------------------------------------------------------------------

@@ -49,7 +49,13 @@ import { deleteLevel, listLevels } from "./repositories/levels";
 import { loadPlanningState, persistCommand, persistRevert } from "./repositories/planning";
 import { duplicateSeason, updateSeason } from "./repositories/seasons";
 import { loadImportContext, persistImport } from "./repositories/studentImport";
-import { createStudent, deleteStudent, updateStudent } from "./repositories/students";
+import {
+  createStudent,
+  deleteStudent,
+  getStudentAvailabilities,
+  replaceStudentAvailabilities,
+  updateStudent,
+} from "./repositories/students";
 import { groups, type Season, seasons, students } from "./schema";
 
 let app: AppDatabase;
@@ -176,7 +182,7 @@ describe("saison archivée en lecture seule : repositories", () => {
     expect((await getInstructor(db, julie))?.availabilities).toHaveLength(2);
   });
 
-  it("refuse les écritures sur les groupes, leur composition et les élèves", async () => {
+  it("refuse les écritures sur les groupes, leur composition, les élèves et leurs disponibilités", async () => {
     const { galaxie } = seeded.groups;
     const { lea, zoe } = seeded.students;
     await expectReadOnly(() => createGroup(db, archived.id, groupInput));
@@ -188,9 +194,15 @@ describe("saison archivée en lecture seule : repositories", () => {
     await expectReadOnly(() => createStudent(db, archived.id, studentInput));
     await expectReadOnly(() => updateStudent(db, lea, studentInput, []));
     await expectReadOnly(() => deleteStudent(db, lea));
+    await expectReadOnly(() => replaceStudentAvailabilities(db, lea, []));
+    await expectReadOnly(() =>
+      replaceStudentAvailabilities(db, zoe, [{ weekday: 1, startTime: "09:00", endTime: "10:00" }]),
+    );
     expect(await db.select().from(students).where(eq(students.seasonId, archived.id))).toHaveLength(
       3,
     );
+    expect(await getStudentAvailabilities(db, lea)).toHaveLength(2);
+    expect(await getStudentAvailabilities(db, zoe)).toEqual([]);
   });
 
   it("refuse la suppression d'un niveau utilisé par une saison archivée", async () => {

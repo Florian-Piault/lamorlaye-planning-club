@@ -32,8 +32,10 @@ Suivez les onglets de **Le club** dans l'ordre des pastilles :
    - Dans la fiche du moniteur, section **Disponible chaque semaine**, saisissez ses **horaires de disponibilité** : faites glisser dans la frise d'un jour, ou cliquez une case pour pré-remplir le formulaire « Jour / De / À ». Chaque changement peut être annulé depuis la confirmation. Ces horaires servent aux avertissements et aux zones rayées du planning.
    - Ajoutez ses **indisponibilités** (congé, tournoi…) au fil de la saison.
 3. **Niveaux** (facultatif) : la liste est pré-remplie (niveaux Galaxie et adultes) ; ajoutez, renommez ou réordonnez si besoin.
-4. **Groupes** : nom, niveau, tranche d'âge (facultative) et nombre d'élèves au maximum. Après la création, on reste sur la liste pour enchaîner les groupes ; **Ajouter des élèves** ouvre la fiche du groupe. Dans **Élèves du groupe**, tapez un nom dans « Ajouter un élève » : **Entrée** ajoute l'élève trouvé (↑ / ↓ pour choisir), le champ se vide et garde le curseur ; si l'élève n'existe pas, **Créer « Prénom Nom »** ouvre sa fiche, groupe déjà coché. Les alertes (groupe trop plein, âge hors tranche) s'affichent aussitôt.
+4. **Groupes** : nom, niveau, tranche d'âge (facultative) et nombre d'élèves au maximum. Après la création, on reste sur la liste pour enchaîner les groupes ; **Ajouter des élèves** ouvre la fiche du groupe. Dans **Élèves du groupe**, tapez un nom dans « Ajouter un élève » : **Entrée** ajoute l'élève trouvé (↑ / ↓ pour choisir), le champ se vide et garde le curseur ; si l'élève n'existe pas, **Créer « Prénom Nom »** ouvre sa fiche, groupe déjà coché. Les alertes (groupe trop plein, âge hors tranche, élèves hors disponibilités) s'affichent aussitôt. Les élèves disponibles pour tous les cours du groupe sont proposés en premier ; les autres portent le badge « hors disponibilités », qui dit en bulle quel cours coince, et peuvent quand même être ajoutés.
 5. **Élèves** : prénom, nom, téléphone de l'élève **ou** du responsable légal (un seul suffit), date de naissance, niveau (proposé depuis le premier groupe coché), classement FFT, responsable légal pour les mineurs, groupes (avec leur tranche d'âge et la mention « hors tranche »). **Enregistrer et ajouter un autre** enchaîne les fiches d'un même groupe en gardant les groupes cochés et le niveau. Un élève déjà inscrit est signalé : **Ouvrir sa fiche** (cette saison) ou **Reprendre ses coordonnées** (saison passée). Rien n'est bloqué : de vrais homonymes s'enregistrent quand même.
+   - Section **Disponible chaque semaine** (facultative) : notez quand l'élève peut venir, avec la même frise et le même formulaire « Jour / De / À » que pour les moniteurs. Les horaires s'enregistrent avec la fiche ; **Effacer tous les horaires** remet l'élève disponible partout, et les boutons **Défaire la modification** / **Refaire la modification** de la section corrigent une erreur tant que la fiche est ouverte. **Un élève sans horaire est considéré disponible partout** (« Aucun horaire : considéré disponible partout. ») : contrairement à un moniteur, il ne déclenche aucun avertissement. Vous pouvez donc saisir les disponibilités petit à petit.
+   - **Saisir les disponibilités en série** : dans l'onglet Élèves, cochez **Disponibilités non renseignées** (et choisissez un **Groupe** pour traiter un groupe à la fois), puis lancez la série. Elle montre un élève à la fois, avec ses groupes et « Élève 4 / 23 ». **Enregistrer et suivant** (**Ctrl/⌘ Entrée**) passe au suivant, **Passer** le laisse pour plus tard, **Terminer** s'arrête en gardant ce qui est enregistré. Pratique au téléphone, sans souris.
    - Pour éviter la saisie à la main : **Importer ou coller une liste** (onglet Élèves ou fiche groupe) accepte un fichier Excel ou texte, ou un tableau **collé depuis Excel**, avec ou sans ligne d'en-têtes. L'assistant fait choisir les colonnes, montre un aperçu (lignes en erreur, doublons, élèves hors tranche) ; l'import entier peut être annulé.
 6. **Fermetures** (facultatif) : vacances scolaires et jours fériés. **Vacances et jours fériés…** propose les vacances de la **zone B** et les jours fériés de la saison ; cochez celles à retenir (un jour férié compris dans une période cochée n'est pas proposé à part).
 
@@ -67,6 +69,7 @@ Le bouton **Tout le mode d'emploi** déplie le texte complet (**Masquer le mode 
 - **Changer la durée** : tirez le bas du cours.
 - **Changer de moniteur** : faites glisser la pastille d'un moniteur (barre d'outils) sur le cours.
 - **Voir les indisponibilités** : survolez un cours, ou cliquez la pastille d'un moniteur : ses indisponibilités apparaissent en zones rayées.
+- **Trouver un créneau qui convient aux élèves** : pendant que vous déplacez un cours, les moments où des élèves de son groupe ne sont pas disponibles sont ombrés, d'autant plus foncé qu'ils sont nombreux. Pour la création, choisissez d'abord le groupe dans **Filtres** : la sélection d'un créneau est alors ombrée de même, et le panneau s'ouvre avec ce groupe.
 - **Au clavier** : Tab jusqu'à un cours, **Entrée** ouvre son détail ; **Espace** le saisit, les **flèches** le déplacent (↑ ↓ : 15 min, ← → : court suivant ; avec **Maj/⇧** : 1 heure ou un jour), **Espace** ou **Entrée** le déposent, **Échap** annule.
 - **Supprimer** : sélectionnez le cours puis **Suppr/⌫**.
 - **Annuler / rétablir** : **Ctrl/⌘ Z** et **Ctrl/⌘ Maj/⇧ Z**.
@@ -76,7 +79,7 @@ Le bouton **Tout le mode d'emploi** déplie le texte complet (**Masquer le mode 
 - **Semaine / Jour** : la vue Jour montre un seul jour avec des courts plus larges ; la barre des jours donne le nombre de cours de chaque jour. Un clic sur l'en-tête d'un jour l'affiche seul.
 - Les en-têtes de courts portent leur nom (abrégé si la place manque) et une icône soleil (extérieur) ou maison (couvert). Au survol d'un cours, sa **fiche** donne groupe, horaire, court, moniteur, nombre d'élèves et avertissements.
 - Le panneau de droite se replie (**Replier le panneau**) et se rouvre de lui-même quand vous ouvrez ou créez un cours.
-- Rien n'est bloqué : un conflit (court déjà occupé, moniteur déjà pris ou indisponible, élève dans deux cours en même temps, groupe trop plein, âge hors tranche) est **signalé** par une bordure rouge et ⚠ sur le cours. Le panneau **Avertissements** les liste ; un clic mène au cours concerné.
+- Rien n'est bloqué : un conflit (court déjà occupé, moniteur déjà pris ou indisponible, élève dans deux cours en même temps, groupe trop plein, âge hors tranche, élèves hors de leurs disponibilités) est **signalé** par une bordure rouge et ⚠ sur le cours. Le panneau **Avertissements** les liste ; un clic mène au cours concerné.
 - Le menu **Filtres** estompe les cours d'autres moniteurs, courts ou groupes ; son bouton compte les filtres actifs.
 
 ## 4. Gérer une semaine précise
@@ -112,7 +115,7 @@ Prenez l'habitude d'exporter une sauvegarde chaque semaine, et avant toute mise 
 
 ## 7. Préparer la saison suivante
 
-**Le club › Saison › Nouvelle saison** : choisissez **Dupliquer la saison** pour reprendre les courts, les moniteurs et leurs horaires de disponibilité, les groupes et leurs élèves, ainsi que le planning habituel. Les changements d'une semaine précise, les indisponibilités et les fermetures ne sont pas repris : relancez **Vacances et jours fériés…** pour la nouvelle saison. L'ancienne saison devient **Terminée**, en consultation seulement.
+**Le club › Saison › Nouvelle saison** : choisissez **Dupliquer la saison** pour reprendre les courts, les moniteurs et leurs horaires de disponibilité, les groupes et leurs élèves (avec leurs horaires de disponibilité), ainsi que le planning habituel. Les changements d'une semaine précise, les indisponibilités et les fermetures ne sont pas repris : relancez **Vacances et jours fériés…** pour la nouvelle saison. L'ancienne saison devient **Terminée**, en consultation seulement.
 
 ## 8. Données personnelles (RGPD)
 
@@ -146,7 +149,8 @@ Les touches sont annoncées à l'écran selon le système : **⌘**, **⌥**, **
 | Séance | Un cours à une date donnée. |
 | Modifié / Annulé cette semaine, Revenir au cours habituel | Un changement d'une seule séance, et son effacement. |
 | Cours ponctuel | Un cours qui n'existe qu'une semaine (rattrapage, stage, séance d'essai). |
-| Horaire de disponibilité | Un horaire hebdomadaire où un moniteur peut donner cours (« créneau » reste réservé aux cours). |
+| Horaire de disponibilité | Un horaire hebdomadaire où un moniteur peut donner cours, ou un élève venir au club (« créneau » reste réservé aux cours). Sans horaire, un moniteur n'est disponible nulle part, un élève partout. |
+| Hors disponibilités | Un cours placé en dehors des horaires d'un moniteur, ou de ceux d'élèves de son groupe (un seul avertissement par cours pour les élèves, avec leurs noms). |
 | Élèves du groupe, Nombre d'élèves | La liste des inscrits d'un groupe et leur nombre, comparé au maximum. |
 | Heures affichées | Les heures de début et de fin de la grille du planning. |
 | Période de fermeture | Des dates sans cours réguliers (vacances, jours fériés). |

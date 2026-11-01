@@ -10,6 +10,7 @@ import {
   createLessonWithPanel,
   createSeason,
   demoClub,
+  fixToday,
   guidanceWelcome,
   lesson,
   openPlanning,
@@ -88,6 +89,10 @@ async function forbiddenTerms(page: Page, technical = true): Promise<string[]> {
 const modes = (page: Page) => page.getByRole("group", { name: "Mode d'affichage" });
 
 test.describe("vocabulaire", () => {
+  test.beforeEach(async ({ page }) => {
+    await fixToday(page);
+  });
+
   test("aucun terme retiré n'apparaît sur les écrans principaux", async ({ page }) => {
     test.setTimeout(90_000);
     await openPlanning(page, club);
@@ -171,6 +176,19 @@ test.describe("vocabulaire", () => {
     await instructor.getByLabel("Initiales", { exact: true }).fill("jm");
     await expect(instructor.getByRole("list", { name: "Messages" })).toContainText("déjà utilisé");
     expect(await forbiddenTerms(page), "initiales prises").toEqual([]);
+    await instructor.getByRole("button", { name: "Annuler" }).click();
+    await page.getByRole("button", { name: "Abandonner" }).click();
+    await expect(instructor).toBeHidden();
+
+    // Disponibilités des élèves (L19) : liste filtrée, puis saisie en série.
+    await visit(page, "/#/referentiels/eleves");
+    await page.getByRole("checkbox", { name: "Disponibilités non renseignées" }).check();
+    await expect(page.getByRole("table", { name: "Élèves" })).toContainText("Non renseignées");
+    expect(await forbiddenTerms(page), "liste des élèves et disponibilités").toEqual([]);
+    await page.getByRole("button", { name: "Saisir les disponibilités en série" }).click();
+    const series = page.getByRole("dialog", { name: "Saisie des disponibilités en série" });
+    await expect(series.getByText("Disponible chaque semaine")).toBeVisible();
+    expect(await forbiddenTerms(page), "saisie en série").toEqual([]);
   });
 
   test("guidage et mode d'emploi (L15) : aucun terme retiré", async ({ page }) => {
@@ -300,6 +318,7 @@ test.describe("bulles d'aide des boutons icône", () => {
     page,
   }) => {
     test.setTimeout(120_000);
+    await fixToday(page);
     await openPlanning(page, club);
     for (const screen of ICON_SCREENS) {
       await visit(page, screen.path);
@@ -437,7 +456,7 @@ test.describe("barre de mode à 960 px", () => {
   test.use({ viewport: { width: 960, height: 720 } });
 
   test("la phrase de portée reste entière à côté des deux pastilles", async ({ page }) => {
-    await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
+    await fixToday(page);
     const first = demoClub.lessons[0] as SeedLesson;
     await openPlanning(page, {
       ...demoClub,

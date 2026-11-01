@@ -414,7 +414,8 @@ export function volumeConflictReferences(data: VolumeData): ConflictReferences {
       unavailabilities: data.unavailabilities.filter((u) => u.instructorId === instructor.id),
     })),
     groups: data.groups,
-    students: data.students,
+    // Aucune plage d'élève : disponibles partout (le 7e contrôle ne signale rien).
+    students: data.students.map((s) => ({ ...s, availabilities: [] })),
     memberships: data.memberships,
     referenceDate: VOLUME_SEASON.startDate,
   };

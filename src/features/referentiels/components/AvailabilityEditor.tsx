@@ -47,6 +47,7 @@ interface AvailabilityEditorProps {
   /** Amplitude horaire de la saison (`HH:MM`). */
   dayStart: string;
   dayEnd: string;
+  /** Couleur des horaires peints : celle du moniteur, une couleur du thème pour un élève. */
   color: string;
   /**
    * Nouvelles plages, avec le message qui annonce ce qui a réellement changé
@@ -83,7 +84,9 @@ interface Preview extends Interval {
 }
 
 /**
- * Éditeur visuel des plages hebdomadaires de disponibilité (§3.3) : une ligne
+ * Éditeur visuel des plages hebdomadaires de disponibilité, commun aux
+ * moniteurs (§3.3) et aux élèves (§3.5) : il ne connaît que les plages (en
+ * entrée, et en sortie par `onChange`), pas la personne. Une ligne
  * par jour, cliquer-glisser pour peindre une plage disponible, ou pour
  * l'effacer en partant d'une case déjà disponible. Un clic simple n'enregistre
  * rien : il pré-remplit le formulaire de saisie précise, sous la frise.
@@ -380,7 +383,7 @@ function SlotList({
 
 /**
  * Saisie précise d'une plage au clavier (« Jour / De / À ») : « Ajouter » rend
- * le moniteur disponible, « Retirer » l'en retire (tout ou partie d'une plage).
+ * la personne disponible, « Retirer » l'en retire (tout ou partie d'une plage).
  * Un clic simple dans la frise la pré-remplit.
  */
 function SlotForm({

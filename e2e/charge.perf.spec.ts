@@ -20,11 +20,53 @@ test.beforeEach(async ({ page }) => {
   // Aujourd'hui : mercredi 18/11/2026, semaine ordinaire (hors vacances).
   await page.clock.setFixedTime(new Date("2026-11-18T10:00:00+01:00"));
   await createSeason(page);
-  await page.evaluate(async (path) => {
-    const tools = await import(/* @vite-ignore */ path);
-    await tools.seedVolume();
-  }, E2E_MODULE);
 });
+
+/** Club à la volumétrie cible ; avec `studentAvailability`, trois élèves sur quatre ont des plages. */
+async function seedVolume(page: Page, options: { studentAvailability?: boolean } = {}) {
+  await page.evaluate(
+    async ({ path, options }) => {
+      const tools = await import(/* @vite-ignore */ path);
+      await tools.seedVolume(options);
+    },
+    { path: E2E_MODULE, options },
+  );
+}
+
+/**
+ * Saisit le premier cours de la grille et franchit le seuil du glisser ;
+ * `start` : durée du franchissement jusqu'à l'image suivante (début du geste,
+ * où l'ombrage des élèves est calculé).
+ */
+async function startDrag(page: Page) {
+  const source = page.getByTestId("lesson").first();
+  await source.scrollIntoViewIfNeeded();
+  const box = await source.boundingBox();
+  if (!box) throw new Error("cours introuvable");
+  const from = { x: box.x + box.width / 2, y: box.y + 11 };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  const start = await timed(async () => {
+    await page.mouse.move(from.x, from.y + 8, { steps: 2 });
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  });
+  await expect(page.getByTestId("lesson-ghost")).toBeVisible();
+  return { from, start };
+}
+
+/** 25 mouvements du pointeur, chacun mesuré jusqu'à l'image suivante. */
+async function measureMoves(page: Page, from: { x: number; y: number }): Promise<number[]> {
+  const moves: number[] = [];
+  for (let i = 1; i <= 25; i++) {
+    moves.push(
+      await timed(async () => {
+        await page.mouse.move(from.x + i * 9, from.y + 8 + i * 6);
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+      }),
+    );
+  }
+  return moves;
+}
 
 /** Durée (ms) d'une action jusqu'à ce que son résultat soit affiché. */
 async function timed(action: () => Promise<unknown>): Promise<number> {
@@ -47,6 +89,10 @@ function nav(page: Page) {
 }
 
 test.describe("volumétrie cible (§11.5)", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedVolume(page);
+  });
+
   test("affiche la semaine type et navigue entre les semaines datées", async ({ page }) => {
     const lessons = page.getByTestId("lesson");
     const display = await timed(async () => {
@@ -92,25 +138,10 @@ test.describe("volumétrie cible (§11.5)", () => {
   test("garde un glisser-déposer fluide", async ({ page }) => {
     await goToPlanning(page);
     await expect(page.getByTestId("lesson")).toHaveCount(150);
-    const source = page.getByTestId("lesson").first();
-    await source.scrollIntoViewIfNeeded();
-    const box = await source.boundingBox();
-    if (!box) throw new Error("cours introuvable");
-    const from = { x: box.x + box.width / 2, y: box.y + 11 };
-    await page.mouse.move(from.x, from.y);
-    await page.mouse.down();
-    await page.mouse.move(from.x, from.y + 8, { steps: 2 });
-    await expect(page.getByTestId("lesson-ghost")).toBeVisible();
-
-    const moves: number[] = [];
-    for (let i = 1; i <= 25; i++) {
-      moves.push(
-        await timed(async () => {
-          await page.mouse.move(from.x + i * 9, from.y + 8 + i * 6);
-          await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-        }),
-      );
-    }
+    const { from, start } = await startDrag(page);
+    // Référence du début du geste sans ombrage (aucune plage d'élève).
+    report("début du glisser, sans ombrage", [start]);
+    const moves = await measureMoves(page, from);
     await expect(page.getByTestId("drag-tooltip")).toBeVisible();
     await page.keyboard.press("Escape");
     await page.mouse.up();
@@ -171,5 +202,50 @@ test.describe("volumétrie cible (§11.5)", () => {
       await expect(instructors).toHaveCount(20);
     });
     expect(report("liste des 20 moniteurs", [instructorList])).toBeLessThan(perfLimit(2_000));
+  });
+});
+
+test.describe("volumétrie cible avec les plages des élèves (§4.4, lot L21)", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedVolume(page, { studentAvailability: true });
+  });
+
+  test("garde un glisser-déposer fluide avec l'ombrage des élèves", async ({ page }) => {
+    await goToPlanning(page);
+    await expect(page.getByTestId("lesson")).toHaveCount(150);
+    const shades = page.getByTestId("student-shade");
+    await expect(shades).toHaveCount(0);
+
+    // L'ombrage est calculé une fois par geste, au franchissement du seuil :
+    // cinq gestes pour mesurer ce début (médiane), le premier pour les mouvements.
+    const starts: number[] = [];
+    let moves: number[] = [];
+    for (let gesture = 0; gesture < 5; gesture++) {
+      const { from, start } = await startDrag(page);
+      starts.push(start);
+      await expect(shades.first()).toBeVisible();
+      if (gesture === 0) {
+        const tiers = await shades.evaluateAll((els) => els.map((el) => el.dataset.tier));
+        // Plusieurs paliers : le jeu de charge donne des créneaux plus ou moins gênants.
+        expect(new Set(tiers).size).toBeGreaterThan(1);
+        moves = await measureMoves(page, from);
+        // Les bandes ne dépendent pas du pointeur : les mêmes, tout le geste.
+        await expect(shades).toHaveCount(tiers.length);
+        await expect(page.getByTestId("drag-tooltip")).toBeVisible();
+      }
+      await page.keyboard.press("Escape");
+      await page.mouse.up();
+      await expect(page.getByTestId("lesson-ghost")).toHaveCount(0);
+      await expect(shades).toHaveCount(0);
+    }
+    report("début du glisser, ombrage compris", starts);
+    const median = [...starts].sort((a, b) => a - b)[Math.floor(starts.length / 2)] as number;
+    test.info().annotations.push({
+      type: "performance",
+      description: `début du glisser, ombrage compris : ${median} ms en médiane`,
+    });
+    const movesAverage = report("retour visuel du glisser avec ombrage", moves);
+    expect(median).toBeLessThan(perfLimit(100));
+    expect(movesAverage).toBeLessThan(perfLimit(100));
   });
 });

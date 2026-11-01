@@ -3,6 +3,7 @@ import type { SeedLesson } from "../src/test/e2e";
 import {
   demoClub,
   dragMouse,
+  fixToday,
   GRAB_OFFSET,
   goToPlanning,
   grabPoint,
@@ -570,7 +571,7 @@ test.describe("grille semaine type", () => {
   test("liste les avertissements et navigue vers le cours concerné", async ({ page }) => {
     // Après « Appliquer à partir de », deux versions d'un cours coexistent :
     // seule celle en vigueur s'affiche, sans conflit avec l'autre.
-    await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
+    await fixToday(page);
     const versions: SeedLesson[] = [
       { ...demoClub.lessons[0], effectiveTo: "2026-11-01" } as SeedLesson,
       { ...demoClub.lessons[0], effectiveFrom: "2026-11-02" } as SeedLesson,

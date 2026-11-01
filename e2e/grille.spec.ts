@@ -4,6 +4,7 @@ import {
   dayBar,
   demoClub,
   dragMouse,
+  fixToday,
   GRAB_OFFSET,
   goToPlanning,
   grabPoint,
@@ -276,7 +277,7 @@ test.describe("barre des jours", () => {
   test("en semaine précise, la navigation des semaines ouvre la barre des jours", async ({
     page,
   }) => {
-    await page.clock.setFixedTime(new Date("2026-11-04T10:00:00+01:00"));
+    await fixToday(page);
     await openPlanning(page);
     await expect(dayBar(page).getByRole("button", { name: "Semaine suivante" })).toHaveCount(0);
     await showDatedWeek(page);

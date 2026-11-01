@@ -7,8 +7,10 @@ import {
   listSeasonUnavailabilities,
 } from "@/db/repositories/instructors";
 import { listLevels } from "@/db/repositories/levels";
-import { listStudents } from "@/db/repositories/students";
+import { listSeasonStudentAvailabilities, listStudents } from "@/db/repositories/students";
 import type { Court, Level } from "@/db/schema";
+import type { WeeklySlot } from "@/domain/availability";
+import type { ConflictStudent } from "@/domain/conflicts";
 import type { UnavailabilityRange } from "@/domain/unavailability";
 
 /**
@@ -25,7 +27,8 @@ export interface PlanningReferences {
   courts: Court[];
   instructors: PlanningInstructor[];
   groups: GroupListItem[];
-  students: { id: string; birthDate: string | null }[];
+  /** Élèves avec leurs plages : âge et disponibilités (contrôles 6 et 7, §7). */
+  students: ConflictStudent[];
   memberships: { groupId: string; studentId: string }[];
   levels: Level[];
 }
@@ -34,16 +37,31 @@ export async function loadPlanningReferences(
   db: Db,
   seasonId: string,
 ): Promise<PlanningReferences> {
-  const [courts, instructors, unavailabilities, groups, students, memberships, levels] =
-    await Promise.all([
-      listCourts(db, seasonId),
-      listInstructors(db, seasonId),
-      listSeasonUnavailabilities(db, seasonId),
-      listGroups(db, seasonId),
-      listStudents(db, seasonId),
-      listMemberships(db, seasonId),
-      listLevels(db),
-    ]);
+  const [
+    courts,
+    instructors,
+    unavailabilities,
+    groups,
+    students,
+    studentSlots,
+    memberships,
+    levels,
+  ] = await Promise.all([
+    listCourts(db, seasonId),
+    listInstructors(db, seasonId),
+    listSeasonUnavailabilities(db, seasonId),
+    listGroups(db, seasonId),
+    listStudents(db, seasonId),
+    listSeasonStudentAvailabilities(db, seasonId),
+    listMemberships(db, seasonId),
+    listLevels(db),
+  ]);
+  const slotsByStudent = new Map<string, WeeklySlot[]>();
+  for (const slot of studentSlots) {
+    const list = slotsByStudent.get(slot.studentId) ?? [];
+    list.push(slot);
+    slotsByStudent.set(slot.studentId, list);
+  }
   return {
     courts,
     instructors: instructors.map((i) => ({
@@ -51,7 +69,13 @@ export async function loadPlanningReferences(
       unavailabilities: unavailabilities.filter((u) => u.instructorId === i.id),
     })),
     groups,
-    students: students.map((s) => ({ id: s.id, birthDate: s.birthDate })),
+    students: students.map((s) => ({
+      id: s.id,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      birthDate: s.birthDate,
+      availabilities: slotsByStudent.get(s.id) ?? [],
+    })),
     memberships,
     levels,
   };

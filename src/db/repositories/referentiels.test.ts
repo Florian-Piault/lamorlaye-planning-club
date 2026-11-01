@@ -39,6 +39,7 @@ import { deleteLevel, getLevelUsage, listLevels } from "./levels";
 import {
   createStudent,
   deleteStudent,
+  getStudentAvailabilities,
   getStudentGroupIds,
   listStudents,
   updateStudent,
@@ -312,6 +313,69 @@ describe("référentiels de la saison", () => {
         createStudent(db, seasonId, student("Martin", "Léa"), ["groupe-inexistant"]),
       ).rejects.toThrow();
       expect(await db.select().from(students)).toEqual([]);
+    });
+
+    it("enregistre les plages avec la fiche, fusionnées par jour, et les garde si on ne les donne pas", async () => {
+      const g1 = await createGroup(db, seasonId, group("Groupe 1"));
+      const id = await createStudent(
+        db,
+        seasonId,
+        student("Martin", "Léa"),
+        [g1],
+        [
+          { weekday: 3, startTime: "14:00", endTime: "16:00" },
+          { weekday: 3, startTime: "16:00", endTime: "18:00" },
+        ],
+      );
+      const slotsOf = async () =>
+        (await getStudentAvailabilities(db, id)).map((s) => [s.weekday, s.startTime, s.endTime]);
+      expect(await slotsOf()).toEqual([[3, "14:00", "18:00"]]);
+
+      await updateStudent(
+        db,
+        id,
+        student("Martin", "Léa"),
+        [g1],
+        [{ weekday: 6, startTime: "09:00", endTime: "12:00" }],
+      );
+      expect(await slotsOf()).toEqual([[6, "09:00", "12:00"]]);
+
+      await updateStudent(db, id, student("Martin", "Léa", { fftRanking: "30/2" }), [g1]);
+      expect(await slotsOf()).toEqual([[6, "09:00", "12:00"]]);
+
+      await updateStudent(db, id, student("Martin", "Léa"), [g1], []);
+      expect(await slotsOf()).toEqual([]);
+    });
+
+    it("n'enregistre ni la fiche ni les groupes si l'écriture des plages échoue", async () => {
+      const g1 = await createGroup(db, seasonId, group("Groupe 1"));
+      const g2 = await createGroup(db, seasonId, group("Groupe 2"));
+      // Jour hors de 1 à 7 : refusé par la base (contrôle de la migration 0006).
+      const invalid = [{ weekday: 9, startTime: "09:00", endTime: "12:00" }];
+
+      // Création : aucun élève (un nouvel essai ne crée pas de doublon).
+      await expect(
+        createStudent(db, seasonId, student("Martin", "Léa"), [g1], invalid),
+      ).rejects.toThrow();
+      expect(await db.select().from(students)).toEqual([]);
+      expect(await db.select().from(groupStudents)).toEqual([]);
+
+      // Modification : identité, groupes et plages d'avant intacts.
+      const id = await createStudent(
+        db,
+        seasonId,
+        student("Martin", "Léa"),
+        [g1],
+        [{ weekday: 3, startTime: "14:00", endTime: "18:00" }],
+      );
+      await expect(
+        updateStudent(db, id, student("Martin", "Léa", { fftRanking: "30/2" }), [g2], invalid),
+      ).rejects.toThrow();
+      expect((await listStudents(db, seasonId))[0]).toMatchObject({ fftRanking: null });
+      expect(await getStudentGroupIds(db, id)).toEqual([g1]);
+      expect(
+        (await getStudentAvailabilities(db, id)).map((s) => [s.weekday, s.startTime, s.endTime]),
+      ).toEqual([[3, "14:00", "18:00"]]);
     });
 
     it("supprime un élève et ses inscriptions, et un groupe sans supprimer ses élèves", async () => {

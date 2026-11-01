@@ -98,6 +98,10 @@ const snapshot: SeasonSnapshot = {
       ...stamps,
     },
   ],
+  studentAvailabilities: [
+    { id: "d1", studentId: "e1", weekday: 3, startTime: "14:00", endTime: "18:00", ...stamps },
+    { id: "d2", studentId: "inconnu", weekday: 6, startTime: "09:00", endTime: "12:00", ...stamps },
+  ],
   memberships: [
     { groupId: "g1", studentId: "e1" },
     { groupId: "g1", studentId: "inconnu" },
@@ -157,6 +161,14 @@ describe("planSeasonDuplication", () => {
     expect(plan.availabilities).toEqual([
       expect.objectContaining({ instructorId: "n2", weekday: 1, startTime: "16:00" }),
     ]);
+    expect(plan.studentAvailabilities).toEqual([
+      expect.objectContaining({
+        studentId: "n4",
+        weekday: 3,
+        startTime: "14:00",
+        endTime: "18:00",
+      }),
+    ]);
     expect(plan.memberships).toEqual([expect.objectContaining({ groupId: "n3", studentId: "n4" })]);
     expect(
       plan.lessons.map((l) => [
@@ -173,7 +185,13 @@ describe("planSeasonDuplication", () => {
       ["n1", "n3", "n2", null, "2027-09-01", null, null, "s2"],
       ["n1", "n3", "n2", "v2", "2027-09-01", null, null, "s2"],
     ]);
-    const ids = [...plan.availabilities, ...plan.memberships, ...plan.lessons].map((r) => r.id);
+    const ids = [
+      ...plan.availabilities,
+      ...plan.studentAvailabilities,
+      ...plan.memberships,
+      ...plan.lessons,
+    ].map((r) => r.id);
+    expect(ids).not.toContain("d1");
     expect(new Set(ids).size).toBe(ids.length);
   });
 

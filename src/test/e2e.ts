@@ -20,11 +20,12 @@ import {
   lessons,
   levels,
   seasons,
+  studentAvailabilities,
   students,
 } from "@/db/schema";
 import { createClosure, emptyPlanningState } from "@/domain/commands";
 import { errorMessage } from "@/hooks/useLoader";
-import { seedVolumeData } from "./volumetry";
+import { seedVolumeData, TARGET_VOLUME } from "./volumetry";
 
 export interface SeedInstructor {
   firstName: string;
@@ -64,19 +65,39 @@ export interface SeedPlanning {
   instructors: SeedInstructor[];
   groups: SeedGroup[];
   lessons: SeedLesson[];
+  /**
+   * Plages de disponibilité des élèves, par prénom : `[jour, "HH:MM", "HH:MM"]`.
+   * Un élève absent de la liste n'a aucune plage (disponible partout).
+   */
+  studentAvailability?: Record<string, [number, string, string][]>;
   /** Périodes de fermeture (bornes incluses). */
   closures?: { label: string; startDate: string; endDate: string }[];
   /** Indisponibilités datées (`AAAA-MM-JJTHH:MM`, fin exclue). */
   unavailabilities?: { instructor: string; startsAt: string; endsAt: string; reason?: string }[];
   /**
    * Exceptions sur les séances du premier cours du groupe `group` à la date
-   * `occurrenceDate` : annulation (pluie) ou remplacement par `instructor`.
+   * `occurrenceDate` : annulation (pluie), remplacement par `instructor` ou
+   * modification (`date`, `startTime`, `durationMinutes`, `court` : nouvelles
+   * valeurs, les autres restent celles du cours).
    */
   exceptions?: {
-    kind: "cancellation" | "replacement";
+    kind: "cancellation" | "replacement" | "modification";
     group: string;
     occurrenceDate: string;
     instructor?: string;
+    date?: string;
+    startTime?: string;
+    durationMinutes?: number;
+    court?: string;
+  }[];
+  /** Cours ponctuels (sans cours de la semaine type), pour le groupe `group`. */
+  oneOffs?: {
+    group: string;
+    date: string;
+    startTime: string;
+    durationMinutes: number;
+    court: string;
+    instructor: string;
   }[];
 }
 
@@ -139,14 +160,67 @@ export async function archiveActiveSeason(): Promise<void> {
 }
 
 /**
+ * Ralentit les écritures groupées de l'application (`db.batch`, dont celle des
+ * plages d'un élève) : un geste fait pendant une écriture en cours.
+ */
+export async function slowDownBatches(ms: number): Promise<void> {
+  const { db } = await openAppDatabase();
+  const batch = db.batch.bind(db);
+  const slow = async (queries: Parameters<typeof batch>[0]) => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    return batch(queries);
+  };
+  Object.assign(db, { batch: slow });
+}
+
+/**
  * Club à la volumétrie cible (§11.5) dans la saison active : 10 courts,
  * 20 moniteurs, 60 groupes, 500 élèves, 150 cours (tests de charge).
  */
-export async function seedVolume(): Promise<{ firstGroup: string; lessons: number }> {
+export async function seedVolume(
+  options: { studentAvailability?: boolean } = {},
+): Promise<{ firstGroup: string; lessons: number }> {
   const { db, season } = await activeSeason();
   const data = await seedVolumeData(db, season.id);
+  if (options.studentAvailability) {
+    // L'élève de rang i est dans le groupe i mod 60 : le profil suit le rang
+    // dans le groupe (i / 60), pour que chaque groupe mélange les profils.
+    const rows = data.students.flatMap((student, i) =>
+      (
+        VOLUME_STUDENT_SLOTS[Math.floor(i / TARGET_VOLUME.groups) % VOLUME_STUDENT_SLOTS.length] ??
+        []
+      ).map(([weekday, startTime, endTime]) => ({
+        studentId: student.id,
+        weekday,
+        startTime,
+        endTime,
+      })),
+    );
+    for (let i = 0; i < rows.length; i += 200) {
+      await db.insert(studentAvailabilities).values(rows.slice(i, i + 200));
+    }
+  }
   return { firstGroup: data.groups[0]?.name ?? "", lessons: data.lessons.length };
 }
+
+/**
+ * Plages des élèves du jeu de charge (`seedVolume({ studentAvailability: true })`),
+ * par rang dans le groupe modulo 4 : un sur quatre sans plage (disponible partout),
+ * les autres sur des profils différents, pour que les groupes aient des
+ * créneaux ombrés à plusieurs paliers (§4.4).
+ */
+const VOLUME_STUDENT_SLOTS: [number, string, string][][] = [
+  [],
+  [1, 2, 3, 4, 5, 6].map((weekday) => [weekday, "17:00", "21:00"]),
+  [
+    [3, "09:00", "18:00"],
+    [6, "09:00", "13:00"],
+  ],
+  [
+    ...[1, 2, 4, 5].map((weekday): [number, string, string] => [weekday, "16:30", "20:00"]),
+    [6, "09:00", "12:00"],
+  ],
+];
 
 /** Insère les référentiels et les cours dans la saison active. */
 export async function seedPlanning(spec: SeedPlanning): Promise<void> {
@@ -212,6 +286,12 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
       await db.insert(groupStudents).values({ groupId, studentId: id(`student:${firstName}`) });
     }
   }
+  for (const [firstName, slots] of Object.entries(spec.studentAvailability ?? {})) {
+    const studentId = id(`student:${firstName}`);
+    for (const [weekday, startTime, endTime] of slots) {
+      await db.insert(studentAvailabilities).values({ studentId, weekday, startTime, endTime });
+    }
+  }
   const rows = spec.lessons.map((lesson) => ({
     id: crypto.randomUUID(),
     seasonId: season.id,
@@ -250,6 +330,23 @@ export async function seedPlanning(spec: SeedPlanning): Promise<void> {
       occurrenceDate: e.occurrenceDate,
       instructorId: e.instructor ? id(`instructor:${e.instructor}`) : null,
       cancellationReason: e.kind === "cancellation" ? "rain" : null,
+      date: e.date ?? null,
+      startTime: e.startTime ?? null,
+      durationMinutes: e.durationMinutes ?? null,
+      courtId: e.court ? id(`court:${e.court}`) : null,
+    });
+  }
+  for (const o of spec.oneOffs ?? []) {
+    await db.insert(lessonExceptions).values({
+      id: crypto.randomUUID(),
+      seasonId: season.id,
+      kind: "one_off",
+      date: o.date,
+      startTime: o.startTime,
+      durationMinutes: o.durationMinutes,
+      courtId: id(`court:${o.court}`),
+      instructorId: id(`instructor:${o.instructor}`),
+      groupId: id(`group:${o.group}`),
     });
   }
 }

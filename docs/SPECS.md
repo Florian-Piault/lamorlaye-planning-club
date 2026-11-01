@@ -34,7 +34,7 @@ Les termes métier sont ceux du code et du modèle de données ; l'interface aff
 | Référentiels | Le club (menu, page) ; Fiches du club (onglets) | Saison, courts, moniteurs, niveaux, groupes, élèves et fermetures de la saison. |
 | Court | Court | Terrain sur lequel se déroule un cours. Un cours occupe un court. |
 | Moniteur | Moniteur | Enseignant qui assure les cours. Identifié par une couleur. |
-| Plage (de disponibilité) | Horaire de disponibilité ; section « Disponible chaque semaine » | Créneau hebdomadaire pendant lequel un moniteur peut assurer des cours. « Créneau » reste réservé aux cours. |
+| Plage (de disponibilité) | Horaire de disponibilité ; section « Disponible chaque semaine » ; « hors disponibilités » | Créneau hebdomadaire pendant lequel un moniteur peut assurer des cours, ou un élève venir au club. « Créneau » reste réservé aux cours. Sans aucune plage, un moniteur est disponible nulle part, un élève partout. |
 | Groupe | Groupe | Ensemble d'élèves suivant un même cours collectif. |
 | Composition | Élèves du groupe | Élèves inscrits dans un groupe. |
 | Effectif | Nombre d'élèves ; « Groupe trop plein » en cas de dépassement | Nombre d'élèves d'un groupe, comparé à son maximum. |
@@ -86,6 +86,11 @@ Tous les enregistrements portent un **UUID** comme identifiant ainsi que les cha
 - Pour les mineurs : nom et téléphone du responsable légal.
 - **Niveau proposé** (v1.1) : celui du premier groupe coché, tant que l'utilisatrice n'a pas choisi le niveau (même modèle que les initiales suggérées du moniteur).
 - Un élève peut appartenir à **plusieurs groupes**.
+- **Disponibilités** (`.plan/disponibilites-eleves/spec.md`) : plages hebdomadaires récurrentes (jour + heure de début + heure de fin, plusieurs par jour possibles), sur le modèle de celles du moniteur (§3.3), sans indisponibilités datées. Elles sont fusionnées par jour (chevauchantes ou contiguës) à l'enregistrement. Un créneau est couvert s'il tient **entièrement** dans une plage du même jour, comme pour le moniteur ; mais **un élève sans aucune plage est disponible partout**, pour que la saisie puisse être progressive sans avertissements. Les plages suivent l'élève : supprimées avec lui (y compris par l'effacement RGPD, §11.6), recopiées avec lui à la duplication d'une saison (§8.1), en lecture seule dans une saison terminée.
+  - **Saisie** (L18) : section « Disponible chaque semaine » de la fiche élève, en création comme en modification, avec la frise et le formulaire « Jour / De / À » des moniteurs (§3.3 : mêmes gestes, mêmes libellés ; les horaires sont peints dans la couleur du thème, l'élève n'ayant pas de couleur). Sans plage, la section affiche « Aucun horaire : considéré disponible partout. » ; sinon, elle rappelle qu'hors de ces horaires l'élève est signalé « hors disponibilités » sur le planning. Un bouton « Effacer tous les horaires » (grisé s'il n'y en a aucun) remet l'élève disponible partout.
+  - Contrairement au moniteur, rien n'est enregistré à chaque geste : les plages s'enregistrent avec la fiche (« Enregistrer », « Créer l'élève », « Enregistrer et ajouter un autre », qui repart sans plage), en une seule écriture avec l'identité et les groupes (si elle échoue, rien n'est enregistré), sous la garde de saisie commune (« Abandonner les modifications ? » à la fermeture si les plages ont changé ; des plages revenues à leur état d'ouverture ne comptent pas comme une modification). Pas de toast par geste : chaque changement est annoncé au lecteur d'écran.
+  - **Défaire / refaire** : deux boutons icône de la section, « Défaire la modification » et « Refaire la modification » (bulle : « Défaire : Mercredi 14:00–18:00 ajouté »), parcourent l'historique des changements de plages faits depuis l'ouverture de la fiche, effacement compris. **Limite** : cet historique ne vaut que tant que la fiche est ouverte ; il disparaît à sa fermeture, et rien ne s'annule après « Enregistrer » (pour revenir en arrière, il faut rouvrir la fiche et ressaisir). Il est distinct de celui du planning (§5.3) et n'a pas de raccourci clavier. Les libellés « Défaire » / « Refaire » évitent la confusion avec le bouton « Annuler » de la fenêtre, qui ferme la fiche.
+  - Saison terminée : plages affichées dans la frise et la liste, sans bouton ni formulaire de saisie, frise inerte.
 
 ### 3.5 bis Référentiel des niveaux
 - Liste ordonnée et modifiable dans les réglages (libellé, ordre, actif).
@@ -148,6 +153,7 @@ Maquette de référence : `maquettes/vue-semaine.html`, onglet A ; lisibilité �
 - La grille reste épurée par défaut.
 - Au **survol ou au déplacement d'un cours**, ou au **clic sur un moniteur de la légende**, les créneaux où ce moniteur est **indisponible** sont hachurés.
 - Un seul moniteur est hachuré à la fois, par ordre de priorité : celui du cours glissé, celui choisi dans le panneau du cours ouvert, celui du cours survolé, celui épinglé dans la légende.
+- **Ombrage des élèves (v1.2)** : pendant le **déplacement d'un cours** (souris ou clavier), ou pendant la **sélection d'un créneau** quand un groupe est choisi dans le filtre « Groupe » (§4.3), les créneaux où des élèves du groupe sont **indisponibles** sont ombrés, sur toute la largeur du jour. Au déplacement, la durée du cours est connue : l'ombrage indique, pour chaque heure de début possible (pas de 15 min), combien d'élèves un cours de cette durée commençant là gênerait ; il se lit au haut du fantôme. À la création, la durée n'est pas encore connue : l'ombrage indique combien d'élèves sont indisponibles à chaque moment de la journée (découpée aux bornes de leurs plages), sans tenir compte de la durée du futur cours. Même règle que le contrôle des élèves indisponibles (§7) : un élève sans plage est disponible partout. L'ombrage est un **aplat ambré sans motif**, distinct des hachures rayées du moniteur, et les deux s'affichent ensemble. Il fonce par paliers selon le nombre d'élèves indisponibles : 1, 2, 3 ou 4, 5 et plus. Une pastille « Zones ombrées : élèves de … » l'accompagne dans la barre du mode, seulement si une bande est visible. Les jours fermés ne sont pas ombrés. L'ombrage est calculé **une fois, au début du geste** (il ne dépend pas du pointeur) et disparaît à sa fin (relâché ou Échap). Rien n'est ombré au redimensionnement, au glisser d'une pastille de moniteur, ni quand aucun élève du groupe n'est gêné.
 
 ### 4.5 Guidage et mode d'emploi (v1.1)
 
@@ -169,7 +175,7 @@ Prototypes retenus (variantes C) : `.plan/ux-v1-1/prototypes/guidage-premiere-ut
 
 Deux points d'entrée ouvrant le **même panneau latéral** d'édition :
 
-1. **Sélection à la souris sur la grille** : cliquer-glisser verticalement dans la sous-colonne d'un court. Jour, heure de début, durée et court sont pré-remplis.
+1. **Sélection à la souris sur la grille** : cliquer-glisser verticalement dans la sous-colonne d'un court. Jour, heure de début, durée et court sont pré-remplis ; le groupe aussi quand un groupe est choisi dans le filtre « Groupe ». La sélection est alors ombrée pour ses élèves (§4.4), et l'infobulle de la sélection montre en temps réel les avertissements de ce groupe sur le créneau (§7), dont « N élève(s) hors disponibilités ».
 2. **Bouton « Nouveau cours »** : panneau vide.
 
 Le panneau contient : groupe (liste avec recherche + création rapide d'un groupe), moniteur, jour, heure de début, durée, court, note. La liste des moniteurs présente trois groupes, dans cet ordre :
@@ -226,6 +232,7 @@ Aucun conflit n'est bloquant : tout est autorisé mais **signalé** (bordure rou
 | Élève inscrit dans deux cours simultanés | « 2 élèves ont un autre cours sur ce créneau » |
 | Effectif du groupe supérieur au maximum | « 9 / 8 élèves » |
 | Âge d'un élève hors tranche du groupe | « 1 élève hors tranche d'âge » |
+| Élèves du groupe hors de leurs disponibilités (§3.5 ; un seul avertissement par cours, élèves sans plage jamais comptés ; cours du planning habituel et séances actives d'une semaine précise, modifiées et cours ponctuels compris, d'après leur jour de semaine ; séance annulée ignorée) | « 2 élèves hors disponibilités : Léa Martin, Tom Petit » (noms triés par nom puis prénom, partout où le message s'affiche : fiche du cours au survol, panneau « Avertissements », panneau du cours, infobulle du glisser, description accessible du cours) |
 | Groupe hors tranche coché dans la fiche élève (ou date qui met hors tranche un groupe coché) | « Léa aura 11 ans, Galaxie vert est pour les 6–8 ans » |
 | Élève déjà inscrit dans la saison (même nom + prénom sans casse ni accents ; dates comparées si les deux sont connues) | « Un élève Martin Léa (né(e) le 03/05/2015, Galaxie vert) existe déjà » + « Ouvrir sa fiche » |
 | Élève inscrit seulement dans une saison passée (information) | « Léa Martin était inscrit(e) en 2025-2026. » + « Reprendre ses coordonnées » |
@@ -242,7 +249,20 @@ Un panneau **« Avertissements »** liste tous les conflits de la semaine affich
 
 Les onglets Saison, Courts, Moniteurs, Groupes et Élèves portent la pastille d'étape du guidage de la première utilisation, et l'accueil « Avant de construire le planning » remplace l'état vide « Aucune saison » (§4.5).
 
-- Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif).
+- Composition d'un groupe : ajout d'élèves par recherche ou glisser-déposer depuis la liste des élèves ; affichage de l'effectif et des alertes (âge, effectif, disponibilités).
+- **Disponibilités dans la composition** (§3.5) : un élève est compatible avec le groupe si chaque cours du groupe au planning habituel, à sa date de référence (aujourd'hui, ramené dans la saison, comme sur la grille), tient dans ses plages. Un élève sans plage, ou tout élève d'un groupe sans cours, est compatible.
+  - Parmi les élèves trouvés par « Ajouter un élève », les compatibles passent en tête, l'ordre alphabétique étant gardé dans chaque catégorie.
+  - Au plus 8 élèves sont proposés : le tri a lieu avant la coupe, un compatible loin dans l'alphabet reste donc proposé.
+  - Un élève incompatible porte le badge « hors disponibilités ». Sa bulle d'aide nomme le ou les cours qui coincent (« Hors disponibilités : mercredi 14:00–15:00 »), repris dans le nom accessible de l'option. Sous son nom, une ligne toujours visible les répète (« Cours en cause : mercredi 14:00–15:00 »), pour qu'on les lise aussi en parcourant la liste au clavier. L'ajout reste possible, par clic, Entrée ou glisser.
+  - Dans « Élèves du groupe », les membres incompatibles sont signalés dans la zone de messages réservée, à côté des alertes d'âge et d'effectif, sous la forme de l'avertissement du §7 : « 2 élèves hors disponibilités : Léa Martin, Tom Petit », noms triés par nom puis prénom.
+- **Fiche élève** (fenêtre commune à l'onglet Élèves et à la fiche groupe) : identité, responsable légal, groupes, puis la zone de messages (doublon, alerte d'âge, responsable légal : visible sans faire défiler la fiche), la section « Disponible chaque semaine » (§3.5) et les boutons. Les plages sont lues à l'ouverture de la fiche et enregistrées avec elle.
+- **Liste des élèves et disponibilités** (L19) : une colonne « Disponibilités » indique « Renseignées » (au moins une plage) ou « Non renseignées ». À côté de la recherche, la liste « Groupe » (« Tous les groupes » par défaut) ne garde que les élèves d'un groupe, et la case « Disponibilités non renseignées » que les élèves sans plage. Recherche, groupe et case se combinent (par exemple « Galaxie vert » et « non renseignées » pour traiter un groupe à la fois) ; le compteur indique alors « 2 sur 8 ».
+- **Saisie des disponibilités en série** (L19) : le bouton « Saisir les disponibilités en série » de l'onglet Élèves (grisé si la liste est vide et pendant la lecture des plages qui précède l'ouverture, absent dans une saison terminée) ouvre la fenêtre « Saisie des disponibilités en série » sur la liste **telle qu'elle est filtrée et triée au lancement** ; la série ne change plus ensuite, même si la liste se met à jour.
+  - Un élève à la fois : son nom, ses groupes (« Aucun groupe » sinon), la progression « Élève 4 / 23 », puis la section « Disponible chaque semaine » de la fiche (§3.5 : frise, « Effacer tous les horaires », défaire / refaire propres à l'élève affiché), pré-remplie avec les plages qu'il a déjà.
+  - « Enregistrer et suivant » (raccourci ⌘ ↩ / Ctrl+Entrée) enregistre aussitôt les plages de l'élève, puis affiche le suivant ; si elles n'ont pas changé, rien n'est écrit et l'élève compte comme passé ; « Passer » n'enregistre rien ; « Terminer » (ou Échap, ou la croix) arrête la série. Ce qui a déjà été enregistré est gardé. Si les plages de l'élève affiché ont changé, « Passer » et « Terminer » demandent d'abord « Abandonner les modifications ? ». Pendant une écriture, les trois boutons sont grisés (avec la raison « Enregistrement en cours », le focus restant dans la fenêtre) et la fenêtre ne se ferme pas (Échap et la croix sont sans effet) : le bilan compte toujours l'élève en cours.
+  - Après le dernier élève, la fenêtre se ferme sur le toast « Saisie en série terminée : 3 élèves enregistrés, 2 passés. » ; un arrêt en cours de route affiche « Saisie en série arrêtée : 1 élève enregistré. » (rien si aucun élève n'a été enregistré ni passé). La liste est relue après chaque enregistrement : les élèves saisis quittent le filtre « non renseignées ».
+  - Clavier : le focus est sur le champ « Jour » de la saisie d'un horaire à l'ouverture et à chaque élève ; Tab mène aux trois actions ; à la fermeture, il revient au bouton qui a lancé la série. Le nom et la progression de chaque élève, le premier compris, sont annoncés au lecteur d'écran.
+  - Une erreur d'écriture s'affiche dans la zone de messages de la fenêtre ; l'élève reste affiché avec sa saisie.
 - **Saisie en volume** (v1.1) :
   - fiche élève : « Enregistrer et ajouter un autre » (en création) enregistre, confirme par un toast « Léa Martin ajouté(e) » et rouvre une fiche vide qui **garde les groupes cochés et le niveau** ; Entrée enregistre comme « Créer l'élève » ;
   - fiche groupe, champ « Ajouter un élève » : vidé après chaque ajout, focus conservé ; Entrée ajoute le résultat unique ou celui en surbrillance (↑/↓) ; sans résultat, « Créer « Léa Martin » » (ou Entrée) ouvre la fiche élève pré-remplie (premier mot : prénom, reste : nom), groupe coché et niveau proposé, puis revient à la fiche du groupe ;
@@ -256,7 +276,7 @@ Les onglets Saison, Courts, Moniteurs, Groupes et Élèves portent la pastille d
 
 ### 8.1 Saisons
 
-- Création d'une saison vierge ou **par duplication** de la précédente : copie des courts, moniteurs (avec disponibilités récurrentes), groupes, élèves et semaine type ; **les exceptions, indisponibilités datées et fermetures ne sont pas copiées**.
+- Création d'une saison vierge ou **par duplication** de la précédente : copie des courts, moniteurs (avec disponibilités récurrentes), groupes, élèves (avec leurs disponibilités) et semaine type ; **les exceptions, indisponibilités datées et fermetures ne sont pas copiées**.
 - Les saisons passées restent consultables en **lecture seule**.
 
 ## 9. Import / export
@@ -323,7 +343,7 @@ Les onglets Saison, Courts, Moniteurs, Groupes et Élèves portent la pastille d
 
 ### 11.6 Données personnelles (RGPD)
 - Données d'élèves (dont mineurs) stockées uniquement en local sur le poste du responsable.
-- Fonctions de suppression définitive d'un élève et d'export de ses données.
+- Fonctions de suppression définitive d'un élève et d'export de ses données. L'export contient, pour chaque saison, ses plages de disponibilité (« disponibilités » : jour, début, fin) ; la suppression définitive les efface avec lui. Les sauvegardes, copies de la base entière, les contiennent aussi.
 - Recommandation : chiffrement du disque du poste (FileVault / BitLocker / LUKS) ; option de chiffrement des fichiers de sauvegarde exportés par mot de passe.
 
 ## 12. Choix technique

@@ -21,6 +21,10 @@ export type DragState =
       kind: "move";
       lessonId: string;
       instructorId: string | null;
+      /** Groupe du cours : ses élèves indisponibles sont ombrés (§4.4). */
+      groupId: string | null;
+      /** Durée du cours, fixe pendant le déplacement : base de l'ombrage (§4.4). */
+      durationMinutes: number;
       /** Écart (minutes) entre le point saisi et le début du cours. */
       grabOffset: number;
       /** Alt / Option enfoncée : duplication. */
@@ -49,6 +53,12 @@ export type DragState =
       weekday: number;
       courtId: string;
       anchorY: number;
+      /**
+       * Groupe déjà choisi pour le nouveau cours (filtre « Groupe » de la
+       * grille) : ses élèves indisponibles sont ombrés et le panneau s'ouvre
+       * avec ce groupe.
+       */
+      groupId: string | null;
       candidate: CandidateLesson | null;
       warnings: Conflict[];
     };
@@ -116,4 +126,22 @@ export function hatchedInstructorId(state: InteractionState): string | null {
     state.hoverInstructorId ??
     state.pinnedInstructorId
   );
+}
+
+/**
+ * Groupe dont les élèves indisponibles sont ombrés (§4.4) : celui du cours
+ * déplacé, ou celui déjà choisi pour un cours créé à la souris. Il ne change
+ * qu'au début et à la fin du geste : l'ombrage est calculé une fois par geste.
+ */
+export function shadedGroupId(state: InteractionState): string | null {
+  const drag = state.drag;
+  return drag?.kind === "move" || drag?.kind === "select" ? drag.groupId : null;
+}
+
+/**
+ * Durée sur laquelle l'ombrage est calculé (§4.4) : celle du cours déplacé ;
+ * `null` pour une création, dont la durée n'est connue qu'au relâché.
+ */
+export function shadedDuration(state: InteractionState): number | null {
+  return state.drag?.kind === "move" ? state.drag.durationMinutes : null;
 }

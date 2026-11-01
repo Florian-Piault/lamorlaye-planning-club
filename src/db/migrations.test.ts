@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readdirSync } from "node:fs";
 import initSqlJs from "sql.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SqlDriver, SqlStatement } from "./driver";
@@ -20,6 +21,9 @@ import {
  */
 
 const V1_0 = bundledMigrations.filter((m) => m.tag < "0005");
+
+/** Migrations qu'une base v1.0 reçoit à la mise à jour. */
+const SINCE_V1_0 = ["0005_student_phone_optional", "0006_student_availabilities"];
 
 let driver: SqlDriver | undefined;
 
@@ -88,6 +92,20 @@ async function v1Database(): Promise<SqlDriver> {
 
 const dump = (d: SqlDriver, table: string) => d.query(`SELECT * FROM ${table} ORDER BY id`);
 
+describe("migrations embarquées", () => {
+  it("comprennent tous les fichiers de src/db/migrations, dans l'ordre", () => {
+    // Liste lue sur le disque à chaque exécution : si elle diffère, `migrate.ts`
+    // vient d'un cache de transformation périmé (voir le commentaire de
+    // `import.meta.glob` dans `migrate.ts`).
+    const files = readdirSync(new URL("./migrations", import.meta.url))
+      .filter((name) => name.endsWith(".sql"))
+      .map((name) => name.replace(/\.sql$/, ""))
+      .sort();
+    expect(files).toContain("0006_student_availabilities");
+    expect(bundledMigrations.map((m) => m.tag)).toEqual(files);
+  });
+});
+
 describe("migration 0005 : téléphone de l'élève facultatif", () => {
   it("migre une base v1.0 sans perte", async () => {
     const d = await v1Database();
@@ -97,9 +115,9 @@ describe("migration 0005 : téléphone de l'élève facultatif", () => {
       memberships: await dump(d, "group_students"),
     };
     expect(before.memberships).toHaveLength(3);
-    expect(await pendingMigrations(d)).toEqual(["0005_student_phone_optional"]);
+    expect(await pendingMigrations(d)).toEqual(SINCE_V1_0);
 
-    expect(await migrate(d)).toEqual(["0005_student_phone_optional"]);
+    expect(await migrate(d)).toEqual(SINCE_V1_0);
     expect(await pendingMigrations(d)).toEqual([]);
 
     // Mêmes élèves, mêmes valeurs (horodatages compris), même composition des groupes.
@@ -189,7 +207,7 @@ describe("migration 0005 : téléphone de l'élève facultatif", () => {
 
     const d = await openSqlJsDriver({ data: bytes });
     driver = d;
-    expect(await migrate(d)).toEqual(["0005_student_phone_optional"]);
+    expect(await migrate(d)).toEqual(SINCE_V1_0);
     expect(await d.query("SELECT count(*) FROM students")).toEqual([[3]]);
     expect(await d.query("SELECT count(*) FROM group_students")).toEqual([[3]]);
     expect(await d.query("PRAGMA foreign_key_check")).toEqual([]);
@@ -205,9 +223,9 @@ describe("sauvegarde avant mise à jour", () => {
     const backup = vi.fn(async () => {
       calls.push(`sauvegarde (${(await pendingMigrations(d)).join(", ")})`);
     });
-    expect(await migrateWithBackup(d, backup)).toEqual(["0005_student_phone_optional"]);
+    expect(await migrateWithBackup(d, backup)).toEqual(SINCE_V1_0);
     // Copie faite avant la migration, quand la base était encore en v1.0.
-    expect(calls).toEqual(["sauvegarde (0005_student_phone_optional)"]);
+    expect(calls).toEqual([`sauvegarde (${SINCE_V1_0.join(", ")})`]);
 
     // Base déjà à jour : aucune copie.
     expect(await migrateWithBackup(d, backup)).toEqual([]);
@@ -235,7 +253,102 @@ describe("sauvegarde avant mise à jour", () => {
       "Impossible de sauvegarder avant la mise à jour : Espace disque insuffisant",
     );
     // La base reste en v1.0 ; un nouvel essai réussi la migre.
-    expect(await pendingMigrations(d)).toEqual(["0005_student_phone_optional"]);
-    expect(await migrateWithBackup(d, async () => {})).toEqual(["0005_student_phone_optional"]);
+    expect(await pendingMigrations(d)).toEqual(SINCE_V1_0);
+    expect(await migrateWithBackup(d, async () => {})).toEqual(SINCE_V1_0);
+  });
+});
+
+describe("migration 0006 : disponibilités des élèves", () => {
+  /** Base v1.1 (migrations 0000 à 0005) remplie, puis mise à jour. */
+  async function v1_1Database(): Promise<SqlDriver> {
+    const d = await v1Database();
+    await migrate(
+      d,
+      bundledMigrations.filter((m) => m.tag < "0006"),
+    );
+    return d;
+  }
+
+  it("ajoute la table sans toucher aux élèves ni aux groupes", async () => {
+    const d = await v1_1Database();
+    driver = d;
+    const before = {
+      students: await dump(d, "students"),
+      memberships: await dump(d, "group_students"),
+    };
+    expect(await migrate(d)).toEqual(["0006_student_availabilities"]);
+    expect(await dump(d, "students")).toEqual(before.students);
+    expect(await dump(d, "group_students")).toEqual(before.memberships);
+    expect(await d.query("SELECT count(*) FROM student_availabilities")).toEqual([[0]]);
+    const references = await d.query("PRAGMA foreign_key_list(student_availabilities)");
+    expect(references.map((row) => [row[2], row[6]])).toEqual([["students", "CASCADE"]]);
+    expect(await d.query("PRAGMA integrity_check")).toEqual([["ok"]]);
+  });
+
+  it("refuse un jour hors de 1 à 7 et une plage dont le début n'est pas avant la fin", async () => {
+    const d = await v1_1Database();
+    driver = d;
+    await migrate(d);
+    const insert = (id: string, weekday: number, start: string, end: string) =>
+      d.run(
+        `INSERT INTO student_availabilities (id, student_id, weekday, start_time, end_time)
+         VALUES ('${id}', 'e3', ${weekday}, '${start}', '${end}')`,
+      );
+
+    await expect(insert("j0", 0, "14:00", "18:00")).rejects.toThrow(
+      /student_availabilities_weekday_check/,
+    );
+    await expect(insert("j8", 8, "14:00", "18:00")).rejects.toThrow(
+      /student_availabilities_weekday_check/,
+    );
+    await expect(insert("vide", 3, "14:00", "14:00")).rejects.toThrow(
+      /student_availabilities_times_check/,
+    );
+    await expect(insert("inverse", 3, "18:00", "14:00")).rejects.toThrow(
+      /student_availabilities_times_check/,
+    );
+    await insert("lundi", 1, "08:00", "09:00");
+    await insert("dimanche", 7, "08:00", "09:00");
+    expect(await d.query("SELECT id FROM student_availabilities ORDER BY id")).toEqual([
+      ["dimanche"],
+      ["lundi"],
+    ]);
+  });
+
+  it("emporte les plages avec l'élève et protège celles d'une saison archivée", async () => {
+    const d = await v1_1Database();
+    driver = d;
+    await migrate(d);
+    const insert = (id: string, studentId: string, weekday = 3) =>
+      d.run(
+        `INSERT INTO student_availabilities (id, student_id, weekday, start_time, end_time)
+         VALUES ('${id}', '${studentId}', ${weekday}, '14:00', '18:00')`,
+      );
+
+    // Saison active : plages libres (jour contrôlé), supprimées avec l'élève.
+    await expect(insert("p0", "e3", 8)).rejects.toThrow(/CHECK/);
+    await insert("p3", "e3");
+    await d.run("DELETE FROM students WHERE id = 'e3'");
+    expect(await d.query("SELECT id FROM student_availabilities")).toEqual([]);
+
+    // Saison archivée : lecture seule…
+    await insert("p2", "e2");
+    await d.run("UPDATE seasons SET status = 'archived' WHERE id = 's2'");
+    const readOnly = /Saison archivée : lecture seule\./;
+    await expect(insert("p4", "e2", 6)).rejects.toThrow(readOnly);
+    await expect(
+      d.run("UPDATE student_availabilities SET end_time = '19:00' WHERE id = 'p2'"),
+    ).rejects.toThrow(readOnly);
+    await expect(d.run("DELETE FROM student_availabilities WHERE id = 'p2'")).rejects.toThrow(
+      readOnly,
+    );
+    // …sauf l'effacement RGPD de l'élève, qui emporte ses plages.
+    await d.batch([
+      { sql: "INSERT INTO student_erasures (id, student_id) VALUES ('r2', 'e2')" },
+      { sql: "DELETE FROM group_students WHERE student_id = 'e2'" },
+      { sql: "DELETE FROM students WHERE id = 'e2'" },
+      { sql: "DELETE FROM student_erasures WHERE id = 'r2'" },
+    ]);
+    expect(await d.query("SELECT id FROM student_availabilities")).toEqual([]);
   });
 });
