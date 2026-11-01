@@ -97,10 +97,9 @@ export async function replaceStudentAvailabilities(
   studentId: string,
   slots: readonly WeeklySlot[],
 ): Promise<void> {
-  const normalized = normalizeSlots(slots);
   await db.batch([
     db.delete(studentAvailabilities).where(eq(studentAvailabilities.studentId, studentId)),
-    ...normalized.map((slot) => db.insert(studentAvailabilities).values({ studentId, ...slot })),
+    ...insertSlots(db, studentId, slots),
   ]);
 }
 
@@ -151,12 +150,23 @@ export async function getStudentGroupIds(db: Db, studentId: string): Promise<str
   return rows.map((r) => r.groupId);
 }
 
-/** Crée un élève et l'inscrit dans ses groupes (une seule transaction). */
+/** Insertion des plages d'un élève, fusionnées par jour. */
+function insertSlots(db: Db, studentId: string, slots: readonly WeeklySlot[]) {
+  return normalizeSlots(slots).map(({ weekday, startTime, endTime }) =>
+    db.insert(studentAvailabilities).values({ studentId, weekday, startTime, endTime }),
+  );
+}
+
+/**
+ * Crée un élève, l'inscrit dans ses groupes et enregistre ses plages (une
+ * seule transaction : en cas d'échec, rien n'est créé).
+ */
 export async function createStudent(
   db: Db,
   seasonId: string,
   input: StudentInput,
   groupIds: readonly string[] = [],
+  slots: readonly WeeklySlot[] = [],
 ): Promise<string> {
   const id = crypto.randomUUID();
   await db.batch([
@@ -164,16 +174,22 @@ export async function createStudent(
     ...[...new Set(groupIds)].map((groupId) =>
       db.insert(groupStudents).values({ groupId, studentId: id }),
     ),
+    ...insertSlots(db, id, slots),
   ]);
   return id;
 }
 
-/** Met à jour la fiche d'un élève et remplace ses groupes (une seule transaction). */
+/**
+ * Met à jour la fiche d'un élève et remplace ses groupes, ainsi que ses
+ * plages si `slots` est donné (une seule transaction : en cas d'échec, rien
+ * n'est modifié).
+ */
 export async function updateStudent(
   db: Db,
   id: string,
   input: StudentInput,
   groupIds: readonly string[],
+  slots?: readonly WeeklySlot[],
 ): Promise<void> {
   await db.batch([
     db.update(students).set(input).where(eq(students.id, id)),
@@ -181,6 +197,12 @@ export async function updateStudent(
     ...[...new Set(groupIds)].map((groupId) =>
       db.insert(groupStudents).values({ groupId, studentId: id }),
     ),
+    ...(slots
+      ? [
+          db.delete(studentAvailabilities).where(eq(studentAvailabilities.studentId, id)),
+          ...insertSlots(db, id, slots),
+        ]
+      : []),
   ]);
 }
 

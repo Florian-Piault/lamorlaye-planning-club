@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useId, useMemo, useState } from "react";
 import { MessageZone } from "@/components/feedback/MessageZone";
 import { errorMessages, type Message } from "@/components/feedback/messages";
 import { Field } from "@/components/form/Field";
@@ -10,6 +10,7 @@ import { Checkbox, Input, Select } from "@/components/ui/input";
 import type { GroupListItem } from "@/db/repositories/groups";
 import type { StudentIdentity } from "@/db/repositories/students";
 import type { Level, Student } from "@/db/schema";
+import type { WeeklySlot } from "@/domain/availability";
 import {
   ageRangeLabel,
   ageRangeWarning,
@@ -30,6 +31,7 @@ import {
   validate,
 } from "@/domain/validation";
 import { errorMessage } from "@/hooks/useLoader";
+import { StudentAvailabilitySection } from "./StudentAvailabilitySection";
 
 export const emptyStudentValues: StudentFormValues = {
   lastName: "",
@@ -90,8 +92,11 @@ interface StudentFormProps {
   initialGroupIds: readonly string[];
   levels: readonly Level[];
   groups: readonly GroupListItem[];
+  /** Plages hebdomadaires à l'ouverture (aucune en création). */
+  initialSlots?: readonly WeeklySlot[];
   submitLabel: string;
-  onSubmit: (input: StudentInput, groupIds: string[]) => Promise<void>;
+  /** Enregistre la fiche, ses groupes et ses plages. */
+  onSubmit: (input: StudentInput, groupIds: string[], slots: WeeklySlot[]) => Promise<void>;
   onCancel: () => void;
   /** Consultation seule (saison archivée) : champs désactivés, bouton « Fermer » seul. */
   readOnly?: boolean;
@@ -111,6 +116,7 @@ interface StudentFormProps {
     input: StudentInput,
     groupIds: string[],
     levelChosen: boolean,
+    slots: WeeklySlot[],
   ) => Promise<void>;
   /**
    * Le niveau initial a-t-il été choisi par l'utilisatrice ? Sinon il suit le
@@ -120,10 +126,18 @@ interface StudentFormProps {
   initialLevelChosen?: boolean;
 }
 
-/** Fiche élève complète (§3.5), avec ses groupes. */
+const NO_SLOTS: readonly WeeklySlot[] = [];
+
+/** Plages comparables (jour, début, fin), qu'elles viennent de la base ou de la frise. */
+function slotKeys(slots: readonly WeeklySlot[]): string[] {
+  return slots.map((s) => `${s.weekday} ${s.startTime} ${s.endTime}`).sort();
+}
+
+/** Fiche élève complète (§3.5), avec ses groupes et ses disponibilités. */
 export function StudentForm({
   initialValues,
   initialGroupIds,
+  initialSlots = NO_SLOTS,
   levels,
   groups,
   submitLabel,
@@ -147,6 +161,10 @@ export function StudentForm({
   const [reusedFrom, setReusedFrom] = useState<StudentIdentity | null>(null);
   const [groupIds, setGroupIds] = useState<string[]>([...initialGroupIds]);
   const [groupQuery, setGroupQuery] = useState("");
+  const [slots, setSlots] = useState<WeeklySlot[]>(() =>
+    initialSlots.map(({ weekday, startTime, endTime }) => ({ weekday, startTime, endTime })),
+  );
+  const formId = useId();
   const { errors, setErrors, error, setError, changed } = useFormErrors<StudentFormValues>();
   const set = (patch: Partial<StudentFormValues>) => {
     // Le téléphone du responsable suffit : il efface aussi l'erreur du téléphone de l'élève.
@@ -161,8 +179,12 @@ export function StudentForm({
   };
   useDirtyGuard(
     !sameValues(
-      { values, groupIds: [...groupIds].sort() },
-      { values: initialValues, groupIds: [...initialGroupIds].sort() },
+      { values, groupIds: [...groupIds].sort(), slots: slotKeys(slots) },
+      {
+        values: initialValues,
+        groupIds: [...initialGroupIds].sort(),
+        slots: slotKeys(initialSlots),
+      },
     ),
   );
   const cancel = useGuardedCancel(onCancel);
@@ -265,16 +287,14 @@ export function StudentForm({
       : []),
   ];
 
-  const save = async (
-    then: (input: StudentInput, groupIds: string[], levelChosen: boolean) => Promise<void>,
-  ) => {
+  const save = async (then: (input: StudentInput) => Promise<void>) => {
     const result = validate(studentSchema, values);
     if (!result.ok) return setErrors(result.errors);
     setErrors({});
     setError(null);
     setBusy(true);
     try {
-      await then(result.data, groupIds, levelChosen);
+      await then(result.data);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -284,7 +304,7 @@ export function StudentForm({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     // Entrée enregistre comme le bouton principal ; « ajouter un autre » est un bouton à part.
-    if (!busy) void save(onSubmit);
+    if (!busy) void save((input) => onSubmit(input, groupIds, slots));
   };
 
   const text = (
@@ -307,80 +327,93 @@ export function StudentForm({
   );
 
   return (
-    <form onSubmit={submit} noValidate className="grid gap-4" aria-label="Fiche élève">
-      <fieldset disabled={readOnly} className="contents">
-        <div className="grid grid-cols-2 gap-4">
-          {text("firstName", "Prénom", true)}
-          {text("lastName", "Nom", true)}
-          {text("phone", "Téléphone", false, "tel", "Ou celui du responsable légal, ci-dessous.")}
-          {text("email", "E-mail", false, "email")}
-          {text("birthDate", "Date de naissance", false, "date")}
-          <Field label="Niveau" error={errors.levelId}>
-            {(props) => (
-              <Select
-                {...props}
-                value={values.levelId}
-                onChange={(e) => {
-                  setLevelChosen(true);
-                  set({ levelId: e.target.value });
-                }}
-              >
-                <option value="">— Aucun —</option>
-                {levelOptions.map((level) => (
-                  <option key={level.id} value={level.id}>
-                    {level.label}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-          {text("fftRanking", "Classement FFT")}
-        </div>
-        <fieldset className="grid gap-3 rounded-lg border p-3">
-          <legend className="px-1 font-medium text-sm">Responsable légal</legend>
+    // La section des disponibilités et les boutons sont hors du formulaire : la
+    // frise a son propre formulaire (« Saisir un horaire »), qui ne peut pas y
+    // être imbriqué. Le bouton principal le rejoint par l'attribut `form`.
+    <div className="grid gap-4">
+      <form
+        id={formId}
+        onSubmit={submit}
+        noValidate
+        className="grid gap-4"
+        aria-label="Fiche élève"
+      >
+        <fieldset disabled={readOnly} className="contents">
           <div className="grid grid-cols-2 gap-4">
-            {text("guardianName", "Nom du responsable")}
-            {text("guardianPhone", "Téléphone du responsable", false, "tel")}
-          </div>
-        </fieldset>
-        <fieldset className="grid gap-2">
-          <legend className="mb-2 font-medium text-sm">
-            Groupes{groupIds.length > 0 && ` (${groupIds.length})`}
-          </legend>
-          {groups.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Aucun groupe dans la saison.</p>
-          ) : (
-            <>
-              {groups.length > 6 && (
-                <Input
-                  type="search"
-                  aria-label="Filtrer les groupes"
-                  placeholder="Filtrer les groupes"
-                  value={groupQuery}
-                  onChange={(e) => setGroupQuery(e.target.value)}
-                  className="max-w-xs"
-                />
+            {text("firstName", "Prénom", true)}
+            {text("lastName", "Nom", true)}
+            {text("phone", "Téléphone", false, "tel", "Ou celui du responsable légal, ci-dessous.")}
+            {text("email", "E-mail", false, "email")}
+            {text("birthDate", "Date de naissance", false, "date")}
+            <Field label="Niveau" error={errors.levelId}>
+              {(props) => (
+                <Select
+                  {...props}
+                  value={values.levelId}
+                  onChange={(e) => {
+                    setLevelChosen(true);
+                    set({ levelId: e.target.value });
+                  }}
+                >
+                  <option value="">— Aucun —</option>
+                  {levelOptions.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {level.label}
+                    </option>
+                  ))}
+                </Select>
               )}
-              <div className="grid max-h-40 grid-cols-2 gap-x-4 gap-y-1.5 overflow-y-auto">
-                {groupOptions.map((group) => (
-                  <Checkbox
-                    key={group.id}
-                    label={
-                      <GroupChoiceLabel
-                        group={group}
-                        outOfRange={isOutOfAgeRange(group, birthDate, season.startDate)}
-                      />
-                    }
-                    checked={groupIds.includes(group.id)}
-                    onChange={(e) => toggleGroup(group.id, e.target.checked)}
+            </Field>
+            {text("fftRanking", "Classement FFT")}
+          </div>
+          <fieldset className="grid gap-3 rounded-lg border p-3">
+            <legend className="px-1 font-medium text-sm">Responsable légal</legend>
+            <div className="grid grid-cols-2 gap-4">
+              {text("guardianName", "Nom du responsable")}
+              {text("guardianPhone", "Téléphone du responsable", false, "tel")}
+            </div>
+          </fieldset>
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 font-medium text-sm">
+              Groupes{groupIds.length > 0 && ` (${groupIds.length})`}
+            </legend>
+            {groups.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Aucun groupe dans la saison.</p>
+            ) : (
+              <>
+                {groups.length > 6 && (
+                  <Input
+                    type="search"
+                    aria-label="Filtrer les groupes"
+                    placeholder="Filtrer les groupes"
+                    value={groupQuery}
+                    onChange={(e) => setGroupQuery(e.target.value)}
+                    className="max-w-xs"
                   />
-                ))}
-              </div>
-            </>
-          )}
+                )}
+                <div className="grid max-h-40 grid-cols-2 gap-x-4 gap-y-1.5 overflow-y-auto">
+                  {groupOptions.map((group) => (
+                    <Checkbox
+                      key={group.id}
+                      label={
+                        <GroupChoiceLabel
+                          group={group}
+                          outOfRange={isOutOfAgeRange(group, birthDate, season.startDate)}
+                        />
+                      }
+                      checked={groupIds.includes(group.id)}
+                      onChange={(e) => toggleGroup(group.id, e.target.checked)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </fieldset>
         </fieldset>
-      </fieldset>
+      </form>
+      {/* Messages au plus près des champs qui les provoquent (doublon, âge), avant la frise. */}
       <MessageZone label="Messages" messages={messages} />
+      <StudentAvailabilitySection slots={slots} onChange={setSlots} readOnly={readOnly} />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={cancel}>
           {readOnly ? "Fermer" : "Annuler"}
@@ -390,18 +423,20 @@ export function StudentForm({
             type="button"
             variant="outline"
             disabled={busy}
-            onClick={() => void save(onSubmitAndAddAnother)}
+            onClick={() =>
+              void save((input) => onSubmitAndAddAnother(input, groupIds, levelChosen, slots))
+            }
           >
             Enregistrer et ajouter un autre
           </Button>
         )}
         {!readOnly && (
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" form={formId} disabled={busy}>
             {submitLabel}
           </Button>
         )}
       </div>
-    </form>
+    </div>
   );
 }
 

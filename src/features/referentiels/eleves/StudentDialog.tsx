@@ -1,15 +1,19 @@
+import { useCallback } from "react";
 import { useToast } from "@/components/feedback/Toast";
 import { Dialog } from "@/components/ui/dialog";
 import { useDatabase } from "@/db/DatabaseProvider";
 import type { GroupListItem } from "@/db/repositories/groups";
 import {
   createStudent,
+  getStudentAvailabilities,
   type StudentIdentity,
   type StudentListItem,
   updateStudent,
 } from "@/db/repositories/students";
 import type { Level } from "@/db/schema";
+import type { WeeklySlot } from "@/domain/availability";
 import type { StudentFormValues } from "@/domain/validation";
+import { errorMessage, useLoader } from "@/hooks/useLoader";
 import { emptyStudentValues, newStudentValues, StudentForm, studentValues } from "./StudentForm";
 
 /**
@@ -47,6 +51,8 @@ export function newStudentEditing(
     levelChosen: false,
   };
 }
+
+const NO_SLOTS: readonly WeeklySlot[] = [];
 
 interface StudentDialogProps {
   editing: StudentEditing;
@@ -92,6 +98,19 @@ export function StudentDialog({
   };
   const added = (input: { firstName: string; lastName: string }) =>
     toast.success(`${input.firstName} ${input.lastName} ajouté(e)`);
+  // Plages de l'élève modifié, lues à l'ouverture de sa fiche : la saisie ne
+  // s'affiche qu'une fois lues (garde de saisie comparée à l'état d'ouverture).
+  const editedId = editing?.mode === "edit" ? editing.student.id : null;
+  const loadSlots = useCallback(
+    async () => ({
+      studentId: editedId,
+      slots: editedId ? await getStudentAvailabilities(db, editedId) : [],
+    }),
+    [db, editedId],
+  );
+  const { data: loaded, error: loadError } = useLoader(loadSlots);
+  const initialSlots: readonly WeeklySlot[] | null =
+    editedId === null ? NO_SLOTS : loaded?.studentId === editedId ? loaded.slots : null;
 
   return (
     <Dialog
@@ -100,9 +119,14 @@ export function StudentDialog({
       title={
         readOnly ? "Fiche élève" : editing?.mode === "edit" ? "Modifier l'élève" : "Nouvel élève"
       }
-      className="max-w-2xl"
+      className="max-w-3xl"
     >
-      {editing && (
+      {editing && initialSlots === null && (
+        <p className="text-muted-foreground text-sm" role="status">
+          {loadError ? errorMessage(loadError) : "Chargement…"}
+        </p>
+      )}
+      {editing && initialSlots !== null && (
         <StudentForm
           // Nouvelle saisie à chaque fiche (« Ouvrir sa fiche », fiche suivante d'une série).
           key={editing.mode === "edit" ? editing.student.id : `create-${editing.round}`}
@@ -119,15 +143,17 @@ export function StudentDialog({
             editing.mode === "edit" ? editing.student.groups.map((g) => g.id) : editing.groupIds
           }
           initialLevelChosen={editing.mode === "edit" ? true : editing.levelChosen}
+          initialSlots={initialSlots}
           levels={levels}
           groups={groups}
           submitLabel={editing.mode === "edit" ? "Enregistrer" : "Créer l'élève"}
           onCancel={close}
-          onSubmit={async (input, groupIds) => {
+          onSubmit={async (input, groupIds, slots) => {
+            // Fiche, groupes et plages en une seule transaction.
             if (editing.mode === "edit") {
-              await updateStudent(db, editing.student.id, input, groupIds);
+              await updateStudent(db, editing.student.id, input, groupIds, slots);
             } else {
-              await createStudent(db, season.id, input, groupIds);
+              await createStudent(db, season.id, input, groupIds, slots);
               added(input);
             }
             close();
@@ -135,8 +161,8 @@ export function StudentDialog({
           }}
           onSubmitAndAddAnother={
             series && editing.mode === "create"
-              ? async (input, groupIds, levelChosen) => {
-                  await createStudent(db, season.id, input, groupIds);
+              ? async (input, groupIds, levelChosen, slots) => {
+                  await createStudent(db, season.id, input, groupIds, slots);
                   // Doublons et effectifs à jour avant la fiche suivante.
                   await onSaved();
                   added(input);

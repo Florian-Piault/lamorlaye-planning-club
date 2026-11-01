@@ -69,6 +69,11 @@ test.describe("doublons et alerte d'âge", () => {
     const messages = dialog.getByRole("list", { name: "Messages" });
     await expect(messages).toContainText("Un élève Test Léa (Galaxie vert) existe déjà");
     await expect(messages.getByRole("button", { name: "Ouvrir sa fiche" })).toBeVisible();
+    // Le message est sous les yeux, sans faire défiler la fiche (avant la frise des disponibilités).
+    await expect(
+      messages.getByText("Un élève Test Léa (Galaxie vert) existe déjà"),
+    ).toBeInViewport();
+    await expect(messages.getByRole("button", { name: "Ouvrir sa fiche" })).toBeInViewport();
     expect([await position(create), await position(cancel)]).toEqual(before);
 
     // Vrai homonyme : l'enregistrement reste possible.
