@@ -327,7 +327,7 @@ test.describe("garde des modales", () => {
 
     await page.getByRole("button", { name: "Nouveau cours" }).click();
     const form = page.getByRole("form", { name: "Nouveau cours" });
-    await expect(form.getByLabel("Rechercher un groupe", { exact: true })).toBeFocused();
+    await expect(form.getByLabel("Groupe", { exact: true })).toBeFocused();
     await form.getByLabel("Court", { exact: true }).selectOption({ label: "Court 2" });
     // Échap, même dans un champ, passe par la garde : confirmation, saisie gardée.
     await form.getByLabel("Court", { exact: true }).focus();

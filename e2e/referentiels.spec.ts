@@ -167,7 +167,7 @@ test.describe("référentiels", () => {
     await expect(table).toContainText("4 h / sem.");
   });
 
-  test("un clic simple dans la frise remplit le formulaire, « Annuler » rétablit les plages", async ({
+  test("un clic simple dans la frise bascule un quart d'heure, « Annuler » rétablit les plages", async ({
     page,
   }) => {
     await createSeason(page);
@@ -183,34 +183,28 @@ test.describe("référentiels", () => {
     await expect(slots).toContainText("14:00–18:00");
     await expect(available(monday)).toHaveCount(16);
 
-    // Case vide : l'heure cliquée plus une heure, rien n'est enregistré.
+    // Case vide : le quart d'heure cliqué est ajouté.
     await clickCell(tuesday, "10:00");
-    await expect(slotForm.getByLabel("Jour", { exact: false })).toHaveValue("2");
-    await expect(slotForm.getByLabel("De", { exact: false }).locator("option:checked")).toHaveText(
-      "10:00",
-    );
-    await expect(slotForm.getByLabel("À", { exact: false }).locator("option:checked")).toHaveText(
-      "11:00",
-    );
-    await expect(slotForm.getByLabel("De", { exact: false })).toBeFocused();
-    await expect(available(tuesday)).toHaveCount(0);
-    await expect(slotForm.getByRole("button", { name: "Retirer l'horaire" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(slots).toContainText("10:00–10:15");
+    await expect(available(tuesday)).toHaveCount(1);
+    await expect(toast).toContainText("Mardi 10:00–10:15 ajouté");
+    // Un second clic à la suite prolonge la plage.
+    await clickCell(tuesday, "10:15");
+    await expect(slots).toContainText("10:00–10:30");
 
-    // Case disponible : la plage entière ; un clic n'efface rien.
+    // Case disponible : le quart d'heure cliqué est retiré.
     await clickCell(monday, "15:00");
-    await expect(slotForm.getByLabel("Jour", { exact: false })).toHaveValue("1");
-    await expect(slotForm.getByLabel("De", { exact: false }).locator("option:checked")).toHaveText(
-      "14:00",
-    );
-    await expect(slotForm.getByLabel("À", { exact: false }).locator("option:checked")).toHaveText(
-      "18:00",
-    );
+    await expect(slots).toContainText("14:00–15:00");
+    await expect(slots).toContainText("15:15–18:00");
+    await expect(toast).toContainText("Lundi 15:00–15:15 retiré");
+    await toast.getByRole("button", { name: "Annuler" }).click();
     await expect(available(monday)).toHaveCount(16);
     await expect(slots).toContainText("14:00–18:00");
-    // « Ajouter » serait sans effet : grisé, avec sa raison.
+
+    // Formulaire : la plage entière, « Ajouter » serait sans effet.
+    await slotForm.getByLabel("Jour", { exact: false }).selectOption("1");
+    await slotForm.getByLabel("De", { exact: false }).selectOption("14:00");
+    await slotForm.getByLabel("À", { exact: false }).selectOption("18:00");
     await expect(slotForm.getByRole("button", { name: "Ajouter un horaire" })).toHaveAttribute(
       "aria-disabled",
       "true",

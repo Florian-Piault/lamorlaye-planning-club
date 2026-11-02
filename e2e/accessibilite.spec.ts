@@ -299,16 +299,15 @@ for (const colorScheme of ["light", "dark"] as const) {
       await createSeason(page);
       await seedPlanning(page, ageClub);
 
-      // Frise des disponibilités : clic simple qui pré-remplit le formulaire.
+      // Frise des disponibilités : survol d'un quart d'heure, puis clic qui l'ajoute.
       await clubTab(page, "Moniteurs").click();
       await page.getByRole("link", { name: /Julie/ }).first().click();
-      await page
+      const cell = page
         .getByRole("group", { name: "Disponibilités du mardi" })
-        .locator('[data-time="10:00"]')
-        .click();
-      await expect(
-        page.getByRole("form", { name: "Saisir un horaire" }).getByLabel("De", { exact: false }),
-      ).toBeFocused();
+        .locator('[data-time="10:00"]');
+      await cell.hover();
+      await cell.click();
+      await expect(cell).toHaveAttribute("data-available", "true");
       await audit(page, "frise des disponibilités");
 
       // Fiche groupe : liste des élèves trouvés (combobox).

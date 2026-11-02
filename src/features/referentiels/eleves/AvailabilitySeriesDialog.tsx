@@ -91,7 +91,7 @@ export function AvailabilitySeriesDialog({
       open={run !== null}
       onOpenChange={(open) => !open && finish()}
       title="Saisie des disponibilités en série"
-      className="max-w-3xl"
+      className="max-w-5xl"
     >
       <p role="status" className="sr-only">
         {announced}
