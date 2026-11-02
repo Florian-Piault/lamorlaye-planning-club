@@ -5,9 +5,10 @@ name: Release
 # brouillon, avec les installateurs des trois OS. Le brouillon est relu, puis
 # publié à la main depuis GitHub (binaires non signés : voir docs/INSTALLATION.md).
 #
-# Lancement manuel (Actions > Release > Run workflow) : choisir le tag `vX.Y.Z`
-# dans « Use workflow from » et l'OS à reconstruire. Les installateurs sont joints
-# à la release en brouillon de ce tag (créée si elle n'existe pas encore), sans
+# Lancement manuel (Actions > Release > Run workflow) : depuis `main`, choisir
+# l'OS à construire. Le tag est `v` + la version de package.json ; GitHub le crée
+# sur ce commit à la publication du brouillon. Les installateurs sont joints à la
+# release en brouillon de ce tag (créée si elle n'existe pas encore), sans
 # reconstruire les autres OS. Le push d'un tag construit toujours les trois OS.
 on:
   push:
@@ -34,6 +35,8 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,20 +48,26 @@ jobs:
           cache: pnpm
 
       - name: Tag et version de l'application
+        id: tag
         run: |
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
-            echo "::error::Lancer la release depuis un tag vX.Y.Z (« Use workflow from »), pas depuis la branche ${GITHUB_REF_NAME}."
-            exit 1
-          fi
           version="$(node -p "require('./package.json').version")"
-          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
-            echo "::error::Le tag ${GITHUB_REF_NAME} ne correspond pas à la version ${version} de package.json."
+          tag="v${version}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            if [ "${GITHUB_REF_NAME}" != "${tag}" ]; then
+              echo "::error::Le tag ${GITHUB_REF_NAME} ne correspond pas à la version ${version} de package.json."
+              exit 1
+            fi
+          # Lancement depuis une branche : un tag déjà posé doit désigner ce commit.
+          elif git fetch --quiet --depth=1 origin "refs/tags/${tag}:refs/tags/${tag}" 2>/dev/null \
+            && [ "$(git rev-parse "${tag}^{commit}")" != "${GITHUB_SHA}" ]; then
+            echo "::error::Le tag ${tag} existe déjà sur un autre commit que ${GITHUB_REF_NAME} : relancer depuis ce tag, ou monter la version."
             exit 1
           fi
           if ! grep -q "## \[${version}\]" docs/CHANGELOG.md; then
             echo "::error::docs/CHANGELOG.md ne contient pas de section [${version}]."
             exit 1
           fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - run: pnpm install --frozen-lockfile
 
@@ -108,7 +117,7 @@ jobs:
         with:
           script: |
             const fs = require("node:fs");
-            const tag = context.ref.replace("refs/tags/", "");
+            const tag = "${{ needs.verify.outputs.tag }}";
             const version = tag.replace(/^v/, "");
             // Relance manuelle : les installateurs rejoignent le brouillon existant.
             // (getReleaseByTag ne voit pas les brouillons.)
@@ -145,6 +154,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
+              target_commitish: context.sha,
               name: `Kairos ${version}`,
               body,
               draft: true,
@@ -155,7 +165,7 @@ jobs:
   # Installateurs des OS ciblés, joints à la release en brouillon.
   publish:
     name: Installateurs ${{ matrix.name }}
-    needs: [targets, create-release]
+    needs: [verify, targets, create-release]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
@@ -192,7 +202,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ needs.verify.outputs.tag }}
           releaseDraft: true
           prerelease: false
           # Pas de mise à jour automatique (§12.2) : aucun fichier latest.json.
