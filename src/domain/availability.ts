@@ -232,7 +232,7 @@ export const AVAILABILITY_STEP = 15;
 
 /**
  * Seuil de glisser (pixels) : en deçà, l'appui-relâche est un clic simple, qui
- * pré-remplit le formulaire sans rien enregistrer.
+ * bascule le seul quart d'heure cliqué.
  */
 export const DRAG_THRESHOLD_PX = 4;
 
@@ -283,7 +283,7 @@ export function nearestBoundary(
  * chaque extrémité (appui et relâchement) est la limite de case la plus
  * proche du pointeur (du repère « 14h » au repère « 18h », ou l'inverse,
  * donne 14:00–18:00). La plage fait au moins une case, du côté du glisser.
- * La case entière n'est retenue que pour le clic simple (`clickPrefill`).
+ * La case entière n'est retenue que pour le clic simple.
  */
 export function draggedRange(
   anchor: number,
@@ -307,25 +307,6 @@ export interface SlotDraft {
   weekday: number;
   start: number;
   end: number;
-}
-
-/**
- * Formulaire pré-rempli par un clic simple dans la frise : sur une case
- * disponible, la plage entière (`existing`) ; sur une case vide, l'heure
- * cliquée plus une heure, bornée à la fin de journée.
- */
-export function clickPrefill(
-  slots: readonly WeeklySlot[],
-  weekday: number,
-  minute: number,
-  dayStart: number,
-  dayEnd: number,
-  step = AVAILABILITY_STEP,
-): SlotDraft & { existing: boolean } {
-  const cell = cellStart(minute, dayStart, dayEnd, step);
-  const interval = intervalsOfDay(slots, weekday).find((i) => i.start <= cell && cell < i.end);
-  if (interval) return { weekday, start: interval.start, end: interval.end, existing: true };
-  return { weekday, start: cell, end: Math.min(cell + 60, dayEnd), existing: false };
 }
 
 /** Le créneau `[start, end[` est-il déjà entièrement disponible (« Ajouter » sans effet) ? */

@@ -2,7 +2,6 @@ import { Minus, Plus, X } from "lucide-react";
 import {
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject,
   useEffect,
   useId,
   useMemo,
@@ -16,7 +15,6 @@ import {
   AVAILABILITY_STEP,
   availabilityChange,
   cellStart,
-  clickPrefill,
   draggedRange,
   type Interval,
   isAvailableAt,
@@ -71,10 +69,16 @@ interface Gesture {
   anchor: number;
   /** Rendre disponible (vrai) ou indisponible (faux). */
   available: boolean;
-  /** Seuil de glisser franchi : sinon, c'est un clic simple. */
+  /** Seuil de glisser franchi : sinon, c'est un clic simple (un quart d'heure). */
   dragging: boolean;
   /** Pointeur du geste (capturé par la rangée) : les autres sont ignorés. */
   pointerId: number;
+}
+
+/** Case sous le pointeur, hors geste. */
+interface Hover {
+  weekday: number;
+  minute: number;
 }
 
 /** Aperçu du glisser en cours. */
@@ -87,9 +91,10 @@ interface Preview extends Interval {
  * Éditeur visuel des plages hebdomadaires de disponibilité, commun aux
  * moniteurs (§3.3) et aux élèves (§3.5) : il ne connaît que les plages (en
  * entrée, et en sortie par `onChange`), pas la personne. Une ligne
- * par jour, cliquer-glisser pour peindre une plage disponible, ou pour
- * l'effacer en partant d'une case déjà disponible. Un clic simple n'enregistre
- * rien : il pré-remplit le formulaire de saisie précise, sous la frise.
+ * par jour : un clic bascule le quart d'heure cliqué (ajouté, ou retiré s'il
+ * était disponible) ; cliquer-glisser peint une plage disponible, ou l'efface
+ * en partant d'une case déjà disponible. Le formulaire sous la frise sert à la
+ * saisie précise et au clavier.
  */
 export function AvailabilityEditor({
   slots,
@@ -111,12 +116,12 @@ export function AvailabilityEditor({
   const weekdayValues = weekdays.map((d) => d.value);
 
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [hover, setHover] = useState<Hover | null>(null);
   const [draft, setDraft] = useState<SlotDraft>(() => ({
     weekday: weekdayValues[0] ?? 1,
     start,
     end,
   }));
-  const fromRef = useRef<HTMLSelectElement>(null);
   const hintId = useId();
   // Geste courant, lu par les écouteurs de la fenêtre : l'état React peut ne
   // pas encore refléter le dernier déplacement au relâchement (WebKit).
@@ -169,16 +174,11 @@ export function AvailabilityEditor({
       const dragging =
         current.dragging ||
         isDragGesture(event.clientX - current.originX, event.clientY - current.originY);
-      if (dragging) {
-        const range = rangeOf(current, event.clientX);
-        changeRef.current(current.weekday, range.start, range.end, current.available);
-        return;
-      }
-      // Clic simple : formulaire pré-rempli, rien n'est enregistré.
-      const { slots, start, end } = latest.current;
-      const prefill = clickPrefill(slots, current.weekday, current.anchor, start, end);
-      setDraft({ weekday: prefill.weekday, start: prefill.start, end: prefill.end });
-      fromRef.current?.focus();
+      // Clic simple : le quart d'heure cliqué seul.
+      const { start, end } = latest.current;
+      const cell = cellStart(current.anchor, start, end);
+      const range = dragging ? rangeOf(current, event.clientX) : { start: cell, end: cell + STEP };
+      changeRef.current(current.weekday, range.start, range.end, current.available);
     };
     const cancel = (event: PointerEvent) => {
       if (event.pointerId !== gesture.current?.pointerId) return;
@@ -214,7 +214,19 @@ export function AvailabilityEditor({
       dragging: false,
       pointerId: event.pointerId,
     };
+    setHover(null);
     setActive(true);
+  };
+
+  const trackHover = (weekday: number) => (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (readOnly || gesture.current || event.pointerType === "touch") return;
+    const row = event.currentTarget.getBoundingClientRect();
+    const minute = cellStart(
+      minuteAtOffset(event.clientX - row.left, row.width, start, end),
+      start,
+      end,
+    );
+    if (hover?.weekday !== weekday || hover.minute !== minute) setHover({ weekday, minute });
   };
 
   const inPreview = (weekday: number, minute: number) =>
@@ -228,7 +240,7 @@ export function AvailabilityEditor({
       <p className="text-muted-foreground text-sm">
         {readOnly
           ? ""
-          : "Cliquez-glissez sur une ligne pour ajouter un horaire de disponibilité ; partez d'un horaire existant pour l'effacer. Un clic simple remplit le formulaire ci-dessous. "}
+          : "Cliquez sur un quart d'heure pour l'ajouter, ou le retirer s'il est déjà disponible ; cliquez-glissez pour un horaire plus long, en partant d'un horaire existant pour l'effacer. "}
         Total : {formatDuration(totalWeeklyMinutes(slots))} par semaine.
       </p>
       {!readOnly && (
@@ -257,6 +269,14 @@ export function AvailabilityEditor({
               })}
             </div>
           </div>
+          <div className="flex h-5 items-end pl-24 text-muted-foreground text-xs" aria-hidden>
+            {hover &&
+              `${weekdayLabel(hover.weekday)} ${minutesToTime(hover.minute)}–${minutesToTime(hover.minute + STEP)} : ${
+                isAvailableAt(slots, hover.weekday, hover.minute)
+                  ? "cliquer pour retirer"
+                  : "cliquer pour ajouter"
+              }`}
+          </div>
           {weekdays.map((day) => (
             <div key={day.value} className="flex items-center py-0.5">
               <div className="w-24 shrink-0 font-medium text-sm">{day.label}</div>
@@ -271,6 +291,8 @@ export function AvailabilityEditor({
                 )}
                 style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))` }}
                 onPointerDown={startGesture(day.value)}
+                onPointerMove={trackHover(day.value)}
+                onPointerLeave={() => setHover(null)}
               >
                 {cells.map((minute) => {
                   const available = isAvailableAt(slots, day.value, minute);
@@ -278,6 +300,7 @@ export function AvailabilityEditor({
                     ? preview?.available
                     : undefined;
                   const shown = shownPreview ?? available;
+                  const hovered = hover?.weekday === day.value && hover.minute === minute;
                   return (
                     <div
                       key={minute}
@@ -287,13 +310,15 @@ export function AvailabilityEditor({
                       className={cn(
                         "h-full",
                         minute % 60 === 0 && "border-border border-l",
-                        !shown && !readOnly && "hover:bg-accent",
                         shownPreview === false && "bg-destructive/20",
+                        hovered && "outline-2 outline-foreground -outline-offset-2",
                       )}
                       style={
                         shown
-                          ? { backgroundColor: color, opacity: shownPreview ? 0.7 : 1 }
-                          : undefined
+                          ? { backgroundColor: color, opacity: shownPreview || hovered ? 0.6 : 1 }
+                          : hovered
+                            ? { backgroundColor: color, opacity: 0.35 }
+                            : undefined
                       }
                     />
                   );
@@ -316,7 +341,6 @@ export function AvailabilityEditor({
           times={[...cells, end]}
           draft={draft}
           onDraftChange={setDraft}
-          fromRef={fromRef}
           onApply={(available) => change(draft.weekday, draft.start, draft.end, available)}
         />
       )}
@@ -384,7 +408,6 @@ function SlotList({
 /**
  * Saisie précise d'une plage au clavier (« Jour / De / À ») : « Ajouter » rend
  * la personne disponible, « Retirer » l'en retire (tout ou partie d'une plage).
- * Un clic simple dans la frise la pré-remplit.
  */
 function SlotForm({
   slots,
@@ -392,7 +415,6 @@ function SlotForm({
   times,
   draft,
   onDraftChange,
-  fromRef,
   onApply,
 }: {
   slots: readonly WeeklySlot[];
@@ -400,7 +422,6 @@ function SlotForm({
   times: readonly number[];
   draft: SlotDraft;
   onDraftChange: (draft: SlotDraft) => void;
-  fromRef: RefObject<HTMLSelectElement | null>;
   onApply: (available: boolean) => void;
 }) {
   const invalid = draft.end <= draft.start;
@@ -435,11 +456,7 @@ function SlotForm({
       </Label>
       <Label className="flex-col items-start gap-1.5">
         De
-        <Select
-          ref={fromRef}
-          value={draft.start}
-          onChange={(e) => set({ start: Number(e.target.value) })}
-        >
+        <Select value={draft.start} onChange={(e) => set({ start: Number(e.target.value) })}>
           {withCurrent(times.slice(0, -1), draft.start).map((m) => (
             <option key={m} value={m}>
               {minutesToTime(m)}

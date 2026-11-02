@@ -106,11 +106,6 @@ test.describe("grille semaine type", () => {
       instructor.locator('optgroup[label="Indisponibles sur ce créneau"] option'),
     ).toHaveText(["○ Marc Leroy (aucune disponibilité saisie)", "○ Julie Martin (indisponible)"]);
 
-    await form.getByLabel("Rechercher un groupe", { exact: true }).fill("mini");
-    await expect(form.getByLabel("Groupe", { exact: true }).locator("option")).toHaveText([
-      "— choisir —",
-      "Mini-tennis (1/6)",
-    ]);
     await form.getByLabel("Groupe", { exact: true }).selectOption({ label: "Mini-tennis (1/6)" });
     await instructor.selectOption({ label: "● Karim Benali" });
     await expect(form.getByRole("list", { name: "Avertissements du créneau" })).toBeEmpty();
@@ -483,9 +478,7 @@ test.describe("grille semaine type", () => {
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");
     await expect(panel(page, "Nouveau cours")).toBeVisible();
-    await expect(
-      panel(page, "Nouveau cours").getByLabel("Rechercher un groupe", { exact: true }),
-    ).toBeFocused();
+    await expect(panel(page, "Nouveau cours").getByLabel("Groupe", { exact: true })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel(page, "Nouveau cours")).toBeHidden();
     await page.keyboard.press("ControlOrMeta+n");

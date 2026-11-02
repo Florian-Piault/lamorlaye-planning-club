@@ -119,7 +119,7 @@ export function StudentDialog({
       title={
         readOnly ? "Fiche élève" : editing?.mode === "edit" ? "Modifier l'élève" : "Nouvel élève"
       }
-      className="max-w-3xl"
+      className="max-w-5xl"
     >
       {editing && initialSlots === null && (
         <p className="text-muted-foreground text-sm" role="status">

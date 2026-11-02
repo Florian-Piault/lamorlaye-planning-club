@@ -5,10 +5,9 @@ import { errorMessages, warnings as warningMessages } from "@/components/feedbac
 import { sameValues } from "@/components/form/formState";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
 import type { Court, Level } from "@/db/schema";
 import type { BusySlot } from "@/domain/instructorAvailability";
-import { matchesSearch } from "@/domain/search";
 import { formatDuration, minutesToTime, weekdayLabel } from "@/domain/time";
 import type { GroupInput } from "@/domain/validation";
 import { emptyGroupValues, GroupForm } from "@/features/referentiels/groupes/GroupForm";
@@ -131,7 +130,6 @@ export function LessonPanel({
   const groupLocked = groupLockedProp || readOnly;
   const notice = readOnly ? "Consultation seulement (saison terminée)." : noticeProp;
   const [values, setValues] = useState(initialValues);
-  const [groupQuery, setGroupQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const id = useId();
@@ -163,11 +161,8 @@ export function LessonPanel({
   }, []);
 
   const groupOptions = useMemo(
-    () =>
-      groups.filter(
-        (g) => g.id === values.groupId || (g.active && matchesSearch([g.name], groupQuery)),
-      ),
-    [groups, groupQuery, values.groupId],
+    () => groups.filter((g) => g.id === values.groupId || g.active),
+    [groups, values.groupId],
   );
 
   const choices = useMemo(
@@ -226,7 +221,6 @@ export function LessonPanel({
 
   const createGroup = async (input: GroupInput) => {
     const groupId = await onCreateGroup(input);
-    setGroupQuery("");
     set({ groupId });
     setCreatingGroup(false);
   };
@@ -259,16 +253,6 @@ export function LessonPanel({
         <fieldset disabled={readOnly} className="contents">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${id}-group`}>Groupe{groupOptional && " (facultatif)"}</Label>
-            {!groupLocked && (
-              <Input
-                type="search"
-                placeholder="Rechercher un groupe…"
-                aria-label="Rechercher un groupe"
-                className="h-8"
-                value={groupQuery}
-                onChange={(e) => setGroupQuery(e.target.value)}
-              />
-            )}
             <div className="flex gap-1.5">
               <Select
                 id={`${id}-group`}

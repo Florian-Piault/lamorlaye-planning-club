@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   availabilityChange,
   cellStart,
-  clickPrefill,
   draggedRange,
   isDragGesture,
   isFullyAvailable,
@@ -69,50 +68,12 @@ describe("frise des disponibilités : plage glissée (B6)", () => {
 });
 
 describe("frise des disponibilités : clic simple", () => {
-  const slots: WeeklySlot[] = [{ weekday: 1, startTime: "14:00", endTime: "18:00" }];
-
   it("est un clic tant que le pointeur reste sous le seuil", () => {
     expect(isDragGesture(0, 0)).toBe(false);
     expect(isDragGesture(2, 2)).toBe(false);
     expect(isDragGesture(4, 0)).toBe(true);
     expect(isDragGesture(0, -6)).toBe(true);
     expect(isDragGesture(9, 0, 10)).toBe(false);
-  });
-
-  it("sur une case vide, propose l'heure cliquée plus une heure", () => {
-    expect(clickPrefill(slots, 1, h(10, 20), START, END)).toEqual({
-      weekday: 1,
-      start: h(10, 15),
-      end: h(11, 15),
-      existing: false,
-    });
-    expect(clickPrefill(slots, 2, h(15), START, END)).toMatchObject({
-      start: h(15),
-      end: h(16),
-      existing: false,
-    });
-    // Bornée à la fin de journée.
-    expect(clickPrefill(slots, 1, h(21, 40), START, END)).toMatchObject({
-      start: h(21, 30),
-      end: END,
-    });
-  });
-
-  it("sur une case disponible, propose la plage entière", () => {
-    expect(clickPrefill(slots, 1, h(16, 40), START, END)).toEqual({
-      weekday: 1,
-      start: h(14),
-      end: h(18),
-      existing: true,
-    });
-    // La fin d'une plage est exclue : 18:00 est une case vide.
-    expect(clickPrefill(slots, 1, h(18, 5), START, END).existing).toBe(false);
-  });
-
-  it("ne modifie aucune plage", () => {
-    const before = structuredClone(slots);
-    clickPrefill(slots, 1, h(16), START, END);
-    expect(slots).toEqual(before);
   });
 });
 
