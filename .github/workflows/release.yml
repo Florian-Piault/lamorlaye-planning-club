@@ -4,9 +4,21 @@ name: Release
 # de package.json, tauri.conf.json et Cargo.toml) crée une release GitHub en
 # brouillon, avec les installateurs des trois OS. Le brouillon est relu, puis
 # publié à la main depuis GitHub (binaires non signés : voir docs/INSTALLATION.md).
+#
+# Lancement manuel (Actions > Release > Run workflow) : choisir le tag `vX.Y.Z`
+# dans « Use workflow from » et l'OS à reconstruire. Les installateurs sont joints
+# à la release en brouillon de ce tag (créée si elle n'existe pas encore), sans
+# reconstruire les autres OS. Le push d'un tag construit toujours les trois OS.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      os:
+        description: OS à construire
+        type: choice
+        options: [tous, macos, windows, linux]
+        default: tous
 
 concurrency:
   group: release-${{ github.ref }}
@@ -34,6 +46,10 @@ jobs:
 
       - name: Tag et version de l'application
         run: |
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "::error::Lancer la release depuis un tag vX.Y.Z (« Use workflow from »), pas depuis la branche ${GITHUB_REF_NAME}."
+            exit 1
+          fi
           version="$(node -p "require('./package.json').version")"
           if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
             echo "::error::Le tag ${GITHUB_REF_NAME} ne correspond pas à la version ${version} de package.json."
@@ -52,6 +68,31 @@ jobs:
           pnpm typecheck
           pnpm test
 
+  # Cibles de build : les trois OS, ou celui choisi lors d'un lancement manuel.
+  targets:
+    name: Cibles de build
+    runs-on: ubuntu-22.04
+    permissions: {}
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        env:
+          OS: ${{ inputs.os || 'tous' }}
+        # Windows : .msi (par machine, droits administrateur) et .exe NSIS (sans droits administrateur, §11.1).
+        run: |
+          all='[
+            {"os": "macos", "name": "macOS Apple Silicon", "platform": "macos-latest",
+             "target": "aarch64-apple-darwin", "args": "--target aarch64-apple-darwin --bundles dmg"},
+            {"os": "macos", "name": "macOS Intel", "platform": "macos-latest",
+             "target": "x86_64-apple-darwin", "args": "--target x86_64-apple-darwin --bundles dmg"},
+            {"os": "windows", "name": "Windows", "platform": "windows-latest",
+             "target": "", "args": "--bundles msi,nsis"},
+            {"os": "linux", "name": "Linux", "platform": "ubuntu-22.04",
+             "target": "", "args": "--bundles appimage,deb"}
+          ]'
+          echo "matrix=$(jq -c --arg os "$OS" '{include: [.[] | select($os == "tous" or .os == $os)]}' <<< "$all")" >> "$GITHUB_OUTPUT"
+
   # Release en brouillon, créée une seule fois avant les builds parallèles.
   create-release:
     name: Release en brouillon
@@ -69,6 +110,21 @@ jobs:
             const fs = require("node:fs");
             const tag = context.ref.replace("refs/tags/", "");
             const version = tag.replace(/^v/, "");
+            // Relance manuelle : les installateurs rejoignent le brouillon existant.
+            // (getReleaseByTag ne voit pas les brouillons.)
+            if (context.eventName === "workflow_dispatch") {
+              const releases = await github.paginate(github.rest.repos.listReleases, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              const existing = releases.find((r) => r.tag_name === tag);
+              if (existing) {
+                if (!existing.draft) {
+                  throw new Error(`La release ${tag} est déjà publiée : la repasser en brouillon avant de la compléter.`);
+                }
+                return existing.id;
+              }
+            }
             // Notes de version : section du CHANGELOG correspondant au tag.
             const changelog = fs.readFileSync("docs/CHANGELOG.md", "utf8");
             const start = changelog.indexOf(`## [${version}]`);
@@ -96,31 +152,13 @@ jobs:
             });
             return data.id;
 
-  # Installateurs des trois OS, joints à la release en brouillon.
+  # Installateurs des OS ciblés, joints à la release en brouillon.
   publish:
     name: Installateurs ${{ matrix.name }}
-    needs: create-release
+    needs: [targets, create-release]
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: macOS Apple Silicon
-            platform: macos-latest
-            target: aarch64-apple-darwin
-            args: --target aarch64-apple-darwin --bundles dmg
-          - name: macOS Intel
-            platform: macos-latest
-            target: x86_64-apple-darwin
-            args: --target x86_64-apple-darwin --bundles dmg
-          - name: Windows
-            platform: windows-latest
-            target: ""
-            # .msi (par machine, droits administrateur) et .exe NSIS (sans droits administrateur, §11.1).
-            args: --bundles msi,nsis
-          - name: Linux
-            platform: ubuntu-22.04
-            target: ""
-            args: --bundles appimage,deb
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
