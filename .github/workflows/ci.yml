@@ -49,6 +49,9 @@ jobs:
       - name: TypeScript
         run: pnpm typecheck
 
+      - name: Traçabilité (tests cités dans docs/TRACABILITE*.md)
+        run: pnpm check:trace
+
       - name: Vitest (couverture du domaine et de la grille, seuil 90 %)
         run: pnpm run test:coverage
 

@@ -57,7 +57,7 @@ Tous vérifiés corrigés : chaque bug a au moins un test Playwright qui échoue
 | 19 | Fenêtre intacte fermée sans question | E: `socle.spec.ts` « Échap dans un champ date… », « le panneau de cours garde sa saisie… » ; M: 9.10 |
 | 20 | « Continuer la saisie » par défaut | E: `socle.spec.ts` « Échap dans un champ date… » |
 | 21 | Autre créneau : confirmation | E: `socle.spec.ts` « le panneau de cours garde sa saisie… » |
-| 22 | Raison d'un bouton grisé | E: `socle.spec.ts` « « Effacer les filtres » est toujours présent, grisé avec sa raison », « les boutons grisés de la navigation et des disponibilités disent pourquoi » ; E: `referentiels.spec.ts` « un clic simple dans la frise remplit le formulaire… » ; V: `availabilityEditor.test.ts` « annonce des changements › grise « Ajouter » ou « Retirer »… » — *partiel* : la raison du bouton grisé de l'aperçu PDF (échec de production du PDF) n'est pas provoquée en e2e |
+| 22 | Raison d'un bouton grisé | E: `socle.spec.ts` « « Effacer les filtres » est toujours présent, grisé avec sa raison », « les boutons grisés de la navigation et des disponibilités disent pourquoi » ; E: `referentiels.spec.ts` « un clic simple dans la frise bascule un quart d'heure… » ; V: `availabilityEditor.test.ts` « annonce des changements › grise « Ajouter » ou « Retirer »… » — *partiel* : la raison du bouton grisé de l'aperçu PDF (échec de production du PDF) n'est pas provoquée en e2e |
 | 23 | Cases à cocher annoncées par leur libellé | voir B12 |
 
 ### Guidage de la première utilisation (L15)
@@ -152,8 +152,8 @@ Tous vérifiés corrigés : chaque bug a au moins un test Playwright qui échoue
 | # | Story (résumé) | Tests |
 |---|---|---|
 | 81 | 14 h → 18 h donne 14:00–18:00 | voir B6 |
-| 82 | Clic simple qui pré-remplit sans modifier | E: `referentiels.spec.ts` « un clic simple dans la frise remplit le formulaire, « Annuler » rétablit les plages » ; V: `availabilityEditor.test.ts` « frise des disponibilités : clic simple › … » |
-| 83 | Clic sur un horaire existant : plage entière, « Retirer » | même test e2e ; V: `availabilityEditor.test.ts` « … › sur une case disponible, propose la plage entière » |
+| 82 | Clic simple qui pré-remplit sans modifier | *remplacé en v1.2 (frise au quart d'heure : le clic bascule un quart d'heure)* : E: `referentiels.spec.ts` « un clic simple dans la frise bascule un quart d'heure, « Annuler » rétablit les plages » ; V: `availabilityEditor.test.ts` « frise des disponibilités : clic simple › … » |
+| 83 | Clic sur un horaire existant : plage entière, « Retirer » | *remplacé en v1.2 (frise au quart d'heure : le clic retire le quart d'heure)* : même test e2e |
 | 84 | « Annuler » depuis le toast | E: `referentiels.spec.ts` « un clic simple dans la frise… », « trace une plage dans les deux sens, annonce ce qui change et annule le dernier changement » |
 | 85 | Moniteurs en trois groupes | E: `planning.spec.ts` « range les moniteurs occupés à part et hachure le moniteur du panneau (B8) », « crée un cours par sélection sur la grille, moniteurs disponibles en tête » ; V: `view.test.ts` « choix du moniteur › en trois groupes… › … » |
 | 86 | Moniteur occupé choisi avec avertissement | E: `planning.spec.ts` « range les moniteurs occupés à part… (B8) » |

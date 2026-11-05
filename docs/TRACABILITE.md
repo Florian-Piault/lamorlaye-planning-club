@@ -100,7 +100,7 @@
 | Section | Exigence | Lots | Tests |
 |---|---|---|---|
 | §10 | Total par moniteur pour la semaine (légende) et une période (mois en cours, saison) | L2, L3, L6 | V: `hours.test.ts`, `src/domain/hoursReport.test.ts` (périodes), `grid/view.test.ts` (totaux de la légende), `src/features/hours/HoursPage.test.tsx` |
-| §10 | Occurrences réelles : fermetures et annulations exclues, remplaçant crédité, cours ponctuels inclus ; détail et export CSV | L2, L6 | V: `hours.test.ts`, `hoursReport.test.ts` ; E: `sorties.spec.ts` « récapitulatif des heures sur une période avec vacances, annulation et remplacement » ; V: `volumetry.test.ts` (heures de la saison complète) |
+| §10 | Occurrences réelles : fermetures et annulations exclues, remplaçant crédité, cours ponctuels inclus ; détail et export CSV | L2, L6 | V: `hours.test.ts`, `hoursReport.test.ts` ; E: `sorties.spec.ts` « récapitulatif des heures sur une période avec vacances, annulation et remplacement » ; P: `volumetry.perf.test.ts` (heures de la saison complète) |
 
 ## 11. Exigences non fonctionnelles
 

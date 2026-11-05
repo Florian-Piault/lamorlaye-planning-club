@@ -70,6 +70,9 @@ export default defineConfig({
     include: perf ? ["src/**/*.perf.test.ts"] : ["src/**/*.test.{ts,tsx}"],
     exclude: perf ? [] : ["src/**/*.perf.test.ts"],
     setupFiles: ["./src/test/setup.ts"],
+    // Le dernier lancement garde son détail, échecs compris, même si la sortie a
+    // été filtrée : un échec isolé reste identifiable après coup.
+    reporters: ["default", ["json", { outputFile: ".vite/vitest-last-run.json" }]],
     // Couverture des règles métier, de la logique pure de la grille et de la
     // mise en forme des PDF (`pnpm test:coverage`) : seuil de 90 % (lots L2, L3, L6).
     coverage: {

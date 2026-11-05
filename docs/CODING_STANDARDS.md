@@ -27,5 +27,5 @@ Règles de jugement appliquées à chaque diff relu. Les règles mécaniques son
 
 ## Documentation
 
-- **Chaque lot amende `docs/SPECS.md`** à la section qu'il touche, et la traçabilité (`docs/TRACABILITE*.md`) cite les tests qui prouvent chaque exigence.
+- **Chaque lot amende `docs/SPECS.md`** à la section qu'il touche, et la traçabilité (`docs/TRACABILITE*.md`) cite les tests qui prouvent chaque exigence. `pnpm check:trace` vérifie que les tests cités existent ; la relecture juge s'ils prouvent bien l'exigence.
 - **Les parcours propres à Tauri** (dialogues de fichiers, commandes Rust), hors d'atteinte de Playwright, ont une ligne de recette manuelle dans `docs/RECETTE.md`.
