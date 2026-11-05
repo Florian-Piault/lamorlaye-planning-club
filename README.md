@@ -35,9 +35,10 @@ pnpm tauri build             # installateurs pour le système courant
 ### Vérifications (identiques à la CI)
 
 ```sh
-pnpm check                   # les quatre suivantes, à lancer avant chaque commit de lot
+pnpm check                   # les cinq suivantes, à lancer avant chaque commit de lot
 pnpm run lint                # Biome : vérification, formatage et règles de biome-plugins/
 pnpm typecheck               # TypeScript strict
+pnpm check:trace             # tests cités dans docs/TRACABILITE*.md
 pnpm test                    # Vitest : domaine, base sql.js, composants
 pnpm test:e2e                # Playwright (Chromium et WebKit), dont accessibilité
 pnpm test:perf               # tests de charge (*.perf.test.ts, e2e/*.perf.spec.ts)

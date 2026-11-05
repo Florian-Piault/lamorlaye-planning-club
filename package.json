@@ -18,7 +18,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:perf": "PERF=1 vitest run && PERF=1 playwright test",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e",
+    "check:trace": "node scripts/check-trace.mjs",
+    "check": "pnpm lint && pnpm typecheck && pnpm check:trace && pnpm test && pnpm test:e2e",
     "db:generate": "drizzle-kit generate",
     "tauri": "tauri",
     "prepare": "git config core.hooksPath .githooks"
